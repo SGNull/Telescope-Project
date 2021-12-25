@@ -1,0 +1,86 @@
+===================
+System Start
+===================
+
+At system start, there will be nothing but the bootloader and the OS stored somewhere. The OS will probably be on IO device 0 as ROM, and at the end of the OS will be all 0's. It's the bootloader's job to ensure the OS is loaded in entirely.
+
+To do this, the computer system delays the power on signal to the CPU, while the bootloader is loaded in to the end of RAM. When it's done, it writes a simple jump instruction to the beginning of RAM at 0x0000, which will jump to the loader. After jumping to the loader, it uses I/O requests to grab the data from device 0 and place it into the beginning of memory. When it hits an line of memory with the value of NULL, it assumes this is the end of the OS in that memory slot. Then, the bootloader jumps to 0x0000.
+
+The first job of the OS is to clear out the bootloader. This means writing 0's into RAM starting at the very top and going down until hitting all 0's. It is important that the loader not contain any lines with all 0's. No halts, no LDI 0. To halt, it should jump to the space before it in RAM, since all RAM addresses default to 0. After hitting all 0's, it transitions into OS initialization mode.
+
+Now is this all necessary? Well, yes. Like in real life, RAM gets reset to all 0's when restarting a Logisim simulation. So, we need some piece of ROM to load in the OS. We don't put the OS in ROM because the ROM will not be visible to the end user, and the end user should be able to change the OS.
+
+===================
+After OS Loaded
+===================
+
+Now that we finally have the starting memory layout, we can initialize the OS's environment (semaphores, constants, etc.). The OS then brings in the first program located on device 1 to run as a process. Device 1 will be the main drive for the computer initially, and it will be an HDD (still RAM in logisim).
+
+I'm thinking we should use a simple bitmap for memory allocation. The OS will keep a memory allocation 64 bitmap (4 words) which will divide memory up into 1Kw chunks (1024 words to be precise). The OS will make sure to mark it's own chunks before doing anything. When bringing in a new process, the first open space is chosen for it, and the size of the process+1 is how many bits are assigned to it, where the +1 is for the stack.
+
+The routine by which programs are loaded from memory will also be available as a syscall to kernel mode processes. The way it works: OS first checks to make sure that the number of processes is not above the maximum. The OS is given the memory address in a1 and assumes IOP is the memory slot to load, the first word loaded is the number of words after this occupied by code, the OS calculates the space necessary for this program in memory, goes to allocate this in the memory bitmap, then assigns this process the next free process number. Then, it starts loading the program.
+
+If this space cannot be found, then we have an interesting problem to be solved down the road. For now, we will simply tell the process (because we will only get this issue after syscall) that there's no space. Later, however, one ~could~ implement VRAM. However, this is beyond my initial intentions for the OS.
+
+Once this first program is brought in, it must be given a state by the OS itself to load into the CPU. Additionally, since we want multiprogramming, the process must be inserted into the process wait list to be dispatched. Each process will look like this, fields seperated by word:
+
+[Active][Parent][Child][NextSibling]  [SemAdd]  [SemNo]
+    1       4      4         4           16       16
+
+===================
+Semaphores
+===================
+
+This may seem somewhat strange. Why do we have a SemNo field? Well, this is because there will only be ONE list of active processes. This OS is meant to be simple, and this makes things pretty simple. 
+
+When any V operation occurs, in addition to incrementing the semaphore, the SemNo on all matching SemAdd processes will be incremented accordingly. 
+
+P's role is a bit more complicated. It decrements the semaphore, like usual. Then it checks to see if the semaphore is below 0. If not, then the process continues as normal. If it is below 0, P sets the SemAdd value to the blocking SemAdd, then sets SemNo to the value of the semaphore that was just decremented.
+
+When a process' SemNo is less than 0, the dispatcher will skip over it. Each time the dispatcher actually runs a process, it sets the SemAdd to 0.
+
+Sometimes a process may be waiting for I/O, as the OS should not only provide a syscall to make an I/O request, but also allow one to make an I/O request and wait if not currently possible (or terminate if not allowed). To make things simple, the dispatcher will also check to see if the SemAdd is within the OS's memory (only if SemNo == -1) and, if so, will instead check to see if that I/O flag is on and perform the requested operation for the process before V-ing the semaphore. Whether it was a read or a write can be determined by the specific set of semaphores it was on (there are seperate semaphore lists for read and write). If that I/O flag is not on, then the dispatcher skips over this process. Note that this eleviates the need for interrupts entirely, since we only care about a particular I/O flag when we get around to a process which cares about it, and I/O is done immediately (for now).
+
+If a process is terminated, and it's SemAdd != 0, then the termination code should: first increment the semaphore; then loop through each process with a matching SemAdd, checking to see if their SemNo is less than the SemNo of the terminated process; if this is the case, increment the process' SemNo.
+
+While this would normally be a very inefficient thing to do, since we only have 16 total processes this is actually pretty fast. ESPECIALLY for a hobbyist OS on a hobbyist architecture.
+
+===================
+Multiprogramming
+===================
+
+This OS uses a basic round-robing scheduling system. It maintains a process hierarchy using the parent, child, and next sibling pointers (borrowed from PandOS). It uses an MVT multiprogramming setup WITHOUT virtual memory and WITH a process/task capacity of 16, but uses a similar system to virtual memory (the bitmap) for allocation. There are some unique things about this OS, though.
+
+For a start, why are all the pointers 4-bit? This is because they are actually indices in the process/state list. All processes are stored in a list of processes, active or not, and states are stored in a seperate list at the same index. There can be a total of 16 processes at once, because of the size of our system. Were you to add additional memory, setting these to 5-bit would make sense, and would be completely possible (1+5+5+5=16). To add this memory, simply make the LO register a 4-bit-higher offset (like with the Intel 8086 architecture's 20-bit addressing)
+
+But what about a next/previous pointer? If we had more processes we would care, but because we only have 16 the dispatcher just loops through the list completely each turn, skipping Active=0 and SemNo<0 processes. Having a pointer for this would only save a handful of cycles each turn.
+
+===================
+File System
+===================
+
+What about the HDD memory though? How do we find/organize things in it? Well, at first the files will just exist linearly in the HDD, where files begin with the number of words it contains. Then, later on, a file system might be made. In this system, everything will be files, including directories. Files will be made of 1KW chunks, which end with a pointer to the next chunk. The drive will need to start with an allocation bitmap, some info, and a pointer to the root directory. Probably start it with some unique code which signifies that this drive has been formatted properly.
+
+===================
+Root Process
+===================
+
+The starting process is often called root, as it is the root of the whole family tree of processes. What should this process do, though? 
+
+After coming back to this problem, the answer is obvious: Terminal. The root process should be a terminal which allows the user to run programs.
+
+===================
+SYSCALL Operations (are atomic and therefore have exceptions turned off)
+===================
+Wait
+Create child thread (Sufficient State Information Pointer (copies remaining register values))
+Load child process (OS assumes a process exists in a specific format on IOP)
+Terminate
+P semaphore (SemAdd)
+V semaphore (SemAdd)
+Request Privleged I/O Read
+Request Privleged I/O Write
+Request Wait For Privileged I/O Read (OS should terminate the process if not possible)
+Request Wait For Privileged I/O Write (^^)
+Request Kernel
+Request More Memory (request an extra bit's worth of memory space in the alloc table)

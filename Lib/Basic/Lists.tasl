@@ -1,0 +1,29 @@
+/ The Lists basic library.
+/ Lists work off of the following heap data structure:
+/     arr myHeap [MAX SIZE]
+/     def* myHeapSize d0
+/ myHeapSize as a pointer provides a hard cap for myHeap
+/ myHeapSize as a value is the index of the last element of the heap.
+
+/ The Lists library provides tools to manipulate these data structures in useful ways.
+
+/ Return the length of a given list, with the given end point.
+#Lists.Length
+
+/ Return whether two lists are equal in content.
+#Lists.Equal
+
+
+
+/ Replace all instances of a given element in a given list with another.
+#Lists.Replace
+
+/ Makes a copy of the list into the given list.
+#Lists.Copy
+
+/ Copies the list starting at the index into the other list.
+#Lists.SublistCopy
+
+/ Concatenates two lists together into the other list.
+#Lists.Concatenate
+

@@ -1,0 +1,104 @@
+Instruction set:
+----------------
+0 HLT - HALT, no operands
+1 RSM - Resume process in EPC, no operands
+2 SYS - Syscall, no operands (can be executed with ExEn off)
+3 MOV - MOV, 2 operands: write to first on left
+
+4 JIF - Jump if, no operands w/ address, modifier=condition
+5 LDI - Load immediate, 1 operand w/ value
+6 LOD - RAM read, 2 operands w/ address: Address + value in right op -> left op
+7 STR - RAM write, 2 operands w/ address: Left op -> Address + value in right op
+For the above two instructions: if the two operands are equal, it will just use the address given.
+
+8 ALU - ALU ops, 2 operands, modifier = opcode: left op [operation] right op -> left op
+9 ALI - immediate
+a ALF - nosetflags
+b AIF - immediate+nosetflags
+
+c ALN - nowrite
+d AIN - immediate+nowrite
+e NOP - nosetflags+nowrite (does nothing)
+f NOP - immediate+nosetflags+nowrite (really does nothing)
+
+
+
+Registers:
+----------
+0-7 general purpose registers RG0-7
+
+8 PC  - Program counter
+9 IO  - I/O Device (pointed to by IOP)
+a FLG - Flags (x5 IOP, x3 EXC, x4 Ov Ca <0 =0, x2 prvUE, x2 curUE) (R/W ALUF & IOP only)
+b SP  - Stack pointer
+c HLB - HI/LO address bounds, split by byte. (generates OOB exception) (W prot., R HI only)
+d CTD - Count-down timer (generates CTDZ exception) (W prot.)
+e EPC - Exception return program counter (R/W prot.)
+f EXA - Exception handler address (R/W prot.)
+
+
+
+ALU Operations:
+---------------
+0 NOT - bitwise NOT B
+1 AND - bitwise AND
+2 OR  - bitwise OR
+3 XOR - bitwise XOR
+
+4 SLB - shift left by B w/ carry bit set to OR of all overflow bits
+5 SRB - shift right by B w/ carry bit set to OR of all underflow bits
+6 SEL - select bit B from A (returns it in the bit0 position)
+7 ENC - runs B through a priority encoder
+
+8 NEG - negate B
+9 ADD - add
+a ADC - add + carry
+b SUB - subtract (A-B)
+
+c SBB - subtract with borrow (A-B)
+d MUL - multiply
+e DIV - unsigned division (A/B)
+f MOD - modulo (A%B)
+
+
+
+Jump Conditions:
+----------------
+0 EQZ - Last ALU result was equal to zero
+1 LTZ - Last ALU result was less than zero (sign)
+2 CAR - Last ALU result generated a carry/borrow/shift over/under
+3 OVR - Last ALU result had unexpected sign for signed arithmetic
+
+4 PRD - I/O port is reading from the CPU
+5 PWT - I/O port is writing to the CPU
+6 TRU - Unconditional jump
+7 RND - Randomly jump
+
+8 NEZ - Last ALU result was not equal to zero
+9 GEZ - Last ALU result was greater or equal to zero
+a NCR - Last ALU op did not cause CAR
+b NOV - Last ALU op did not cause OVR
+
+c PNR - I/O port is not reading from the CPU
+d PNW - I/O port is not writing to the CPU
+
+
+Exceptions/Interrupts
+---------------------
+Maskable:
+Maskable exceptions/interrupts are disabled when IntEn, the E in current UE, is off.
+ 0 INT0 - Interrupt line 0
+ 1 INT1 - Interrupt line 1
+ 2 INT2 - Interrupt line 2
+ 3 CTDZ - The countdown timer reached zero.
+
+Non-Maskable:
+ 4 SYS  - The process requested a syscall.
+ 5 NMIT - Non-maskable, high priority interrupt.
+
+Non-Ignorable:
+Non-ignorable exceptions/interrupts completely block reading & writing immediately.
+ 6 PRIV - A user process used HLT, RSM, or triggered register protections.
+ 7 OOB  - A user process tried to access memory outside of its HI/LO bounds. 
+ 
+Only the highest priority interrupt goes through at a time.

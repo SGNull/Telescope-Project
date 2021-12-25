@@ -1,0 +1,90 @@
+(/ Array Module Description:
+/ Provides functions for easy use of arrays/tables.
+/ Assumes that arrays/tables are NULL terminated.
+/ All preserve the state of the registers before being called.
+/ All use the following registers:
+/ RG0: Search key
+/ RG1: Array/Table pointer
+/ RG6: Output
+/ RG7: Return address
+)
+
+(#Array.GetIndexOf
+	/ Returns NULL if not found, else returns the index
+	
+	/ Stack push
+	AIF SUB SP d3
+	STR FLG SP d2
+	STR RG2 SP d1
+	STR RG1 SP d0
+	
+	/ Load NULL into RG2
+	ALI NOT RG2 d0
+	
+	/ Loop through the table until NULL or match
+	#Array.GIO.L
+		LOD RG6 RG1 d0
+		ALN SUB RG6 RG2
+		JIF EQZ >Array.GIO.F
+		ALN SUB RG6 RG0
+		JIF EQZ >Array.GIO.D
+		ALI ADD RG1 d1
+		JIF TRU >Array.GIO.L
+	#Array.GIO.D
+	
+	/ Do FinalAddress - StartAddress to get the index
+	MOV RG6 RG1
+	LOD RG1 SP d0
+	ALU SUB RG6 RG1
+	
+	/ Do stack pop
+	#Array.GIO.F
+	LOD RG1 SP d0
+	LOD RG2 SP d1
+	LOD FLG SP d2
+	AIF ADD SP d3
+	
+	/ Return
+	MOV PC RG7
+)
+
+(#Array.GetElemInTable
+	/ RG2 - Size of each element of Table
+	/ Returns NULL if not found, else returns the index
+	
+	/ Stack push
+	AIF SUB SP d3
+	STR FLG SP d2
+	STR RG3 SP d1
+	STR RG1 SP d0
+	
+	/ Load NULL into RG3
+	ALI NOT RG3 d0
+	
+	/ Loop through the table until NULL or match
+	#Array.GIIT.L
+		LOD RG6 RG1 d0
+		ALN SUB RG6 RG3
+		JIF EQZ >Array.GIIT.F
+		ALN SUB RG6 RG0
+		JIF EQZ >Array.GIIT.D
+		ALI ADD RG1 RG2
+		JIF TRU >Array.GIIT.L
+	#Array.GIIT.D
+	
+	/ Do (FinalAddress - StartAddress)/Size to get the index
+	MOV RG6 RG1
+	LOD RG1 SP d0
+	ALU SUB RG6 RG1
+	ALU DIV RG6 RG2
+	
+	/ Do stack pop
+	#Array.GIIT.F
+	LOD RG1 SP d0
+	LOD RG3 SP d1
+	LOD FLG SP d2
+	AIF ADD SP d3
+	
+	/ Return
+	MOV PC RG7
+)

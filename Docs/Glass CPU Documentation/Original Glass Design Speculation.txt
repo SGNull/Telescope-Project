@@ -1,0 +1,103 @@
+I guess my big problem is the number of registers, ISA, and simulation performance AKA implementation.
+
+
+
+
+New ISA:
+
+Make bits 0-3 B, 4-7 A, 8-11 modifier, and 12-15 instruction
+
+HLT
+RSM
+SYS
+MOV
+
+JIF
+LDI
+LOD
+STR
+
+
+ALU - normal ops
+ALI - immediate
+ALF - nosetflags
+AIF - nosetflags+immediate
+
+ALN - nowrite
+Anything above this should count as an invalid instruction (we want NULL to not be an instruction)
+
+
+
+
+
+New set of ALU ops:
+
+NOT - bitwise NOT B
+AND - bitwise AND
+ORR - bitwise OR
+XOR - bitwise XOR
+
+SLB - shift left by B w/ over bit set
+SRB - shift right by B w/ over bit set
+SEL - select bit B from A (returns it in the bit0 position
+ENC - runs B through a priority encoder
+
+NEG - negate
+ADD - add
+ADC - add with over as carry
+SUB - subtract
+
+SBB - subtract with over as borrow
+MLT - multiply
+UDV - unsigned division
+MOD - modulo
+
+
+
+
+
+New Registers:
+
+RG0-7 general purpose registers
+PGC - program counter
+IOD - I/O device
+FLG - flags
+STP - stack pointer
+HLB - HI/LO boundaries (8 bits each, because programs will be assigned a chunk, we don't need accuracy)
+EPC - address to return to after an exception
+CTD - Countdown
+EXA - exception handler address
+
+
+
+You can create CTU in a computer.
+RA is entirely unecessary, like JAL
+BOT is literally a label at the end of your code. You know where your own code ends, duh!
+
+
+
+
+
+New flags:
+
+UE  stack  - bits 0-3 (lower=current)
+ALU flags - bits 4-7
+EXC Code - bits 8-10
+IOP Code - 11-15
+
+LOEn is a seperate bit, which turns on via RSM and off via exception events
+EX is also a seperate bit. It being a read/writable flag was only helpful in very niche instances in Lens.
+As a kernel program that isn't the OS, you would never really want to turn off LOEn, and you can just calculate exact addresses using LO anyways
+
+
+
+
+Special operations ideas:
+
+RND - returns a random number
+HTN - assumes B is an ascii hexadecimal number (if top byte is 0, 1 digit, if not, 2) and returns its value. NULL if either character is invalid
+LTH - converts the lower byte of B into a 2 digit ascii hexadecimal number
+UTH - LTH, but with the upper byte
+
+ENC - runs B through a priority encoder
+TOT - counts the total number of bits on in B

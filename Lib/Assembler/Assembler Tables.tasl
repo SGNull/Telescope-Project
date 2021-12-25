@@ -1,0 +1,77 @@
+@AT.LUTEND hFFFF
+
+/---------------------------------Hashed Mnemonics LUT's------------------------------
+(
+#InstructionLUT
+/ 0 HLT
+/ 1 RSM
+/ 2 SYS
+/ 3 MOV
+/ 4 JIF
+/ 5 LDI
+/ 6 LOD
+/ 7 STR
+/ 8 ALU
+/ 9 ALI
+/ a ALF
+/ b AIF
+/ c ALN
+/ d AIN
+/ e NOP (actually AFN and AIFN, but both do nothing)
+>AT.LUTEND
+
+#ALULUT
+/ 0 NOT
+/ 1 AND
+/ 2 OR
+/ 3 XOR
+/ 4 SLB
+/ 5 SRB
+/ 6 SEL
+/ 7 ENC
+/ 8 NEG
+/ 9 ADD
+/ a ADC
+/ b SUB
+/ c SBB
+/ d MUL 
+/ e DIV
+/ f MOD
+>AT.LUTEND
+
+#ConditionsLUT
+/ 0 EQZ
+/ 1 LTZ
+/ 2 CAR
+/ 3 OVR
+/ 4 PRD
+/ 5 PWT
+/ 6 TRU
+/ 7 RND
+/ 8 NEZ
+/ 9 GEZ
+/ a NCR
+/ b NOV
+/ c PNR
+/ d PNW
+>AT.LUTEND
+
+#RegisterLUT
+/ 0 RG0
+/ 1 RG1
+/ 2 RG2
+/ 3 RG3
+/ 4 RG4
+/ 5 RG5
+/ 6 RG6
+/ 7 RG7
+/ 8 PC
+/ 9 IO
+/ a FLG
+/ b SP
+/ c HLB
+/ d CTD
+/ e EPC
+/ f EXA
+>AT.LUTEND
+)

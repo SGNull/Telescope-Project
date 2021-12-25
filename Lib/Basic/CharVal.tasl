@@ -1,0 +1,9 @@
+(/ CharVal Module Description:
+/ Contains functions to convert ASCII numbers into their corresponding values.
+/ All preserve the state of the registers before being called.
+/ All use the following registers:
+/ RG0 - Input character
+/ RG6 - Output number
+/ RG7 - Return address
+)
+

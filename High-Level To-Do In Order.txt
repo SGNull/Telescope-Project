@@ -1,0 +1,26 @@
+Construct the documentation for the CPU
+
+Implement the CPU in Logisim
+
+Design the assembly language and a UDL to go with it
+
+Write test programs for the CPU
+
+Make a File-to-Logisim-ROM-Image converter (text files to a .ascii drive image)
+
+Write character buffer assembler as final test
+
+Create and document the OS core & bootloader development process
+
+Create a UI root program as a medium/long term scheduler (fancy way of saying traditional terminal program)
+
+Create a file system for storing many things on one drive
+
+Create a new assembler which works based off of the file system architecture
+
+Create a router
+ - Involves new computer architecture
+ - Involves new software to run the router
+   > Perhaps a new OS?
+ - Involves coming up with a networking protocol to use
+ - Involves devising a network architecture

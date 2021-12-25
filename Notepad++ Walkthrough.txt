@@ -1,0 +1,19 @@
+1. Install the NppExec plugin and Customize Toolbar
+Plugins -> Plugins Admin/Plugins Manager -> use the searchbox -> check both -> Install
+
+2. Create the assembler shortcut
+Press f6 -> Copy this into the box, replacing [YOURASSEMBLERFILE] with the the TAS assembler's full path:
+    npp_save
+    CD $(CURRENT_DIRECTORY)
+    py "[YOURASSEMBLERFILE]" "$(FILE_NAME)"
+Save -> name it "TAS Compile" -> Save -> OK -> make sure you get output
+
+3. Add it as a script
+Plugins -> NppExec -> Advanced Options -> Menu Item *at the bottom left of the window*
+Click the Associated Script dropdown menu and select TAS Compile
+Click Add/Modify, then OK
+
+4. Create the assembler button
+Plugins -> CustomizeToolbar -> Custom Buttons
+Navigate to %AppData%\Notepad++\plugins\config 
+Replace the CustomizeToolbar.btn file with the one in Special N++ Files

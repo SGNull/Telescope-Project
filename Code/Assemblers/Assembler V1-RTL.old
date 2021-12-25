@@ -1,0 +1,479 @@
+(/Assembler V1: RTL
+/ This is a simple assembler that we can write a bigger assembler with.
+/ A larger assembler will require much more code, and this will make translation easier.
+/ This assembler translates unpacked RTL to TLO directly and strictly.
+/ This assembler will assume incredibly strict adherence to a specific RTL format.
+/ This means:
+/ 	1. No labels, variables, arrays, constants, etc. etc. That must be taken care of manually.
+/ 	2. Hex numbers start with h and decimal numbers start with d.
+/ 	3. The only characters that are skipped over are spaces and newlines.
+/ 	4. Instructions must have exactly 1 space between each mnemonic, and nothing else.
+
+/ This is not just for assembling, this is also a very big, final test for the CPU.
+
+/ Since the only variables are constants, we do not need to skip anything here with a JIF TRU.
+
+/ Here is how the registers are used throughout this program:
+/ 	RG0-2 are working registers that are also used for function inputs/outputs.
+/   RG3 contains the current mnemonic LUT.
+/ 	RG4 contains the instruction BMP. Bit 3 is whether op1 is immediate.
+/ 	RG5 is used as the output accumulator.
+/   RG6 is used as a return address.
+/   RG7 is (rarely) used as a temporary register
+)
+
+(/Constants
+/ The input and output IOP values.
+@INPUTFLG h0400
+@OUTPUTFLG h0800
+
+/ Important character values:
+@SPACECHAR h0020
+@HEXCHAR h0068
+@NEWLINE h000A
+@STOPCHAR h0000
+
+/ We use bitmaps to signal which fields need to be gathered for the current instruction.
+@ALUBMP h0007
+@MEMBMP h0003
+@JIFBMP h0004
+@LDIBMP h0002
+@NOOPBMP h0000
+
+/ End codes:
+@SUCCESS h0000
+@EMPTYHEX h0001
+@EMPTYDEC h0002
+@MNEMNOTFOUND h0003
+
+/ LUT's have a terminating value to tell the searcher when to stop.
+@LUTEND hFFFF
+
+/ Bit patterns
+@BOT5BITMASK h001F
+@LOWERCASEBASE h0060
+@UPPERCASEBASE h0040
+)
+
+/ The main text parsing function for the assembler.
+(#Main
+	#ReadLoop
+		/ Get a character.
+		MOV RG0 IO
+		/ Check to see if it is a space or newline character, and if so, ignore it.
+		LDI RG1 >SPACECHAR
+		ALN SUB RG0 RG1
+		JIF EQZ >ReadLoop
+		LDI RG1 >NEWLINE
+		ALN SUB RG0 RG1
+		JIF EQZ >ReadLoop
+		
+	/ And if it's the stop character, stop assembling.
+	LDI RG1 >STOPCHAR
+	ALN SUB RG0 RG1
+	JIF EQZ >SuccessEnd
+
+	/ Then, check to see if it is a number prefix, and branch accordingly.
+	LDI RG1 >HEXCHAR
+	ALN SUB RG0 RG1
+	JIF EQZ >GetHexWord
+	LDI RG1 >DECCHAR
+	ALN SUB RG0 RG1
+	JIF EQZ >GetDecWord
+
+	/ Otherwise, this is an instruction, so get the mnemonic.
+	MOV RG1 IO
+	MOV RG2 IO
+
+	/ Call GetMnemonicVal with InstructionLUT
+	LDI RG6 >FindInstructionType
+	LDI RG3 >InstructionLUT
+	JIF TRU >GetMnemonicVal
+	
+	(#FindInstructionType
+	/ The result is returned in RG0, so test to see what type of instruction it is.
+	AIN SUB RG0 h3
+	JIF GEZ >HasOps
+		/ If less than 3, this instruction has no operands.
+		LDI RG4 >NOOPBMP
+		JIF TRU >FinishInst
+	/ Since we know it has operands, we conditionally set the instruction BMP.
+	#HasOps
+	JIF NEZ >NotMOV
+		/ If equal to 3, this is a MOV instruction.
+		LDI RG4 >MEMBMP
+		JIF TRU >FinishInst
+	#NotMOV
+	AIN SUB RG0 h5
+	JIF GEZ >NotJIF
+		/ If equal to 4, this is JIF.
+		LDI RG4 >JIFBMP
+		JIF TRU >FinishInst
+	#NotJIF
+	JIF NEZ >NotLDI
+		/ If equal to 5, this is LDI.
+		LDI RG4 >LDIBMP
+		JIF TRU >FinishInst
+	#NotLDI
+	AIN SUB RG0 h8
+	JIF GEZ >ALUOp
+		/ 6 or 7, it's a MEM instruction.
+		LDI RG4 >MEMBMP
+		JIF TRU >FinishInst
+	#ALUOp
+		/ 8 and above are ALU instructions.
+		LDI RG4 >ALUBMP
+		/ Check to see if op1 is immediate.
+		AIN SEL RG0 h0
+		JIF EQZ >FinishInst
+		/ Set bit 3 if immediate
+		ALI OR RG4 h8
+	)	
+)
+
+/ Assumes RG0 has the instruction code, and RG4 has the instruction operand BMP.
+/ Bit 3 of RG4 is on if op1 is immediate
+(#FinishInst
+	/ First, set up RG5 as the output accumulator.
+	MOV RG5 RG0
+	ALI SLB RG5 hC
+	
+	/ Now branch according to the bitmap
+	AIN SEL RG4 h2
+	JIF EQZ >SkipMod
+		MOV RG0 IO
+		MOV RG1 IO
+		MOV RG2 IO
+		LDI RG3 >ModifierLUT
+		LDI RG6 >RetMod
+		JIF TRU >GetMnemonicVal
+		#RetMod
+		ALI SLB RG0 h8
+		ALU OR RG5 RG0
+		
+	#SkipMod
+	AIN SEL RG4 h1
+	JIF EQZ >SkipOp0
+		MOV RG0 IO
+		MOV RG1 IO
+		MOV RG2 IO
+		LDI RG3 >RegisterLUT
+		LDI RG6 >RetOp0
+		JIF TRU >GetMnemonicVal
+		#RetOp0
+		ALI SLB RG0 h4
+		ALU OR RG5 RG0
+		
+	#SkipOp0
+	AIN SEL RG4 h0
+	JIF EQZ >FI.Done
+		/ Whether or not it's an immediate value, we do this:
+		MOV RG0 IO
+		MOV RG1 IO
+		LDI RG6 >RetOp1
+		
+		/ Now check if it's immediate or not
+		AIN SEL RG4 h3
+		JIF EQZ >NotImmOp1
+			/ It's immediate, so check if hex or ASCII
+			LDI RG2 >HEXCHAR
+			ALN SUB RG0 RG2
+			MOV RG0 RG1 / Either way we do this
+			JIF EQZ >Op1Hex
+				JIF TRU >HexTranslator / Returns to RetOp1
+			#Op1Hex
+				ALI AND RG0 hF
+				MOV PC RG6 / JMP to RetOp1
+
+		#NotImmOp1
+			MOV RG2 IO
+			LDI RG3 >RegisterLUT
+			JIF TRU >GetMnemonicVal
+			#RetOp1
+			ALU OR RG5 RG0
+
+	/ Now we've gotten all of the fields filled out, so write the output and start again.
+	LDI FLG >OUTPUTFLG
+	MOV IO RG5
+	LDI FLG >INPUTFLG
+	JIF TRU >ReadLoop
+)
+
+/ Assumes that input is currently on a hexadecimal word. Jumps to ReadLoop when done.
+(#GetHexWord
+	/ Prep the output accumulator.
+	ALI AND RG5 h0
+	
+	/ Get first character.
+	MOV RG0 IO
+		
+	/ Check if it's space.
+	LDI RG1 >SPACECHAR
+	ALN SUB RG1 RG0
+	JIF EQZ >EmptyHexEnd
+	
+	/ Set the return address.
+	LDI RG6 >GHW.HexRet
+	
+	#GHW.Loop
+		/ This is a possible hex char.
+		JIF TRU >HexTranslator
+	
+		/ Add the result to the accumulator
+		#GHW.HexRet
+		ALI SLB RG5 h4
+		ALU OR RG5 RG0
+		
+		/ Get next character.
+		MOV RG0 IO
+		
+		/ Check if it's space
+		ALN SUB RG1 RG0
+		/ Loop if not space.
+		JIF NEZ >GHW.Loop
+	
+	/ We're done, so go back to reading.
+	#GHW.Done
+	JIF TRU >ReadLoop
+)
+
+/ Assumes that input is currently on a decimal word. Jumps to ReadLoop when done.
+(#GetDecWord
+	/ Prep the output accumulator.
+	ALI AND RG5 h0
+	
+	/ Get first character.
+	MOV RG0 IO
+		
+	/ Check if it's space.
+	LDI RG1 >SPACECHAR
+	ALN SUB RG1 RG0
+	JIF TRU >EmptyDecEnd
+	
+	#GDW.Loop
+		/ This is a possible dec char.
+		ALI AND RG0 hF
+		ALI SLB RG5 h4
+		ALU OR RG5 RG0
+		
+		/ Get next character.
+		MOV RG0 IO
+		
+		/ Check if it's space.
+		ALN SUB RG1 RG0
+		/ If not space, loop.
+		JIF NEZ >GDW.Loop
+	
+	/ We're done, so go back to reading.
+	#GDW.Done
+	JIF TRU >ReadLoop
+)
+
+/ Assumes the input is in RG0-RG2, RG6 is return address, and RG3 has the LUT.
+/ It returns the value of the mnemonic in RG0, and does extra read if mnemonic is 2 chars.
+/ It also messes with RG1, RG2, and RG7
+(#GetMnemonicVal	
+	/ Push
+	ALI SUB SP h2
+	STR RG6 SP h0000
+	STR RG4 SP h0001
+
+	/ First, check if RG2 is a space/newline
+	LDI RG7 >SPACECHAR
+	ALN SUB RG2 RG7
+	JIF EQZ >TwoChars
+	LDI RG7 >NEWLINE
+	ALN SUB RG2 RG7
+	JIF EQZ >TwoChars
+	
+		/ If not, read one more character (but don't do anything)
+		ALN NOT RG7 IO
+		JIF TRU >GMV.CallHF
+		
+	#TwoChars
+		/ If it is, set it to 0
+		ALU AND RG2 h0
+	
+	/ Call HashFunction
+	#GMV.CallHF
+	LDI RG6 >GMV.HFRet
+	JIF TRU >HashFunction #GMV.HFRet
+	
+	MOV RG7 RG3 / Ready the LUT as the end subcode
+	MOV RG2 RG0 / Copy the hash value to RG2
+	ALI AND RG0 h0 / Set the return register to 0 to be incremented
+	LDI RG4 >LUTEND / Use RG4 to hold LUTEND
+	
+	/ Loop through the LUT while LUT[hash(RG0,1,2)] != LUTEND
+	#LookupLoop
+		/ Load LUT[index] into RG1
+		LOD RG1 RG3 h0000
+		
+		/ Check if it is LUTEND
+		ALN SUB RG1 RG4
+		JIF EQZ >MnemNotFoundEnd
+		
+		/ Check if it is the right value
+		ALN SUB RG2 RG1
+		JIF EQZ >GMV.Done
+		
+		/ Increment index
+		ALI ADD RG0 h1
+		ALI ADD RG3 h1
+		JIF TRU >LookupLoop
+		
+	/ Return (LUT index AND hF).
+	LOD RG6 SP h0000
+	LOD RG4 SP h0001
+	ALI ADD SP h2
+	ALI AND RG0 hF
+	MOV PC RG6
+)
+
+/ Assumes RG0 has a hexadecimal ASCII number, and replaces it with the value.
+/ It assumes RG6 has the return address.
+(#HexTranslator
+	LDI RG7 >UPPERCASEBASE
+	ALN SUB RG0 RG7
+	AIF AND RG0 hF
+	JIF GEZ >HT.Char
+		MOV PC RG6
+	#HT.Char
+		ALI ADD RG0 h9
+		MOV PC RG6
+)
+
+/ Assumes the input is in RG0-RG2, and RG6 is return address
+/ Returns result to RG0, and messes with RG1 and RG2.
+(#HashFunction
+	/ First we push the registers onto the stack.
+	ALI SUB SP h2
+	STR RG3 SP h0000
+	STR RG4 SP h0001
+
+	/ Then we mask the three inputs, and determine if RG2 is a number or not.
+	LDI RG4 >BOT5BITMASK
+	MOV RG3 RG2
+	ALU AND RG0 RG4
+	ALU AND RG1 RG4
+	ALU AND RG2 RG4
+	ALI SEL RG3 h5
+	
+	/ Now we shift the values into position and OR them together.
+	ALI SLB RG3 hF
+	ALI SLB RG2 hA
+	ALI SLB RG1 h5
+	ALU OR RG0 RG1
+	ALU OR RG0 RG2
+	ALU OR RG0 RG3
+
+	/ Finally, we pop from the stack and return.
+	LOD RG4 SP h0001
+	LOD RG3 SP h0000
+	ALI ADD SP h2
+	
+	MOV PC RG6
+)
+
+/ For these end functions, RG0 contains the end code and RG7 contains the end subcode.
+(
+#SuccessEnd
+LDI RG0 >SUCCESS
+JIF TRU >EndNoSub
+#EmptyHexEnd
+LDI RG0 >EMPTYHEX
+JIF TRU >EndNoSub
+#EmptyDecEnd
+LDI RG0 >EMPTYDEC
+JIF TRU >EndNoSub
+#MnemNotFoundEnd
+LDI RG0 >MNEMNOTFOUND
+JIF TRU >End
+#EndNoSub
+ALI AND RG7 h0
+#End
+STR RG0 RG0 >EndCodePoint
+STR RG3 RG7 >EndSubCodePoint
+JIF TRU >EndPoint
+)
+
+/---------------------------------Hashed Mnemonics LUT's------------------------------
+(
+#InstructionLUT
+/ 0 HLT
+/ 1 RSM
+/ 2 SYS
+/ 3 MOV
+/ 4 JIF
+/ 5 LDI
+/ 6 LOD
+/ 7 STR
+/ 8 ALU
+/ 9 ALI
+/ a ALF
+/ b AIF
+/ c ALN
+/ d AIN
+/ e NOP (actually AFN and AIFN, but both do nothing)
+>LUTEND
+
+#ModifierLUT / Contains both ALU and JIF modifiers. The first are ALU, and the second are JIF.
+/ 0 NOT
+/ 1 AND
+/ 2 OR
+/ 3 XOR
+/ 4 SLB
+/ 5 SRB
+/ 6 SEL
+/ 7 ENC
+/ 8 NEG
+/ 9 ADD
+/ a ADC
+/ b SUB
+/ c SBB
+/ d MUL 
+/ e DIV
+/ f MOD
+/ 0 EQZ
+/ 1 LTZ
+/ 2 CAR
+/ 3 OVR
+/ 4 PRD
+/ 5 PWT
+/ 6 TRU
+/ 7 RND
+/ 8 NEZ
+/ 9 GEZ
+/ a NCR
+/ b NOV
+/ c PNR
+/ d PNW
+>LUTEND
+
+#RegisterLUT
+/ 0 RG0
+/ 1 RG1
+/ 2 RG2
+/ 3 RG3
+/ 4 RG4
+/ 5 RG5
+/ 6 RG6
+/ 7 RG7
+/ 8 PC
+/ 9 IO
+/ a FLG
+/ b SP
+/ c HLB
+/ d CTD
+/ e EPC
+/ f EXA
+>LUTEND
+
+)
+
+#EndPoint
+HLT
+#EndCodePoint
+h0000
+#EndSubCodePoint
+h0000
