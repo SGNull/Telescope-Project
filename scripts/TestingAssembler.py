@@ -8,13 +8,7 @@
 # As a result, there are some odd code style choices that were made throughout this program.
 # This was done to make this source code as close to the TASL source code as possible.
 
-# TODO: Add is_hexadecimal() function (455, is first character a number and second a number (or non-existent))
-# TODO: Add is_decimal() function (0x23, is first character 0 and second 'x')
-# TODO: Add is_binary() function (0b10010101101, is first character 0 and second 'b')
-# TODO: Add is_numeric() function (is first character a number)
-# TODO: Add get_bin_value() function
-# TODO: Add get_numeric() function (all-encompassing function for words being numbers)
-# TODO: Add is_array() function ("arr" is in the heap)
+# TODO: Add array support (?MyArray NumEmptyValues)
 
 import sys
 
@@ -24,86 +18,86 @@ ACCEPTED_IN_SUFFIX = ["tasl", "tl", "rtl"]
 
 LOGISIM_FILE_HEADER = "v2.0 raw"
 
-output_lines = [] # Should be in Logisim's drive format.
+output_lines = []  # Should be in Logisim's drive format.
 
-input_ROM = [] # Should be characters.
-input_pointer = 0 # Would be a physical counter attached to the input_ROM.
-output_ROM = [] # Should be 16-bit numbers.
+input_ROM = []  # Should be characters.
+input_pointer = 0  # Would be a physical counter attached to the input_ROM.
+output_ROM = []  # Should be 16-bit numbers.
 
 NULL = 0xFFFF
 
 # --------------------------------------Assembler Constants/Globals----------------------------------------
 # There will be three tables that the assembler will draw from, in addition to the label table:
 # Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
-instructions_table = [0xd188, 0x0, 0b000, # HLT
-                      0xb672, 0x1, 0b000, # RSM
-                      0xcf33, 0x2, 0b000, # SYS
-                      0xd9ed, 0x3, 0b011, # MOV
-                      0x992a, 0x4, 0b100, # JIF
-                      0xa48c, 0x5, 0b010, # LDI
-                      0x91ec, 0x6, 0b011, # LOD
-                      0xca93, 0x7, 0b011, # STR
-                      0xd581, 0x8, 0b111, # ALU
-                      0xa581, 0x9, 0b111, # ALI
-                      0x9981, 0xA, 0b111, # ALF
-                      0x9921, 0xB, 0b111, # AIF
-                      0xb981, 0xC, 0b111, # ALN
-                      0xb921, 0xD, 0b111, # AIN
+instructions_table = [0xd188, 0x0, 0b000,  # HLT
+                      0xb672, 0x1, 0b000,  # RSM
+                      0xcf33, 0x2, 0b000,  # SYS
+                      0xd9ed, 0x3, 0b011,  # MOV
+                      0x992a, 0x4, 0b100,  # JIF
+                      0xa48c, 0x5, 0b010,  # LDI
+                      0x91ec, 0x6, 0b011,  # LOD
+                      0xca93, 0x7, 0b011,  # STR
+                      0xd581, 0x8, 0b111,  # ALU
+                      0xa581, 0x9, 0b111,  # ALI
+                      0x9981, 0xA, 0b111,  # ALF
+                      0x9921, 0xB, 0b111,  # AIF
+                      0xb981, 0xC, 0b111,  # ALN
+                      0xb921, 0xD, 0b111,  # AIN
                       NULL
                       ]
 
 # Register table entries: (mnemonic_hash, translation)
-register_table = [0x40F2, 0x0, # RG0
-                  0x44F2, 0x1, # RG1
-                  0x48F2, 0x2, # RG2
-                  0x4CF2, 0x3, # RG3
-                  0x50F2, 0x4, # RG4
-                  0x54F2, 0x5, # RG5
-                  0x58F2, 0x6, # RG6
-                  0x5CF2, 0x7, # RG7
-                  0x0070, 0x8, # PC
-                  0x01E9, 0x9, # IO
-                  0x9D86, 0xA, # FLG
-                  0x0213, 0xB, # SP
-                  0x8988, 0xC, # HLB
-                  0x9283, 0xD, # CTD
-                  0x8E05, 0xE, # EPC
-                  0x8705, 0xF, # EXA
+register_table = [0x40F2, 0x0,  # RG0
+                  0x44F2, 0x1,  # RG1
+                  0x48F2, 0x2,  # RG2
+                  0x4CF2, 0x3,  # RG3
+                  0x50F2, 0x4,  # RG4
+                  0x54F2, 0x5,  # RG5
+                  0x58F2, 0x6,  # RG6
+                  0x5CF2, 0x7,  # RG7
+                  0x0070, 0x8,  # PC
+                  0x01E9, 0x9,  # IO
+                  0x9D86, 0xA,  # FLG
+                  0x0213, 0xB,  # SP
+                  0x8988, 0xC,  # HLB
+                  0x9283, 0xD,  # CTD
+                  0x8E05, 0xE,  # EPC
+                  0x8705, 0xF,  # EXA
                   NULL
                   ]
 
 # Modifier table entries: (mnemonic_hash, translation)
-modifier_table = [0xD1EE, 0x0, # NOT
-                  0x91C1, 0x1, # AND
-                  0x024F, 0x2, # OR
-                  0xC9F8, 0x3, # XOR
-                  0x8993, 0x4, # SLB
-                  0x8A53, 0x5, # SRB
-                  0xB0B3, 0x6, # SEL
-                  0x8DC5, 0x7, # ENC
-                  0x9CAE, 0x8, # NEG
-                  0x9081, 0x9, # ADD
-                  0x8C81, 0xA, # ADC
-                  0x8AB3, 0xB, # SUB
-                  0x8853, 0xC, # SBB
-                  0xB2AD, 0xD, # MUL
-                  0xD924, 0xE, # DIV
-                  0x91ED, 0xF, # MOD
+modifier_table = [0xD1EE, 0x0,  # NOT
+                  0x91C1, 0x1,  # AND
+                  0x024F, 0x2,  # OR
+                  0xC9F8, 0x3,  # XOR
+                  0x8993, 0x4,  # SLB
+                  0x8A53, 0x5,  # SRB
+                  0xB0B3, 0x6,  # SEL
+                  0x8DC5, 0x7,  # ENC
+                  0x9CAE, 0x8,  # NEG
+                  0x9081, 0x9,  # ADD
+                  0x8C81, 0xA,  # ADC
+                  0x8AB3, 0xB,  # SUB
+                  0x8853, 0xC,  # SBB
+                  0xB2AD, 0xD,  # MUL
+                  0xD924, 0xE,  # DIV
+                  0x91ED, 0xF,  # MOD
 
-                  0xEA25, 0x0, # EQZ
-                  0xEA8c, 0x1, # LTZ
-                  0xC823, 0x2, # CAR
-                  0xCACF, 0x3, # OVR
-                  0x9250, 0x4, # PRD
-                  0xD2F0, 0x5, # PWT
-                  0xD654, 0x6, # TRU
-                  0x91D2, 0x7, # RND
-                  0xE8AE, 0x8, # NEZ
-                  0xE8A7, 0x9, # GEZ
-                  0xC86E, 0xA, # NCR
-                  0xD9EE, 0xB, # NOV
-                  0xC9D0, 0xC, # PNR
-                  0xDDD0, 0xD, # PNW
+                  0xEA25, 0x0,  # EQZ
+                  0xEA8c, 0x1,  # LTZ
+                  0xC823, 0x2,  # CAR
+                  0xCACF, 0x3,  # OVR
+                  0x9250, 0x4,  # PRD
+                  0xD2F0, 0x5,  # PWT
+                  0xD654, 0x6,  # TRU
+                  0x91D2, 0x7,  # RND
+                  0xE8AE, 0x8,  # NEZ
+                  0xE8A7, 0x9,  # GEZ
+                  0xC86E, 0xA,  # NCR
+                  0xD9EE, 0xB,  # NOV
+                  0xC9D0, 0xC,  # PNR
+                  0xDDD0, 0xD,  # PNW
                   NULL
                   ]
 
@@ -111,29 +105,26 @@ modifier_table = [0xD1EE, 0x0, # NOT
 SKIP_CHARS = [ord('\n'), ord('\t'), ord('('), ord(')'), ord(' '), ord(','), ord('='), ord(':'), ord('['), ord(']'),
               NULL]
 
-TRUE = 1
-FALSE = 0
-
 COMMENT_CHAR = ord('/')  # Comments end at a newline character.
 NEWLINE_CHAR = ord('\n')
 COMMAND_CHAR = ord('%')  # Commands are for later assemblers.
-LABEL_CHAR = ord('#')    # Labels end at a skipable character.
-CONST_CHAR = ord('@')    # Constants end at a skipable character.
-HEX_CHAR = ord('h')      # Hexadecimal numbers can have varying length, and end at a skipable character.
-DEC_CHAR = ord('d')      # Decimal numbers have the same syntax as hex numbers.
+LABEL_CHAR = ord('#')    # Labels end at a skippable character.
+CONST_CHAR = ord('@')    # Constants end at a skippable character.
+HEX_CHAR = ord('x')      # Hexadecimal numbers can have varying length, and end at a skippable character.
+BIN_CHAR = ord('b')      # Binary numbers have the same syntax as hexadecimal numbers.
 REF_CHAR = ord('>')      # References replace the following label with the value of the label.
 STOP_CHAR = 0
 
 BOT_5_BITS_MASK = 0x1F
 
 INPUT_HEAP_SIZE = 64
-input_heap = [0] * INPUT_HEAP_SIZE # The heap that the assembler will use to store words.
-input_heap_pointer = 0 # Would be a variable in Logisim.
+input_heap = [0] * INPUT_HEAP_SIZE  # The heap that the assembler will use to store words.
+input_heap_pointer = 0  # Would be a variable in Logisim.
 
 LABEL_TABLE_HEAP_SIZE = 4096
-label_table = [0] * LABEL_TABLE_HEAP_SIZE # Will contain entries like [size+1,l,a,b,e,l,value,size+1,l,a,...]
-#                                           Note: size+1 is the relative index of the value
-table_heap_pointer = 0 # Would be a variable in Logisim.
+label_table = [0] * LABEL_TABLE_HEAP_SIZE  # Will contain entries like [size+1,l,a,b,e,l,value,size+1,l,a,...]
+#                                            Note: size+1 is the relative index of the value
+table_heap_pointer = 0  # Would be a variable in Logisim.
 
 
 # ------------------------------------------The Simulation--------------------------------------------------
@@ -217,34 +208,36 @@ def start_point():
     build_tables()
 
 
-def get_hex_value():
-    """Assumes the heap currently has a hexadecimal number in it."""
+def get_value(starting_index, multiplier):
+    """Assumes the heap currently has some kind of number in it."""
     out = 0
-    index = 1
+    index = starting_index
     while True:
         if index == input_heap_pointer:
             break
         next_char = input_heap[index]
-        if (next_char & 0x40) != 0: # it's text
+        if (next_char & 0x40) != 0:  # it's text
             next_char += 9
         value = next_char & 0xF
-        out = out << 4
-        out = out | value
+        out = out * multiplier
+        out = out + value
     return out
 
 
-def get_dec_value():
-    """Assumes the heap currently has a decimal number in it."""
-    out = 0
-    index = 1
-    while True:
-        if index == input_heap_pointer:
-            break
-        next_char = input_heap[index]
-        temp = next_char & 0xF
-        out = out * 10
-        out = out + temp
-    return out
+def get_numeric_value():
+    """Interprets the contents of the input_heap as a number, returns the value."""
+    if input_heap_pointer == 1:  # it's a one character decimal number
+        first_char = input_heap[0]
+        return first_char & 0xF
+
+    second_char = input_heap[1]
+    if second_char == HEX_CHAR:
+        return get_value(2, 16)
+    elif second_char == BIN_CHAR:
+        return get_value(2, 2)
+    elif (second_char & 0x40) == 0:
+        return get_value(0, 10)
+    pass
 
 
 def label_lookup():
@@ -317,10 +310,10 @@ def get_next_text():
             goto_char(COMMAND_CHAR)
         elif char == COMMENT_CHAR:
             goto_char(NEWLINE_CHAR)
-        else: # if char is not a skip character
+        else:  # if char is not a skip character
             result = table_index_lookup(char, SKIP_CHARS, 1)
             if result == NULL:
-                break # We've found something that is not skipable.
+                break  # We've found something that is not skippable.
 
     # If we hit a stop character, just put that in the input heap.
     if char == STOP_CHAR:
@@ -342,7 +335,7 @@ def get_next_text():
             break
         elif char == STOP_CHAR:
             break
-        else: # if char is a skip character
+        else:  # if char is a skip character
             result = table_index_lookup(char, SKIP_CHARS, 1)
             if result != NULL:
                 break
@@ -388,18 +381,10 @@ def make_const():
     # Get the constant's text value.
     get_next_text()
 
-    # Check what format it is in, and get the actual value.
-    first_char = input_heap[0]
-    value = 0
-    if first_char == HEX_CHAR:
-        value = get_hex_value()
-    elif first_char == DEC_CHAR:
-        value = get_dec_value()
-    else: # Incorrect constant declaration
-        print("CONSTANT DECLARATION ERROR")
-        exit(1)
+    # Get the actual value.
+    value = get_numeric_value()
 
-    # Store the value
+    # Store the value.
     label_table[table_heap_pointer] = value
     table_heap_pointer += 1
 
@@ -431,7 +416,7 @@ def build_tables():
         get_next_text()
         first_char = input_heap[0]
 
-        if first_char == STOP_CHAR: # we're done
+        if first_char == STOP_CHAR:  # we're done
             break
 
         elif first_char == LABEL_CHAR:
@@ -440,16 +425,10 @@ def build_tables():
         elif first_char == CONST_CHAR:
             make_const()
 
-        elif first_char == HEX_CHAR:
+        elif (first_char & 0x40) == 0:  # it's a number
             program_counter += 1
 
-        elif first_char == DEC_CHAR:
-            program_counter += 1
-
-        elif first_char == REF_CHAR:
-            program_counter += 1
-
-        else: # it's an instruction
+        else:  # it's an instruction
             program_counter += 1
             hash_key = hash_heap()
             index = table_index_lookup(hash_key, instructions_table, 3)
@@ -467,27 +446,40 @@ def build_tables():
     assemble()
 
 
+def assemble_next_mnemonic(table):
+    """
+    Fetches and returns the value of the next mnemonic from the given table.
+    CANNOT BE USED FOR INSTRUCTIONS.
+    """
+    get_next_text()
+    hash_val = hash_heap()
+    index = table_index_lookup(hash_val, table, 2)
+    value_index = index + 1
+    value = table[value_index]
+    return value
+
+
 def assemble():
+    """The second pass through the file, the assembly is translated into machine code."""
     while True:
         get_next_text()
         first_char = input_heap[0]
 
-        if first_char == STOP_CHAR: # we're done
+        if first_char == STOP_CHAR:  # we're done
             break
 
-        elif first_char == HEX_CHAR:
-            value = get_hex_value()
-            write_output(value)
-
-        elif first_char == DEC_CHAR:
-            value = get_dec_value()
+        elif (first_char & 0x40) == 0:
+            value = get_numeric_value()
             write_output(value)
 
         elif first_char == REF_CHAR:
             value = label_lookup()
             write_output(value)
 
-        elif (first_char != LABEL_CHAR) and (first_char != CONST_CHAR):
+        elif first_char == CONST_CHAR:
+            get_next_text()
+
+        elif first_char != LABEL_CHAR:
             hash_val = hash_heap()
 
             index = table_index_lookup(hash_val, instructions_table, 3)
@@ -499,29 +491,17 @@ def assemble():
             out = value << 12
 
             if (bitmap & 0b100) != 0:
-                get_next_text()
-                hash_val = hash_heap()
-                index = table_index_lookup(hash_val, modifier_table, 2)
-                value_index = index + 1
-                value = modifier_table[value_index]
+                value = assemble_next_mnemonic(modifier_table)
                 value = value << 8
                 out = out | value
 
             if (bitmap & 0b010) != 0:
-                get_next_text()
-                hash_val = hash_heap()
-                index = table_index_lookup(hash_val, register_table, 2)
-                value_index = index + 1
-                value = register_table[value_index]
+                value = assemble_next_mnemonic(register_table)
                 value = value << 4
                 out = out | value
 
             if (bitmap & 0b001) != 0:
-                get_next_text()
-                hash_val = hash_heap()
-                index = table_index_lookup(hash_val, register_table, 2)
-                value_index = index + 1
-                value = register_table[value_index]
+                value = assemble_next_mnemonic(register_table)
                 out = out | value
 
             write_output(out)
