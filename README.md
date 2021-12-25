@@ -1,4 +1,4 @@
-#Telescope Project
+# Telescope Project
 
 This is a personal project of mine that is still being developed, and probably will be for a few months.
 
