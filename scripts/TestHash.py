@@ -4,6 +4,8 @@
 def main():
     while True:
         mnemonic = input("")
+        if len(mnemonic) == 2:
+            mnemonic = mnemonic + chr(0)
 
         if len(mnemonic) == 3:
             out = 0

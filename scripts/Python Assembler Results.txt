@@ -1,0 +1,7 @@
+Ran through ISATest as a test
+
+LineNo:     Assembler:    MyCode:     Conclusion:
+68          d131          d231        The assembler was correct!
+77          004e          0043        The assembler was correct!
+  
+This thing is working amazingly!!!

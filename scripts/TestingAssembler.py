@@ -8,7 +8,7 @@
 # As a result, there are some odd code style choices that were made throughout this program.
 # This was done to make this source code as close to the TASL source code as possible.
 
-# TODO: Add array support (?MyArray NumEmptyValues)
+# TODO: Combine all tables, separate instruction bitmaps.
 
 import sys
 
@@ -29,20 +29,20 @@ NULL = 0xFFFF
 # --------------------------------------Assembler Constants/Globals----------------------------------------
 # There will be three tables that the assembler will draw from, in addition to the label table:
 # Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
-instructions_table = [0xd188, 0x0, 0b000,  # HLT
-                      0xb672, 0x1, 0b000,  # RSM
-                      0xcf33, 0x2, 0b000,  # SYS
-                      0xd9ed, 0x3, 0b011,  # MOV
-                      0x992a, 0x4, 0b100,  # JIF
-                      0xa48c, 0x5, 0b010,  # LDI
-                      0x91ec, 0x6, 0b011,  # LOD
-                      0xca93, 0x7, 0b011,  # STR
-                      0xd581, 0x8, 0b111,  # ALU
-                      0xa581, 0x9, 0b111,  # ALI
-                      0x9981, 0xA, 0b111,  # ALF
-                      0x9921, 0xB, 0b111,  # AIF
-                      0xb981, 0xC, 0b111,  # ALN
-                      0xb921, 0xD, 0b111,  # AIN
+instructions_table = [0xd188, 0x0, 0b0000,  # HLT
+                      0xb672, 0x1, 0b0000,  # RSM
+                      0xcf33, 0x2, 0b0000,  # SYS
+                      0xd9ed, 0x3, 0b0011,  # MOV
+                      0x992a, 0x4, 0b0100,  # JIF
+                      0xa48c, 0x5, 0b0010,  # LDI
+                      0x91ec, 0x6, 0b0011,  # LOD
+                      0xca93, 0x7, 0b0011,  # STR
+                      0xd581, 0x8, 0b0111,  # ALU
+                      0xa581, 0x9, 0b1111,  # ALI
+                      0x9981, 0xA, 0b0111,  # ALF
+                      0x9921, 0xB, 0b1111,  # AIF
+                      0xb981, 0xC, 0b0111,  # ALN
+                      0xb921, 0xD, 0b1111,  # AIN
                       NULL
                       ]
 
@@ -113,6 +113,9 @@ CONST_CHAR = ord('@')    # Constants end at a skippable character.
 HEX_CHAR = ord('x')      # Hexadecimal numbers can have varying length, and end at a skippable character.
 BIN_CHAR = ord('b')      # Binary numbers have the same syntax as hexadecimal numbers.
 REF_CHAR = ord('>')      # References replace the following label with the value of the label.
+CHAR_CHAR = ord('\'')    # Character syntax works somewhat similar to how it works in python.
+#                          However, it forces the assembler to take ANY *single* character and write it to the output.
+ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character, in decimal only.
 STOP_CHAR = 0
 
 BOT_5_BITS_MASK = 0x1F
@@ -136,6 +139,7 @@ def to_out_format(value):
 
 def setup():
     """Makes sure everything is ready for the assembler to run in the simulation."""
+    print("Checking the arguments...")
 
     if len(sys.argv) != 2:
         print("Error: Expected 1 argument (input file path), got " + str(len(sys.argv) - 1) + " instead.")
@@ -153,8 +157,10 @@ def setup():
     output_file_path = input_file_name + OUTPUT_SUFFIX
 
     with open(input_file_path, 'r') as in_file:
+        print("Done getting arguments, now writing to the simulation ROM input...")
         char = in_file.read(1)
         while char:
+            char = ord(char)
             input_ROM.append(char)
             char = in_file.read(1)
 
@@ -162,17 +168,24 @@ def setup():
         print("Error: input file empty.")
         exit(1)
 
-    input_ROM.append(STOP_CHAR)
+    input_ROM.append(STOP_CHAR)  # All words after the program until the end of memory would be 0 anyways.
     input_ROM.append(STOP_CHAR)
 
+    print("Starting the assembler...")
     start_point()
 
+    print("Assembler is done running, sending the output ROM contents to the output file...")
+    output_lines.append(LOGISIM_FILE_HEADER + "\n")
+
     for val in output_ROM:
+        print(val)
         out = to_out_format(val)
         output_lines.append(out + "\n")
 
     with open(output_file_path, 'w') as out_file:
         out_file.writelines(output_lines)
+
+    print("The simulation has finished.")
 
 
 def read_input():
@@ -181,7 +194,7 @@ def read_input():
     This would happen automatically when doing LDI FLG >INPUT_FLG, MOV RG0 IO
     """
     global input_pointer
-    next_val = ord(input_ROM[input_pointer])
+    next_val = input_ROM[input_pointer]
     input_pointer += 1
     return next_val
 
@@ -201,6 +214,16 @@ def write_output(value):
 
 
 # -------------------------------------------The Assembler------------------------------------------------
+def print_input_heap():  # TODO: Debug only.
+    print("Printing heap contents...")
+    out = ""
+    for i in range(0, input_heap_pointer - 1):
+        out = out + chr(input_heap[i]) + " "
+    last_elem = input_heap[(input_heap_pointer - 1)]
+    out = out + chr(last_elem) + "."
+    print(out)
+
+
 def start_point():
     # Reset input
     write_0_to_input()
@@ -208,7 +231,7 @@ def start_point():
     build_tables()
 
 
-def get_value(starting_index, multiplier):
+def get_value_base(multiplier, starting_index):
     """Assumes the heap currently has some kind of number in it."""
     out = 0
     index = starting_index
@@ -221,23 +244,27 @@ def get_value(starting_index, multiplier):
         value = next_char & 0xF
         out = out * multiplier
         out = out + value
+        index += 1
     return out
 
 
 def get_numeric_value():
     """Interprets the contents of the input_heap as a number, returns the value."""
-    if input_heap_pointer == 1:  # it's a one character decimal number
-        first_char = input_heap[0]
+    first_char = input_heap[0]
+
+    if input_heap_pointer == 1:  # It should be a one-character decimal number
         return first_char & 0xF
 
     second_char = input_heap[1]
-    if second_char == HEX_CHAR:
-        return get_value(2, 16)
+    if (second_char & 0x40) == 0:
+        return get_value_base(10, 0)
+    elif second_char == HEX_CHAR:
+        return get_value_base(16, 2)
     elif second_char == BIN_CHAR:
-        return get_value(2, 2)
-    elif (second_char & 0x40) == 0:
-        return get_value(0, 10)
-    pass
+        return get_value_base(2, 2)
+    else:
+        print("NUMERIC VALUE TYPE ERROR")
+        exit(1)
 
 
 def label_lookup():
@@ -340,6 +367,17 @@ def get_next_text():
             if result != NULL:
                 break
 
+    # Check to see if we tried to read a character that was a skip or character character.
+    if input_heap[0] == CHAR_CHAR:
+        if input_heap_pointer == 1:
+            char = read_input()
+            input_heap[1] = char
+            input_heap_pointer += 1
+        if input_heap_pointer == 2:
+            char = read_input()
+            input_heap[2] = char
+            input_heap_pointer += 2
+
 
 def append_string_label():
     """Adds the input_heap to the label_table as a label, but does not assign it a value."""
@@ -408,6 +446,27 @@ def hash_heap():
     return out
 
 
+def assemble_next_mnemonic(table):
+    """
+    Fetches and returns the value of the next mnemonic from the given table.
+    CANNOT BE USED FOR INSTRUCTIONS.
+    """
+    global input_heap_pointer
+
+    get_next_text()
+    if input_heap_pointer == 2:
+        input_heap[2] = 0
+        input_heap_pointer += 1
+
+    hash_val = hash_heap()
+
+    index = table_index_lookup(hash_val, table, 2)
+
+    value_index = index + 1
+    value = table[value_index]
+    return value
+
+
 def build_tables():
     """The first pass through the file, we build the tables"""
     program_counter = 0
@@ -416,20 +475,30 @@ def build_tables():
         get_next_text()
         first_char = input_heap[0]
 
-        if first_char == STOP_CHAR:  # we're done
+        # Check what type of admissible string it is.
+        if first_char == STOP_CHAR:  # We're done
             break
 
-        elif first_char == LABEL_CHAR:
+        elif first_char == LABEL_CHAR:  # It's a label
             make_label(program_counter)
 
-        elif first_char == CONST_CHAR:
+        elif first_char == CONST_CHAR:  # It's a constant
             make_const()
 
-        elif (first_char & 0x40) == 0:  # it's a number
+        elif first_char == CHAR_CHAR:  # It's a character
             program_counter += 1
 
-        else:  # it's an instruction
+        elif first_char == ARRAY_CHAR:  # It's an empty array
+            zeros = get_value_base(10, 1)  # A decimal number of zeros follows this character.
+            program_counter += zeros
+
+        elif (first_char & 0x40) == 0:  # It's a number
             program_counter += 1
+
+        else:  # It's an instruction
+            program_counter += 1
+
+            # Hash the instruction, and lookup how many strings we have to skip.
             hash_key = hash_heap()
             index = table_index_lookup(hash_key, instructions_table, 3)
             bmp_index = index + 2
@@ -446,65 +515,77 @@ def build_tables():
     assemble()
 
 
-def assemble_next_mnemonic(table):
-    """
-    Fetches and returns the value of the next mnemonic from the given table.
-    CANNOT BE USED FOR INSTRUCTIONS.
-    """
-    get_next_text()
-    hash_val = hash_heap()
-    index = table_index_lookup(hash_val, table, 2)
-    value_index = index + 1
-    value = table[value_index]
-    return value
-
-
 def assemble():
     """The second pass through the file, the assembly is translated into machine code."""
     while True:
+        # Place the next chunk of admissible text into the heap.
         get_next_text()
         first_char = input_heap[0]
 
-        if first_char == STOP_CHAR:  # we're done
-            break
+        # Check what type of admissible string it is.
+        if first_char != LABEL_CHAR:  # Label declarations are ignored in this pass through.
+            if first_char == STOP_CHAR:  # We're done.
+                break
 
-        elif (first_char & 0x40) == 0:
-            value = get_numeric_value()
-            write_output(value)
+            elif first_char == REF_CHAR:  # It is a reference to label.
+                value = label_lookup()
+                write_output(value)
 
-        elif first_char == REF_CHAR:
-            value = label_lookup()
-            write_output(value)
+            elif first_char == CONST_CHAR:  # It is a constant declaration.
+                get_next_text()
 
-        elif first_char == CONST_CHAR:
-            get_next_text()
+            elif first_char == CHAR_CHAR:  # It is a character.
+                value = input_heap[1]
+                write_output(value)
 
-        elif first_char != LABEL_CHAR:
-            hash_val = hash_heap()
+            elif first_char == ARRAY_CHAR:  # It is an empty array, so we make it.
+                value = get_value_base(10, 1)
+                num_zeros = 0
+                while True:
+                    if num_zeros == value:
+                        break
+                    write_output(0)
+                    num_zeros += 1
 
-            index = table_index_lookup(hash_val, instructions_table, 3)
-            value_index = index + 1
-            value = instructions_table[value_index]
-            bmp_index = value_index + 1
-            bitmap = instructions_table[bmp_index]
+            elif (first_char & 0x40) == 0:  # It is a numeric value.
+                value = get_numeric_value()
+                write_output(value)
 
-            out = value << 12
+            else:  # It's an instruction.
+                # Hash the instruction.
+                hash_val = hash_heap()
 
-            if (bitmap & 0b100) != 0:
-                value = assemble_next_mnemonic(modifier_table)
-                value = value << 8
-                out = out | value
+                # Translate the instruction and get the bitmap.
+                index = table_index_lookup(hash_val, instructions_table, 3)
+                value_index = index + 1
+                value = instructions_table[value_index]
+                bmp_index = value_index + 1
+                bitmap = instructions_table[bmp_index]
 
-            if (bitmap & 0b010) != 0:
-                value = assemble_next_mnemonic(register_table)
-                value = value << 4
-                out = out | value
+                # Prep the output.
+                out = value << 12
 
-            if (bitmap & 0b001) != 0:
-                value = assemble_next_mnemonic(register_table)
-                out = out | value
+                # Gather operands according to the bitmap.
+                if (bitmap & 0b0100) != 0:
+                    value = assemble_next_mnemonic(modifier_table)
+                    value = value << 8
+                    out = out | value
 
-            write_output(out)
+                if (bitmap & 0b0010) != 0:
+                    value = assemble_next_mnemonic(register_table)
+                    value = value << 4
+                    out = out | value
+
+                if (bitmap & 0b0001) != 0:
+                    if (bitmap & 0b1000) != 0:
+                        get_next_text()
+                        value = get_numeric_value()
+                        value = value & 0xf
+                    else:
+                        value = assemble_next_mnemonic(register_table)
+                    out = out | value
+
+                write_output(out)
 
 
 setup()

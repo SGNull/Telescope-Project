@@ -1,0 +1,157 @@
+JIF TRU >StartPoint
+/ Keep writeOutput(), resetInput() and readInput() functions for future port to OS
+
+(
+@INFLG = 0
+@OUTFLG = 0x800
+
+@TABLESTOP = 0xFFFF
+
+/ Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
+(#InstTable = [0xd188, 0x0, 0b0000,  / HLT
+               0xb672, 0x1, 0b0000,  / RSM
+               0xcf33, 0x2, 0b0000,  / SYS
+               0xd9ed, 0x3, 0b0011,  / MOV
+               0x992a, 0x4, 0b0100,  / JIF
+               0xa48c, 0x5, 0b0010,  / LDI
+               0x91ec, 0x6, 0b0011,  / LOD
+               0xca93, 0x7, 0b0011,  / STR
+               0xd581, 0x8, 0b0111,  / ALU
+               0xa581, 0x9, 0b1111,  / ALI
+               0x9981, 0xA, 0b0111,  / ALF
+               0x9921, 0xB, 0b1111,  / AIF
+               0xb981, 0xC, 0b0111,  / ALN
+               0xb921, 0xD, 0b1111,  / AIN
+               >TABLESTOP
+               ])
+
+/ Register table entries: (mnemonic_hash, translation)
+(#RegTable = [0x40F2, 0x0,  / RG0
+			  0x44F2, 0x1,  / RG1
+			  0x48F2, 0x2,  / RG2
+			  0x4CF2, 0x3,  / RG3
+			  0x50F2, 0x4,  / RG4
+			  0x54F2, 0x5,  / RG5
+			  0x58F2, 0x6,  / RG6
+			  0x5CF2, 0x7,  / RG7
+			  0x0070, 0x8,  / PC
+			  0x01E9, 0x9,  / IO
+			  0x9D86, 0xA,  / FLG
+			  0x0213, 0xB,  / SP
+			  0x8988, 0xC,  / HLB
+			  0x9283, 0xD,  / CTD
+			  0x8E05, 0xE,  / EPC
+			  0x8705, 0xF,  / EXA
+			  >TABLESTOP
+			  ])
+
+/ Modifier table entries: (mnemonic_hash, translation)
+(#ModTable = [0xD1EE, 0x0,  / NOT
+			  0x91C1, 0x1,  / AND
+			  0x024F, 0x2,  / OR
+			  0xC9F8, 0x3,  / XOR
+			  0x8993, 0x4,  / SLB
+			  0x8A53, 0x5,  / SRB
+			  0xB0B3, 0x6,  / SEL
+			  0x8DC5, 0x7,  / ENC
+			  0x9CAE, 0x8,  / NEG
+			  0x9081, 0x9,  / ADD
+			  0x8C81, 0xA,  / ADC
+			  0x8AB3, 0xB,  / SUB
+			  0x8853, 0xC,  / SBB
+			  0xB2AD, 0xD,  / MUL
+			  0xD924, 0xE,  / DIV
+			  0x91ED, 0xF,  / MOD
+
+			  0xEA25, 0x0,  / EQZ
+			  0xEA8c, 0x1,  / LTZ
+			  0xC823, 0x2,  / CAR
+			  0xCACF, 0x3,  / OVR
+			  0x9250, 0x4,  / PRD
+			  0xD2F0, 0x5,  / PWT
+			  0xD654, 0x6,  / TRU
+			  0x91D2, 0x7,  / RND
+			  0xE8AE, 0x8,  / NEZ
+			  0xE8A7, 0x9,  / GEZ
+			  0xC86E, 0xA,  / NCR
+			  0xD9EE, 0xB,  / NOV
+			  0xC9D0, 0xC,  / PNR
+			  0xDDD0, 0xD,  / PNW
+			  >TABLESTOP
+			  ])
+
+/ It looks strange, but SkipChars includes newline and tab.
+(#SkipChars = ['
+', '	', '(', ')', ' ', ',' '=', ':', '[', ']', >TABLESTOP]) 'a' 'b' 'A' 'B'
+
+@COMMENT = '/'
+@NEWLINE = '
+'
+@COMMAND = '%'
+@LABEL = '#'
+@CONST = '@'
+@HEX = 'x'
+@BIN = 'b'
+@REF = '>'
+@CHAR = ''' /' /To make the Notepad++ UDL not freak out, the "/'" was used here.
+@ARRAY = '~'
+@STOP = 0
+
+@BOT5BITS = 0x1F
+
+
+#BufferHeap: [~64] / BufferHeap is input_heap
+#BuffIdx = 0 / BuffIdx is input_heap_pointer
+
+#LblTblIdx = 0 / LblTblIdx is table_heap_pointer
+
+)
+
+(#StartPoint  / Not a function, so do nothing with the stack
+	
+	/ Write 0 to the input
+	LDI RG0 >INFLG
+	MOV FLG RG0
+	ALU AND RG0 0
+	MOV FLG RG0
+	
+	/ Goto BuildTables
+	JIF TRU >BuildTables
+)
+
+(#GetValueBase / RG0:multiplier, RG1:startIndex, RG6:output RG7:returnAdd
+	AIF SUB SP 2
+	STR FLG SP 0
+	STR RG1 SP 1
+	
+	AIF AND RG6 0 / RG6 = out
+	/ RG1 = index
+	/ RG2 = input_heap_pointer
+	LOD RG2 RG2 >BuffIdx
+	
+	#GVB.Loop
+		ALN SUB RG1 RG2
+		JIF EQZ >GVB.Done
+		
+	
+	LOD FLG SP 0
+	LOD RG1 SP 1
+	AIF ADD SP 2
+	MOV PC RG7
+)
+
+(#BuildTables  / First pass through the file, build label table.
+	
+)
+
+(#Assemble  / Second pass through the file, do the actual assembling.
+	
+)
+
+(#StopPoint
+
+)
+
+#LabelTable  / The rest of memory is treated as the label table.
+/ Structure: (size+1, l, a, b, e, l, value), (size+1, l, a, ...), ...
+/ Where size+1 is the relative index of the value, 1 short of the next entry.
