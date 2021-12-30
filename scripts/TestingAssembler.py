@@ -238,30 +238,32 @@ def get_value_base(multiplier, starting_index):
     while True:
         if index == input_heap_pointer:
             break
+
         next_char = input_heap[index]
         if (next_char & 0x40) != 0:  # it's text
             next_char += 9
-        value = next_char & 0xF
+
+        next_char = next_char & 0xF
         out = out * multiplier
-        out = out + value
+        out = out + next_char
+
         index += 1
     return out
 
 
 def get_numeric_value():
     """Interprets the contents of the input_heap as a number, returns the value."""
-    first_char = input_heap[0]
-
-    if input_heap_pointer == 1:  # It should be a one-character decimal number
-        return first_char & 0xF
-
     second_char = input_heap[1]
+
     if (second_char & 0x40) == 0:
         return get_value_base(10, 0)
+
     elif second_char == HEX_CHAR:
         return get_value_base(16, 2)
+
     elif second_char == BIN_CHAR:
         return get_value_base(2, 2)
+
     else:
         print("NUMERIC VALUE TYPE ERROR")
         exit(1)
@@ -281,21 +283,19 @@ def label_lookup():
         # Check if the label is the right size.
         size = label_table[table_index]
         if input_heap_pointer == size:
-            input_heap_index = 1
-            loop_table_index = table_index + 1
+            loop_index = 1
 
             # Loop through both the input_heap string and the table's string at the same time.
             while True:
                 # If we reach the end of the heap, we have a match (cause they're the same size strings).
-                if input_heap_index == input_heap_pointer:
+                if loop_index == input_heap_pointer:
                     return label_table[table_index + size]
 
                 # If any pair of characters don't match, exit the loop.
-                if input_heap[input_heap_index] != label_table[loop_table_index]:
+                if input_heap[loop_index] != label_table[loop_index + table_index]:
                     break
 
-                input_heap_index += 1
-                loop_table_index += 1
+                loop_index += 1
 
         table_index += size
         table_index += 1
@@ -319,24 +319,25 @@ def goto_char(target):
     """Reads from the input until it reaches the given character."""
     char = read_input()
     while char != target:
-        char = read_input()
         if char == STOP_CHAR:
             break
+        char = read_input()
 
 
 def get_next_text():
     """Reads the next viable sequence of characters from input into the heap"""
 
     global input_heap_pointer
-    input_heap_pointer = 0
 
     # Look for the start of a viable sequence
     while True:
         char = read_input()
         if char == COMMAND_CHAR:
             goto_char(COMMAND_CHAR)
+
         elif char == COMMENT_CHAR:
             goto_char(NEWLINE_CHAR)
+
         else:  # if char is not a skip character
             result = table_index_lookup(char, SKIP_CHARS, 1)
             if result == NULL:
@@ -347,6 +348,8 @@ def get_next_text():
         input_heap[0] = char
         input_heap_pointer = 1
         return
+
+    input_heap_pointer = 0
 
     # Else, get the rest of the character sequence
     while True:
@@ -397,36 +400,6 @@ def append_string_label():
         index += 1
 
 
-def make_label(value):
-    """Adds a label to the label table with the given value."""
-    global table_heap_pointer
-
-    # Add the label to the table.
-    append_string_label()
-
-    # Add the value to the table.
-    label_table[table_heap_pointer] = value
-    table_heap_pointer += 1
-
-
-def make_const():
-    """Adds a constant to the label table."""
-    global table_heap_pointer
-
-    # Add the label to the table.
-    append_string_label()
-
-    # Get the constant's text value.
-    get_next_text()
-
-    # Get the actual value.
-    value = get_numeric_value()
-
-    # Store the value.
-    label_table[table_heap_pointer] = value
-    table_heap_pointer += 1
-
-
 def hash_heap():
     """Treats the input_heap as the input for the hash function."""
     out = 0
@@ -469,6 +442,8 @@ def assemble_next_mnemonic(table):
 
 def build_tables():
     """The first pass through the file, we build the tables"""
+    global table_heap_pointer
+
     program_counter = 0
     while True:
         # Place the next chunk of admissible text into the heap.
@@ -480,10 +455,24 @@ def build_tables():
             break
 
         elif first_char == LABEL_CHAR:  # It's a label
-            make_label(program_counter)
+            # Add the label to the table.
+            append_string_label()
+
+            # Add the value to the table.
+            label_table[table_heap_pointer] = program_counter
+            table_heap_pointer += 1
 
         elif first_char == CONST_CHAR:  # It's a constant
-            make_const()
+            # Add the label to the table.
+            append_string_label()
+
+            # Get the constant's text value.
+            get_next_text()
+
+            # Get and store the value of the label.
+            value = get_numeric_value()
+            label_table[table_heap_pointer] = value
+            table_heap_pointer += 1
 
         elif first_char == CHAR_CHAR:  # It's a character
             program_counter += 1

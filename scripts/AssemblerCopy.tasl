@@ -1,5 +1,4 @@
 JIF TRU >StartPoint
-/ Keep writeOutput(), resetInput() and readInput() functions for future port to OS
 
 (
 @INFLG = 0
@@ -82,7 +81,7 @@ JIF TRU >StartPoint
 
 / It looks strange, but SkipChars includes newline and tab.
 (#SkipChars = ['
-', '	', '(', ')', ' ', ',' '=', ':', '[', ']', >TABLESTOP]) 'a' 'b' 'A' 'B'
+', '	', '(', ')', ' ', ',' '=', ':', '[', ']', >TABLESTOP])
 
 @COMMENT = '/'
 @NEWLINE = '
@@ -93,14 +92,12 @@ JIF TRU >StartPoint
 @HEX = 'x'
 @BIN = 'b'
 @REF = '>'
-@CHAR = ''' /' /To make the Notepad++ UDL not freak out, the "/'" was used here.
+@CHAR = ''' /' /To make the Notepad++ UDL not do weird things, /' was used here.
 @ARRAY = '~'
 @STOP = 0
 
-@BOT5BITS = 0x1F
 
-
-#BufferHeap: [~64] / BufferHeap is input_heap
+#Buffer: [~64] / Buffer is input_heap
 #BuffIdx = 0 / BuffIdx is input_heap_pointer
 
 #LblTblIdx = 0 / LblTblIdx is table_heap_pointer
@@ -119,24 +116,234 @@ JIF TRU >StartPoint
 	JIF TRU >BuildTables
 )
 
-(#GetValueBase / RG0:multiplier, RG1:startIndex, RG6:output RG7:returnAdd
-	AIF SUB SP 2
-	STR FLG SP 0
-	STR RG1 SP 1
-	
-	AIF AND RG6 0 / RG6 = out
+(#GetValueBase  / UNSAFE, RG0:multiplier, RG1:startIndex, RG6:output, RG7:returnAdd
+	/ RG0 = next_char
 	/ RG1 = index
 	/ RG2 = input_heap_pointer
+	/ RG3 = next_char
+	/ RG6 = out
+	/ RG7 = return address
+	
 	LOD RG2 RG2 >BuffIdx
+	AIF AND RG6 0
 	
 	#GVB.Loop
 		ALN SUB RG1 RG2
 		JIF EQZ >GVB.Done
 		
+		LOD RG3 RG1 >Buffer
+		AIN SEL RG3 5
+		JIF EQZ >GVB.Skip
+			AIF ADD RG3 9
+			
+		#GVB.Skip
+		AIF AND RG3 0xF
+		ALF MUL RG6 RG0
+		ALF ADD RG6 RG3
+		
+		AIF ADD RG1 1
+		
+		
+	#GVB.Done
+
+	MOV PC RG7
+)
+
+(#GetNumericValue  / UNSAFE, RG6:output, RG7:returnAdd
+	/ RG0 = second_char
+	/ RG1 = input_heap & HEX_CHAR & BIN_CHAR
 	
-	LOD FLG SP 0
-	LOD RG1 SP 1
-	AIF ADD SP 2
+	/Passes control straight to GetValueBase
+	
+	LOD RG1 RG1 >Buffer
+	LOD RG0 RG1 1
+	
+	ALN SEL RG0 5
+	JIF NEZ >GNV.1
+		LDI RG0 10
+		AIF AND RG0 0
+		JIF TRU >GetValueBase
+		
+	#GNV.1
+	LDI RG1 >HEX_CHAR
+	ALN SUB RG0 RG1
+	JIF NEZ >GNV.2
+		LDI RG0 16
+		LDI RG1 2
+		JIF TRU >GetValueBase
+		
+	#GNV.2
+	LDI RG1 >BIN_CHAR
+	ALN SUB RG0 RG1
+	JIF NEZ GNV.3
+		LDI RG0 2
+		LDI RG1 2
+		JIF TRU >GetValueBase
+		
+	#GNV.3
+	HLT
+	0xFFF0
+	JIF TRU >StartPoint
+)
+
+(#LabelLookup  / UNSAFE, RG6:output, RG7:returnAdd
+	/ RG0 = table_index
+	/ RG1 = table_heap_pointer
+	/ RG2 = size
+	/ RG3 = input_heap_pointer
+	/ RG4 = loop_index
+	/ RG5 = temp
+	
+	AIF AND RG0 0
+	LOD RG1 RG1 >LblTblIdx
+	
+	#LL.MainLoop
+		/ Check if we're out of labels to search through.
+		ALN SUB RG0 RG1
+		JIF LTZ >LL.MS1
+			HLT /exit(1)
+			0xFFF1 / print("LABEL NOT FOUND ERROR")
+			JIF TRU >StartPoint
+		
+		#LL.MS1
+		/ Check if the label is the right size.
+		LOD RG2 RG0 >LabelTable
+		ALN SUB RG3 RG2
+		JIF NEZ >LL.MS2
+			LDI RG4 1
+			
+			/ Loop through both the input_heap string and the table's string at the same time.
+			#LL.SubLoop
+				/ If we reach the end of the heap, we have a match (cause they're the same size strings)
+				ALN SUB RG4 RG3
+				JIF NEZ >LL.SS
+					ALF ADD RG0 RG2
+					LOD RG6 RG0 >LabelTable
+					JIF TRU >LL.Done
+				
+				/ If any pair of characters don't match, exit the loop.
+				#LL.SS
+				MOV RG5 RG0
+				ALF ADD RG5 RG4
+				LOD RG5 RG4 >LabelTable
+				LOD RG6 RG4 >Buffer
+				ALN SUB RG5 RG6
+				JIF NEZ >LL.MS2 / break
+				
+				AIF ADD RG4 1
+				JIF TRU >LL.SubLoop
+				
+				
+		#LL.MS2
+		ALF ADD RG0 RG2
+		AIF ADD RG0 1
+		JIF TRU >LL.MainLoop
+	
+	#LL.Done
+	MOV PC RG7
+)
+
+(#TblIdxLookup  / UNSAFE, RG0:key, RG1:table, RG2:entry_size, RG6:output, RG7:returnAdd
+	/ RG3 = index
+	/ RG4 = next_entry_key
+	/ RG5 = TABLESTOP
+	AIF AND RG3 0
+	LDI RG5 >TABLESTOP
+	#TIL.Loop
+		STR RG3 RG3 >TIL.SMC
+		LOD RG4 RG1 #TIL.SMC[0]
+		
+		ALN SUB RG4 RG0
+		JIF NEZ TIL.Next
+			MOV RG6 RG3
+			JIF TRU TIL.End
+		
+		ALN SUB RG4 RG5
+		JIF NEZ TIL.Next2
+			MOV RG6 RG5
+			JIF TRU TIL.End
+		
+		#TIL.Next2
+		ALF ADD RG3 RG2
+		JIF TRU TIL.Loop
+			
+	#TIL.End
+	MOV PC RG7
+)
+
+(#GotoChar  / UNSAFE, RG0:target, RG7:returnAdd
+	/ RG5 = char
+	/ RG6 = STOP_CHAR
+	LDI RG6 >STOP
+	#GC.Loop
+		MOV RG5 IO
+		ALN SUB RG5 RG0
+		JIF EQZ >GC.Done
+		ALN SUB RG5 RG6
+		JIF NEZ >GC.Loop
+	#GC.Done
+	MOV PC RG7
+)
+
+(#GetNext  / UNSAFE
+	/ RG0: Reserved for goto_char input
+	/ RG1 = char
+	/ RG2 = COMMAND_CHAR
+	/ RG3 = COMMENT_CHAR
+	ALI SUB SP 1
+	STR RG7 SP 0
+	
+	LDI RG2 >COMMAND
+	LDI RG3 >COMMENT
+	LDI RG7 >GN.Loop1  / Function calls will use this as the return address by default.
+	
+	/ "Look for the start of a viable sequence"
+	#GN.Loop1
+		MOV RG1 IO
+		ALN SUB RG1 RG2
+		JIF NEZ >GN.L1
+			MOV RG0 RG2
+			JIF TRU >GotoChar
+		
+		#GN.L1
+		ALN SUB RG1 RG3
+		JIF NEZ >GN.L2
+			LDI RG0 >NEWLINE
+			JIF TRU >GotoChar
+		
+		#GN.L2  / "if char is not a skip character"
+			MOV RG0 RG1
+			LDI RG1 >SkipChars
+			LDI RG2 1
+			LDI RG7 >GN.Ret1
+			JIF TRU >TblIdxLookup #GN.Ret1
+			
+			AIN ADD RG6 1  / Check if not NULL
+			JIF NCR >GetNext  / Reload the register values if skippable.
+			
+	/ Now:
+	/ RG0 = char
+	/ RG1 = STOP_CHAR
+	LDI RG1 >STOP
+	
+	/ "If we hit a stop character, just put that in the input heap"
+	ALN SUB RG0 RG1
+	JIF NEZ >GN.Skip1
+		STR RG0 RG0 >Buffer
+		LDI RG5 1
+		JIF TRU >GN.Done
+	#GN.Skip1
+	
+	ALI AND RG5 0
+	
+	/ "Else, get the rest of the character sequence"
+	#GN.Loop2
+	
+	
+	#GN.Done  / Assumes RG5 has the input_heap_pointer, or BufferIdx, in it
+	STR RG5 RG5 >BuffIdx
+	LOD RG7 SP 0
+	ALI ADD SP 1
 	MOV PC RG7
 )
 
