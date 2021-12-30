@@ -3,7 +3,7 @@
 This is a personal project of mine that is still being developed, and probably will be for a few months.
 
 I had a lot of different, rather big goals for this project. Here are just a few of them:
-1. Design a CPU with a robust ISA capable of running a simple OS.
+1. Design a CPU with a simple yet robust ISA capable of running a simple OS.
 2. Write a fully-functional assembler that can run ON the CPU.
 3. Write a lightweight and small-scale operating system.
 4. Integrate the assembler into a file system on top of the OS.
