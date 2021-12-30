@@ -357,14 +357,18 @@ def get_next_text():
         input_heap_pointer += 1
 
         char = read_input()
+
         if char == COMMAND_CHAR:
             goto_char(COMMAND_CHAR)
             break
+
         elif char == COMMENT_CHAR:
             goto_char(NEWLINE_CHAR)
             break
+
         elif char == STOP_CHAR:
             break
+
         else:  # if char is a skip character
             result = table_index_lookup(char, SKIP_CHARS, 1)
             if result != NULL:
@@ -372,14 +376,16 @@ def get_next_text():
 
     # Check to see if we tried to read a character that was a skip or character character.
     if input_heap[0] == CHAR_CHAR:
+
         if input_heap_pointer == 1:
             char = read_input()
             input_heap[1] = char
             input_heap_pointer += 1
+
         if input_heap_pointer == 2:
             char = read_input()
             input_heap[2] = char
-            input_heap_pointer += 2
+            input_heap_pointer += 1
 
 
 def append_string_label():

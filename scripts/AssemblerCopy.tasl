@@ -1,6 +1,6 @@
 JIF TRU >StartPoint
 
-(
+(/ Constants, variables, and tables.
 @INFLG = 0
 @OUTFLG = 0x800
 
@@ -116,8 +116,7 @@ JIF TRU >StartPoint
 	JIF TRU >BuildTables
 )
 
-(#GetValueBase  / UNSAFE, RG0:multiplier, RG1:startIndex, RG6:output, RG7:returnAdd
-	/ RG0 = next_char
+(#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex, RG6:output, RG7:returnAdd
 	/ RG1 = index
 	/ RG2 = input_heap_pointer
 	/ RG3 = next_char
@@ -149,7 +148,7 @@ JIF TRU >StartPoint
 	MOV PC RG7
 )
 
-(#GetNumericValue  / UNSAFE, RG6:output, RG7:returnAdd
+(#GetNumericValue  / UNSAFE for RG0-1, RG6:output, RG7:returnAdd
 	/ RG0 = second_char
 	/ RG1 = input_heap & HEX_CHAR & BIN_CHAR
 	
@@ -186,7 +185,7 @@ JIF TRU >StartPoint
 	JIF TRU >StartPoint
 )
 
-(#LabelLookup  / UNSAFE, RG6:output, RG7:returnAdd
+(#LabelLookup  / UNSAFE for ALL, RG6:output, RG7:returnAdd
 	/ RG0 = table_index
 	/ RG1 = table_heap_pointer
 	/ RG2 = size
@@ -243,7 +242,7 @@ JIF TRU >StartPoint
 	MOV PC RG7
 )
 
-(#TblIdxLookup  / UNSAFE, RG0:key, RG1:table, RG2:entry_size, RG6:output, RG7:returnAdd
+(#TblIdxLookup  / UNSAFE for RG3-5, RG0:key, RG1:table, RG2:entry_size, RG6:output, RG7:returnAdd
 	/ RG3 = index
 	/ RG4 = next_entry_key
 	/ RG5 = TABLESTOP
@@ -271,7 +270,7 @@ JIF TRU >StartPoint
 	MOV PC RG7
 )
 
-(#GotoChar  / UNSAFE, RG0:target, RG7:returnAdd
+(#GotoChar  / UNSAFE for RG5-6, RG0:target, RG7:returnAdd
 	/ RG5 = char
 	/ RG6 = STOP_CHAR
 	LDI RG6 >STOP
@@ -285,7 +284,7 @@ JIF TRU >StartPoint
 	MOV PC RG7
 )
 
-(#GetNext  / UNSAFE
+(#GetNext  / UNSAFE for ALL, RG7:returnAdd
 	/ RG0: Reserved for goto_char input
 	/ RG1 = char
 	/ RG2 = COMMAND_CHAR
@@ -323,28 +322,99 @@ JIF TRU >StartPoint
 			
 	/ Now:
 	/ RG0 = char
-	/ RG1 = STOP_CHAR
+	/ RG1 = constants (STOP, COMMENT, COMMAND, etc.)
+	/ RG2 = 1 (for table_index_lookup)
+	/ RG4 = input_heap_pointer (BufferIdx)
 	LDI RG1 >STOP
 	
 	/ "If we hit a stop character, just put that in the input heap"
 	ALN SUB RG0 RG1
 	JIF NEZ >GN.Skip1
 		STR RG0 RG0 >Buffer
-		LDI RG5 1
+		LDI RG4 1
 		JIF TRU >GN.Done
 	#GN.Skip1
 	
-	ALI AND RG5 0
+	ALI AND RG4 0
+	LDI RG2 1
 	
 	/ "Else, get the rest of the character sequence"
 	#GN.Loop2
+		STR RG0 RG4 >Buffer
+		ALI ADD RG4 1
+		
+		MOV RG0 IO
+		
+		LDI RG1 >COMMAND
+		ALN SUB RG0 RG1
+		JIF NEZ >GN.LL1
+			LDI RG7 >GN.Loop2D
+			JIF TRU >GotoChar
+		
+		#GN.LL1
+		LDI RG1 >COMMENT
+		ALN SUB RG0 RG1
+		JIF NEZ >GN.LL2
+			LDI RG0 >NEWLINE
+			LDI RG7 >GN.Loop2D
+			JIF TRU >GotoChar
+		
+		#GN.LL2
+		LDI RG1 >STOP
+		ALN SUB RG0 RG1
+		JIF NEZ >GN.LL3
+			JIF TRU >GN.Loop2D
+		
+		#GN.LL3  / "if char is a skip character"
+			LDI RG1 >SkipChars
+			
+			/ Preserving RG4 (TblIdxLookup is UNSAFE for that register)
+			ALI SUB SP 1
+			STR RG4 SP 0
+			LDI RG7 >GN.LLRet
+			JIF TRU >TblIdxLookup #GN.LLRet
+			LOD RG4 SP 0
+			ALI ADD SP 1
+			
+			ALN ADD RG6 1
+			JIF CAR >GN.Loop2
+	#GN.Loop2D
+	
+	/ RG0 = input_heap[0] & char
+	/ RG1 = CHAR_CHAR & input_heap (Buffer)
+	/ RG4 = input_heap_pointer (BufferIdx)
+	
+	/ "Check to see if we tried to read a character that was a skip or character character"
+	LOD RG0 RG0 >Buffer
+	LDI RG1 >CHAR
+	ALN SUB RG0 RG1
+	JIF NEZ >GN.Done
+	
+		LDI RG1 >Buffer
+		
+		AIN SUB RG4 1
+		JIF NEZ >GN.ESkip
+			MOV RG0 IO
+			STR RG0 RG1 1
+			ALI ADD RG4 1
+		
+		#GN.ESkip
+		AIN SUB RG4 2
+		JIF NEZ >GN.Done
+			MOV RG0 IO
+			STR RG0 RG1 2
+			ALI ADD RG4 1
 	
 	
-	#GN.Done  / Assumes RG5 has the input_heap_pointer, or BufferIdx, in it
-	STR RG5 RG5 >BuffIdx
+	#GN.Done  / Assumes RG4 has the input_heap_pointer (BufferIdx) in it
+	STR RG4 RG4 >BuffIdx
 	LOD RG7 SP 0
 	ALI ADD SP 1
 	MOV PC RG7
+)
+
+(#AppStrLbl
+	
 )
 
 (#BuildTables  / First pass through the file, build label table.
