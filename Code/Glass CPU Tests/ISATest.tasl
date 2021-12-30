@@ -33,8 +33,11 @@ h0000
 
 #Main.Init
 	/ We're going to load the variables.
+	ALI AND RG0 0
 	LOD RG0 RG0 >numOne
+	ALI AND RG1 0
 	LOD RG1 RG1 >numTwo
+	ALI AND RG7 0
 	LOD RG7 RG7 >expectedResult
 	/ Normally at the start of functions, we write to the stack.
 	/ So we're going to do that here, but with some fancy trickery.

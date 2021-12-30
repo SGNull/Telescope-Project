@@ -29,20 +29,20 @@ NULL = 0xFFFF
 # --------------------------------------Assembler Constants/Globals----------------------------------------
 # There will be three tables that the assembler will draw from, in addition to the label table:
 # Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
-instructions_table = [0xd188, 0x0, 0b0000,  # HLT
-                      0xb672, 0x1, 0b0000,  # RSM
-                      0xcf33, 0x2, 0b0000,  # SYS
-                      0xd9ed, 0x3, 0b0011,  # MOV
-                      0x992a, 0x4, 0b0100,  # JIF
-                      0xa48c, 0x5, 0b0010,  # LDI
-                      0x91ec, 0x6, 0b0011,  # LOD
-                      0xca93, 0x7, 0b0011,  # STR
-                      0xd581, 0x8, 0b0111,  # ALU
-                      0xa581, 0x9, 0b1111,  # ALI
-                      0x9981, 0xA, 0b0111,  # ALF
-                      0x9921, 0xB, 0b1111,  # AIF
-                      0xb981, 0xC, 0b0111,  # ALN
-                      0xb921, 0xD, 0b1111,  # AIN
+instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
+                      0xb672, 0x1000, 0b0000,  # RSM
+                      0xcf33, 0x2000, 0b0000,  # SYS
+                      0xd9ed, 0x3000, 0b0011,  # MOV
+                      0x992a, 0x4000, 0b0100,  # JIF
+                      0xa48c, 0x5000, 0b0010,  # LDI
+                      0x91ec, 0x6000, 0b0011,  # LOD
+                      0xca93, 0x7000, 0b0011,  # STR
+                      0xd581, 0x8000, 0b0111,  # ALU
+                      0xa581, 0x9000, 0b1111,  # ALI
+                      0x9981, 0xA000, 0b0111,  # ALF
+                      0x9921, 0xB000, 0b1111,  # AIF
+                      0xb981, 0xC000, 0b0111,  # ALN
+                      0xb921, 0xD000, 0b1111,  # AIN
                       NULL
                       ]
 
@@ -118,8 +118,6 @@ CHAR_CHAR = ord('\'')    # Character syntax works somewhat similar to how it wor
 ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character, in decimal only.
 STOP_CHAR = 0
 
-BOT_5_BITS_MASK = 0x1F
-
 INPUT_HEAP_SIZE = 64
 input_heap = [0] * INPUT_HEAP_SIZE  # The heap that the assembler will use to store words.
 input_heap_pointer = 0  # Would be a variable in Logisim.
@@ -178,7 +176,6 @@ def setup():
     output_lines.append(LOGISIM_FILE_HEADER + "\n")
 
     for val in output_ROM:
-        print(val)
         out = to_out_format(val)
         output_lines.append(out + "\n")
 
@@ -220,7 +217,7 @@ def print_input_heap():  # TODO: Debug only.
     for i in range(0, input_heap_pointer - 1):
         out = out + chr(input_heap[i]) + " "
     last_elem = input_heap[(input_heap_pointer - 1)]
-    out = out + chr(last_elem) + "."
+    out = out + chr(last_elem) + "\n"
     print(out)
 
 
@@ -253,6 +250,11 @@ def get_value_base(multiplier, starting_index):
 
 def get_numeric_value():
     """Interprets the contents of the input_heap as a number, returns the value."""
+
+    if input_heap_pointer == 1: # it is a 1 digit decimal number
+        char = input_heap[0]
+        return char & 0xF
+
     second_char = input_heap[1]
 
     if (second_char & 0x40) == 0:
@@ -265,6 +267,7 @@ def get_numeric_value():
         return get_value_base(2, 2)
 
     else:
+        print_input_heap()
         print("NUMERIC VALUE TYPE ERROR")
         exit(1)
 
@@ -398,9 +401,7 @@ def append_string_label():
     table_heap_pointer += 1
 
     # Copy in the label string
-    while True:
-        if index == input_heap_pointer:
-            break
+    while index != input_heap_pointer:
         label_table[table_heap_pointer] = input_heap[index]
         table_heap_pointer += 1
         index += 1
@@ -413,13 +414,16 @@ def hash_heap():
     temp = input_heap[2] & 0x40
     temp = temp << 9
     out = out | temp
-    temp = input_heap[2] & BOT_5_BITS_MASK
+
+    temp = input_heap[2] & 0x1f
     temp = temp << 10
     out = out | temp
-    temp = input_heap[1] & BOT_5_BITS_MASK
+
+    temp = input_heap[1] & 0x1f
     temp = temp << 5
     out = out | temp
-    temp = input_heap[0] & BOT_5_BITS_MASK
+
+    temp = input_heap[0] & 0x1f
     out = out | temp
 
     return out
@@ -433,6 +437,7 @@ def assemble_next_mnemonic(table):
     global input_heap_pointer
 
     get_next_text()
+
     if input_heap_pointer == 2:
         input_heap[2] = 0
         input_heap_pointer += 1
@@ -553,12 +558,9 @@ def assemble():
                 # Translate the instruction and get the bitmap.
                 index = table_index_lookup(hash_val, instructions_table, 3)
                 value_index = index + 1
-                value = instructions_table[value_index]
+                out = instructions_table[value_index]
                 bmp_index = value_index + 1
                 bitmap = instructions_table[bmp_index]
-
-                # Prep the output.
-                out = value << 12
 
                 # Gather operands according to the bitmap.
                 if (bitmap & 0b0100) != 0:

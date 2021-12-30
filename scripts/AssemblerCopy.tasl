@@ -7,20 +7,20 @@ JIF TRU >StartPoint
 @TABLESTOP = 0xFFFF
 
 / Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
-(#InstTable = [0xd188, 0x0, 0b0000,  / HLT
-               0xb672, 0x1, 0b0000,  / RSM
-               0xcf33, 0x2, 0b0000,  / SYS
-               0xd9ed, 0x3, 0b0011,  / MOV
-               0x992a, 0x4, 0b0100,  / JIF
-               0xa48c, 0x5, 0b0010,  / LDI
-               0x91ec, 0x6, 0b0011,  / LOD
-               0xca93, 0x7, 0b0011,  / STR
-               0xd581, 0x8, 0b0111,  / ALU
-               0xa581, 0x9, 0b1111,  / ALI
-               0x9981, 0xA, 0b0111,  / ALF
-               0x9921, 0xB, 0b1111,  / AIF
-               0xb981, 0xC, 0b0111,  / ALN
-               0xb921, 0xD, 0b1111,  / AIN
+(#InstTable = [0xd188, 0x0000, 0b0000,  / HLT
+               0xb672, 0x1000, 0b0000,  / RSM
+               0xcf33, 0x2000, 0b0000,  / SYS
+               0xd9ed, 0x3000, 0b0011,  / MOV
+               0x992a, 0x4000, 0b0100,  / JIF
+               0xa48c, 0x5000, 0b0010,  / LDI
+               0x91ec, 0x6000, 0b0011,  / LOD
+               0xca93, 0x7000, 0b0011,  / STR
+               0xd581, 0x8000, 0b0111,  / ALU
+               0xa581, 0x9000, 0b1111,  / ALI
+               0x9981, 0xA000, 0b0111,  / ALF
+               0x9921, 0xB000, 0b1111,  / AIF
+               0xb981, 0xC000, 0b0111,  / ALN
+               0xb921, 0xD000, 0b1111,  / AIN
                >TABLESTOP
                ])
 
@@ -80,8 +80,8 @@ JIF TRU >StartPoint
 			  ])
 
 / It looks strange, but SkipChars includes newline and tab.
-(#SkipChars = ['
-', '	', '(', ')', ' ', ',' '=', ':', '[', ']', >TABLESTOP])
+(#SkipChars = [' ', '
+', '	', ',', '=', ':', '[', ']', '(', ')', >TABLESTOP])
 
 @COMMENT = '/'
 @NEWLINE = '
@@ -92,19 +92,19 @@ JIF TRU >StartPoint
 @HEX = 'x'
 @BIN = 'b'
 @REF = '>'
-@CHAR = ''' /' /To make the Notepad++ UDL not do weird things, /' was used here.
+@CHAR = ''' /' / To make the Notepad++ UDL not do weird things, /' was used here.
 @ARRAY = '~'
 @STOP = 0
 
 
-#Buffer: [~64] / Buffer is input_heap
-#BuffIdx = 0 / BuffIdx is input_heap_pointer
+#Buffer: [~64]  / Buffer is input_heap
+#BuffIdx = 0  / BuffIdx is input_heap_pointer
 
-#LblTblIdx = 0 / LblTblIdx is table_heap_pointer
+#LblTblIdx = 0  / LblTblIdx is table_heap_pointer
 
 )
 
-(#StartPoint  / Not a function, so do nothing with the stack
+(#StartPoint  / The starting point for the assembler.
 	
 	/ Write 0 to the input
 	LDI RG0 >INFLG
@@ -123,6 +123,7 @@ JIF TRU >StartPoint
 	/ RG6 = out
 	/ RG7 = return address
 	
+	AIF AND RG2 0
 	LOD RG2 RG2 >BuffIdx
 	AIF AND RG6 0
 	
@@ -149,13 +150,21 @@ JIF TRU >StartPoint
 )
 
 (#GetNumericValue  / UNSAFE for RG0-1, RG6:output, RG7:returnAdd
-	/ RG0 = second_char
+	/ RG0 = second_char & input_heap_pointer
 	/ RG1 = input_heap & HEX_CHAR & BIN_CHAR
+	
+	AIF AND RG0 0:LOD RG0 RG0 >BuffIdx
+	AIN SUB RG0 1
+	JIF NEZ >GNV.0  / "it is a 1 digit decimal number"
+		AIF AND RG6 0
+		LOD RG6 RG6 >Buffer
+		ALI AND RG6 0xF
+		MOV PC RG7
+	#GNV.0
 	
 	/Passes control straight to GetValueBase
 	
-	LOD RG1 RG1 >Buffer
-	LOD RG0 RG1 1
+	LDI RG0 1:LOD RG0 RG0 >Buffer
 	
 	ALN SEL RG0 5
 	JIF NEZ >GNV.1
@@ -193,8 +202,7 @@ JIF TRU >StartPoint
 	/ RG4 = loop_index
 	/ RG5 = temp
 	
-	AIF AND RG0 0
-	LOD RG1 RG1 >LblTblIdx
+	AIF AND RG0 0:LOD RG1 RG1 >LblTblIdx
 	
 	#LL.MainLoop
 		/ Check if we're out of labels to search through.
@@ -324,7 +332,7 @@ JIF TRU >StartPoint
 	/ RG0 = char
 	/ RG1 = constants (STOP, COMMENT, COMMAND, etc.)
 	/ RG2 = 1 (for table_index_lookup)
-	/ RG4 = input_heap_pointer (BufferIdx)
+	/ RG4 = input_heap_pointer (BuffIdx)
 	LDI RG1 >STOP
 	
 	/ "If we hit a stop character, just put that in the input heap"
@@ -362,19 +370,15 @@ JIF TRU >StartPoint
 		#GN.LL2
 		LDI RG1 >STOP
 		ALN SUB RG0 RG1
-		JIF NEZ >GN.LL3
-			JIF TRU >GN.Loop2D
+		JIF EQZ >GN.Loop2D
 		
-		#GN.LL3  / "if char is a skip character"
+		/ "if char is a skip character"
 			LDI RG1 >SkipChars
 			
 			/ Preserving RG4 (TblIdxLookup is UNSAFE for that register)
-			ALI SUB SP 1
-			STR RG4 SP 0
-			LDI RG7 >GN.LLRet
-			JIF TRU >TblIdxLookup #GN.LLRet
-			LOD RG4 SP 0
-			ALI ADD SP 1
+			ALI SUB SP 1: STR RG4 SP 0
+			LDI RG7 >GN.LLRet: JIF TRU >TblIdxLookup #GN.LLRet
+			LOD RG4 SP 0: ALI ADD SP 1
 			
 			ALN ADD RG6 1
 			JIF CAR >GN.Loop2
@@ -382,10 +386,10 @@ JIF TRU >StartPoint
 	
 	/ RG0 = input_heap[0] & char
 	/ RG1 = CHAR_CHAR & input_heap (Buffer)
-	/ RG4 = input_heap_pointer (BufferIdx)
+	/ RG4 = input_heap_pointer (BuffIdx)
 	
 	/ "Check to see if we tried to read a character that was a skip or character character"
-	LOD RG0 RG0 >Buffer
+	ALI AND RG0 0: LOD RG0 RG0 >Buffer
 	LDI RG1 >CHAR
 	ALN SUB RG0 RG1
 	JIF NEZ >GN.Done
@@ -406,19 +410,131 @@ JIF TRU >StartPoint
 			ALI ADD RG4 1
 	
 	
-	#GN.Done  / Assumes RG4 has the input_heap_pointer (BufferIdx) in it
+	#GN.Done  / Assumes RG4 has the input_heap_pointer (BuffIdx) in it
 	STR RG4 RG4 >BuffIdx
 	LOD RG7 SP 0
 	ALI ADD SP 1
 	MOV PC RG7
 )
 
-(#AppStrLbl
+(#ApdStrLbl  / UNSAFE for RG0-3, RG7:returnAdd
+	/ RG0 = BuffIdx
+	/ RG1 = LblTblIdx
+	/ RG2 = index
+	/ RG3 = Buffer[index]
 	
+	ALI AND RG0 0:LOD RG0 RG0 >BuffIdx
+	LDI RG2 1
+	
+	/ "Add size+1"
+	ALI AND RG0 0:LOD RG1 RG1 >LblTblIdx
+	STR RG0 RG1 >LabelTable
+	ALI ADD RG1 1
+	
+	/ "Copy in the label string"
+	ALN SUB RG2 RG0
+	JIF EQZ >ASL.Done
+	#ASL.Loop
+		LOD RG3 RG2 >Buffer
+		STR RG3 RG1 >LabelTable
+		ALI ADD RG1 1
+		ALI ADD RG2 1
+		ALN SUB RG2 RG0
+		JIF NEZ >ASL.Loop
+	#ASL.Done
+	
+	/ Update the label table index and return.
+	STR RG1 RG1
+	MOV PC RG7
+)
+
+(#HashHeap  / UNSAFE for RG0-2, RG6:output, RG7:returnAdd
+	/ RG0 = temp
+	/ RG1 = 0x1f
+	/ RG2 = temp2
+	LDI RG1 0x1F
+	ALI AND RG6 0
+	
+	LDI RG0 2:LOD RG0 RG0 >Buffer
+	MOV RG2 RG0
+	ALI SEL RG0 5
+	ALI SLB RG0 15
+	ALU OR RG6 RG0
+	
+	ALU AND RG2 RG1
+	ALI SLB RG0 10
+	ALU OR RG6 RG2
+	
+	LDI RG0 1:LOD RG0 RG0 >Buffer
+	ALU AND RG0 RG1
+	ALI SLB RG0 5
+	ALU OR RG6 RG0
+	
+	ALI AND RG0 0:LOD RG0 RG0 >Buffer
+	ALU AND RG0 RG1
+	ALU OR RG6 RG0
+	
+	MOV PC RG7
+)
+
+(#AssembleNext  / UNSAFE for ALL, RG0: table, RG6:output, RG7:returnAdd
+	
+	ALI SUB SP 2: STR RG0 SP 0: STR RG7 SP 1 / Push table(RG0) and returnAdd(RG7)
+	
+	LDI RG7 >AN.Ret0: JIF TRU >GetNext: #AN.Ret0  / get_next_text()
+	
+	ALI AND RG1 0: LOD RG1 RG1 >BuffIdx  / RG1 = input_heap_pointer
+	
+	AIN SUB RG1 2: JIF NEZ >AN.Skip0  / if input_heap_pointer == 2
+		ALI AND RG2 0: LDI RG3 2: STR RG2 RG3 >Buffer  / input_heap[2] = 0
+		ALI ADD RG1 1: STR RG1 RG1 >BuffIdx  / input_heap_pointer++
+	#AN.Skip0
+	
+	LDI RG7 >AN.Ret1: JIF TRU >HashHeap: #AN.Ret1: MOV RG0 RG6  / RG0 = hash_heap()
+	LOD RG1 SP 0 / Copy table to RG1 
+	LDI RG2 2  / RG2 = 2
+	
+	LDI RG7 >AN.Ret2: JIF TRU >TblIdxLookup: #AN.Ret2  / RG6 = TblIdxLookup(hash, table, 2)
+	
+	ALI ADD RG6 1: LOD RG0 SP 0: ALU ADD RG6 RG0: LOD RG6 RG6 0 / RG6 = [table + RG6 + 1] = table[Idx + 1]
+	LOD RG7 SP 1: ALI ADD SP 2: MOV PC RG7 / Pop from stack and return
 )
 
 (#BuildTables  / First pass through the file, build label table.
-	
+
+	LDI RG0 0  / program_counter(RG0) = 0
+	ALI SUB SP 1: STR RG0 SP 0  / Push the program counter onto the stack.
+	#BT.Loop
+		/ "Place the next chunk of admissible text into the heap."
+		LDI RG7 >BT.Ret0: JIF TRU >GetNext: #BT.Ret0  / GetNext()
+		ALI AND RG0 0: LOD RG0 RG0 >Buffer  / RG0 = first character in buffer
+		
+		/ "Check what type of admissible string it is."
+		LDI RG1 >STOP: ALN SUB RG0 RG1: JIF EQZ >BT.Done  / "We're done"
+		
+		LDI RG1 >LABEL: ALN SUB RG0 RG1: JIF NEZ >BT.Skip0  / "It's a label"
+			/ "Add the label to the table."
+			LDI RG7 >BT.Ret1: JIF TRU >ApdStrLbl: #BT.Ret1
+			
+			/ "Add the value to the table."
+			LOD RG0 SP 0: ALI AND RG1 0: LOD RG1 RG1 >LblTblIdx: STR RG0 RG1 >LabelTable
+			ALI ADD RG1 1: STR RG1 RG1 >LblTblIdx  / LblTblIdx++
+			JIF TRU >BT.Loop
+		#BT.Skip0
+		
+		LDI RG1 >CONST: ALN SUB RG0 RG1: JIF NEZ >BT.Skip1  / "It's a constant"
+			/ "Add the label to the table."
+			LDI RG7 >BT.Ret2: JIF TRU >ApdStrLbl: #BT.Ret2
+			
+			/ "Get the constant's text value."
+			LDI RG7 >BT.Ret3: JIF TRU >GetNext: #BT.Ret3
+			
+			/ "Get and store the value of the label."
+			LDI RG7 >BT.Ret4: JIF TRU >GetNumericValue: #BT.Ret4
+			
+		#BT.Skip1
+		
+		
 )
 
 (#Assemble  / Second pass through the file, do the actual assembling.

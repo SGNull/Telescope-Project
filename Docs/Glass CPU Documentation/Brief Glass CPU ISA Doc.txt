@@ -9,7 +9,8 @@ Instruction set:
 5 LDI - Load immediate, 1 operand w/ value
 6 LOD - RAM read, 2 operands w/ address: Address + value in right op -> left op
 7 STR - RAM write, 2 operands w/ address: Left op -> Address + value in right op
-For the above two instructions: if the two operands are equal, it will just use the address given.
+For STR, if op0 = op1, no value is added to the address.
+This does not happen with LOD, as it would force things like reg = array[index] to use 2 registers.
 
 8 ALU - ALU ops, 2 operands, modifier = opcode: left op [operation] right op -> left op
 9 ALI - immediate
