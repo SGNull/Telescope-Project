@@ -1,0 +1,46 @@
+Just some example code:
+'''
+#MyVar = 2
+@MyConst = 3
+
+(
+	lod RG0 MyVar
+	set RG1 MyConst
+	def RG2 MyTemp
+	
+	MyVar += MyOtherVar
+	MyTemp = MyVar
+	MyVar /= MyOtherVar
+	MyVar *= MyTemp
+	
+	if MyVar == MyTemp (
+		def RG3 t
+
+		MyVar %= MyTemp
+		t += MyVar
+		t *= MyOtherVar
+		mov MyConst t
+	)
+
+	while MyVar != MyTemp (
+		...
+		...
+		...
+	)
+)
+'''
+
+() defines scope, i.e. The table of variables is pushed onto a stack when ( is encountered, and popped when ) is encountered.
+Before popping, it need to check if any variables were in the 
+
+lod [Reg] [Var]     =   ALI AND [Reg] 0; LOD [Reg] [Reg] >[Var]
+set [Reg] [Const/Val]   =   LDI [Reg] >[Const]   OR   LDI [Reg] [Val]
+
+All three lod, set, and def add an entry ([Reg], [Label], type) to the variable table
+
+if [Label] {==, !=, >, >=, <, <=} [Label2] (... code here ...)
+
+while [Label] {==, !=, >, >=, <, <=} [Label2] (... code here ...)
+
+[Label] {!= &= |= x= += -= *= /= %= <= >=} [Label]   =   ALU *[Symbol]* *[Label1]* *[Label2]*
+Note: !=, <=, and >= have different meanings here than in the if statement.

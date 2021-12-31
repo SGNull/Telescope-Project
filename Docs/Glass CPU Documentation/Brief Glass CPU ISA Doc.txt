@@ -12,21 +12,24 @@ Instruction set:
 For STR, if op0 = op1, no value is added to the address.
 This does not happen with LOD, as it would force things like reg = array[index] to use 2 registers.
 
-8 ALU - ALU ops, 2 operands, modifier = opcode: left op [operation] right op -> left op
-9 ALI - immediate
-a ALF - nosetflags
-b AIF - immediate+nosetflags
+ALU ops: 2 operands, modifier = opcode: left op [operation] right op -> left op
+8 ALF - setflags
+9 AIF - immediate, setflags
+a ALU - normal ops
+b ALI - immediate
 
-c ALN - nowrite
-d AIN - immediate+nowrite
-e NOP - nosetflags+nowrite (does nothing)
-f NOP - immediate+nosetflags+nowrite (really does nothing)
+c AFN - nowrite, setflags
+d AIN - immediate+nowrite, setflags
+e NOP - nowrite (does nothing)
+f NOP - immediate+nowrite (really does nothing)
 
 
 
 Registers:
 ----------
-0-7 general purpose registers RG0-7
+0-5 general purpose registers RG0-5
+6 OUT is RG6 (for function outputs)
+7 RA is RG7  (for function return addresses)
 
 8 PC  - Program counter
 9 IO  - I/O Device (pointed to by IOP)

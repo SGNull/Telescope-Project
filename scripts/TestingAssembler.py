@@ -37,12 +37,13 @@ instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       0xa48c, 0x5000, 0b0010,  # LDI
                       0x91ec, 0x6000, 0b0011,  # LOD
                       0xca93, 0x7000, 0b0011,  # STR
-                      0xd581, 0x8000, 0b0111,  # ALU
-                      0xa581, 0x9000, 0b1111,  # ALI
-                      0x9981, 0xA000, 0b0111,  # ALF
-                      0x9921, 0xB000, 0b1111,  # AIF
-                      0xb981, 0xC000, 0b0111,  # ALN
+                      0x9981, 0x8000, 0b0111,  # ALF
+                      0x9921, 0x9000, 0b1111,  # AIF
+                      0xd581, 0xA000, 0b0111,  # ALU
+                      0xa581, 0xB000, 0b1111,  # ALI
+                      0x99c1, 0xC000, 0b0111,  # ANF
                       0xb921, 0xD000, 0b1111,  # AIN
+                      0xc1ee, 0xFFFF, 0b0000,  # NOP
                       NULL
                       ]
 
@@ -54,7 +55,9 @@ register_table = [0x40F2, 0x0,  # RG0
                   0x50F2, 0x4,  # RG4
                   0x54F2, 0x5,  # RG5
                   0x58F2, 0x6,  # RG6
+                  0xD2AF, 0x6,  # OUT
                   0x5CF2, 0x7,  # RG7
+                  0x0032, 0x7,  # RA
                   0x0070, 0x8,  # PC
                   0x01E9, 0x9,  # IO
                   0x9D86, 0xA,  # FLG
@@ -102,8 +105,8 @@ modifier_table = [0xD1EE, 0x0,  # NOT
                   ]
 
 # SKIP_CHARS ends in NULL, not because NULL is skipped, but because tables are NULL terminated
-SKIP_CHARS = [ord('\n'), ord('\t'), ord('('), ord(')'), ord(' '), ord(','), ord('='), ord(':'), ord('['), ord(']'),
-              NULL]
+SKIP_CHARS = [ord('\n'), ord('\t'), ord('('), ord(')'), ord(' '), ord(','),
+              ord('='), ord(':'), ord('['), ord(']'), ord(';'), NULL]
 
 COMMENT_CHAR = ord('/')  # Comments end at a newline character.
 NEWLINE_CHAR = ord('\n')
@@ -118,14 +121,14 @@ CHAR_CHAR = ord('\'')    # Character syntax works somewhat similar to how it wor
 ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character, in decimal only.
 STOP_CHAR = 0
 
-INPUT_HEAP_SIZE = 64
-input_heap = [0] * INPUT_HEAP_SIZE  # The heap that the assembler will use to store words.
-input_heap_pointer = 0  # Would be a variable in Logisim.
+BUFFER_HEAP_SIZE = 128
+buffer = [0] * BUFFER_HEAP_SIZE  # The heap that the assembler will use to store words.
+buffer_index = 0  # Would be a variable in Logisim.
 
-LABEL_TABLE_HEAP_SIZE = 4096
+LABEL_TABLE_HEAP_SIZE = 0x2000
 label_table = [0] * LABEL_TABLE_HEAP_SIZE  # Will contain entries like [size+1,l,a,b,e,l,value,size+1,l,a,...]
 #                                            Note: size+1 is the relative index of the value
-table_heap_pointer = 0  # Would be a variable in Logisim.
+label_table_index = 0  # Would be a variable in Logisim.
 
 
 # ------------------------------------------The Simulation--------------------------------------------------
@@ -212,11 +215,14 @@ def write_output(value):
 
 # -------------------------------------------The Assembler------------------------------------------------
 def print_input_heap():  # TODO: Debug only.
+
     print("Printing heap contents...")
     out = ""
-    for i in range(0, input_heap_pointer - 1):
-        out = out + chr(input_heap[i]) + " "
-    last_elem = input_heap[(input_heap_pointer - 1)]
+
+    for i in range(0, buffer_index - 1):
+        out = out + chr(buffer[i]) + " "
+
+    last_elem = buffer[(buffer_index - 1)]
     out = out + chr(last_elem) + "\n"
     print(out)
 
@@ -233,10 +239,10 @@ def get_value_base(multiplier, starting_index):
     out = 0
     index = starting_index
     while True:
-        if index == input_heap_pointer:
+        if index == buffer_index:
             break
 
-        next_char = input_heap[index]
+        next_char = buffer[index]
         if (next_char & 0x40) != 0:  # it's text
             next_char += 9
 
@@ -251,11 +257,11 @@ def get_value_base(multiplier, starting_index):
 def get_numeric_value():
     """Interprets the contents of the input_heap as a number, returns the value."""
 
-    if input_heap_pointer == 1: # it is a 1 digit decimal number
-        char = input_heap[0]
+    if buffer_index == 1: # it is a 1 digit decimal number
+        char = buffer[0]
         return char & 0xF
 
-    second_char = input_heap[1]
+    second_char = buffer[1]
 
     if (second_char & 0x40) == 0:
         return get_value_base(10, 0)
@@ -279,23 +285,23 @@ def label_lookup():
     # Loop through the label table
     while True:
         # Check if we're out of labels to search through.
-        if table_index >= table_heap_pointer:
+        if table_index >= label_table_index:
             print("LABEL NOT FOUND ERROR")
             exit(1)
 
         # Check if the label is the right size.
         size = label_table[table_index]
-        if input_heap_pointer == size:
+        if buffer_index == size:
             loop_index = 1
 
             # Loop through both the input_heap string and the table's string at the same time.
             while True:
                 # If we reach the end of the heap, we have a match (cause they're the same size strings).
-                if loop_index == input_heap_pointer:
+                if loop_index == buffer_index:
                     return label_table[table_index + size]
 
                 # If any pair of characters don't match, exit the loop.
-                if input_heap[loop_index] != label_table[loop_index + table_index]:
+                if buffer[loop_index] != label_table[loop_index + table_index]:
                     break
 
                 loop_index += 1
@@ -330,7 +336,7 @@ def goto_char(target):
 def get_next_text():
     """Reads the next viable sequence of characters from input into the heap"""
 
-    global input_heap_pointer
+    global buffer_index
 
     # Look for the start of a viable sequence
     while True:
@@ -348,16 +354,16 @@ def get_next_text():
 
     # If we hit a stop character, just put that in the input heap.
     if char == STOP_CHAR:
-        input_heap[0] = char
-        input_heap_pointer = 1
+        buffer[0] = char
+        buffer_index = 1
         return
 
-    input_heap_pointer = 0
+    buffer_index = 0
 
     # Else, get the rest of the character sequence
     while True:
-        input_heap[input_heap_pointer] = char
-        input_heap_pointer += 1
+        buffer[buffer_index] = char
+        buffer_index += 1
 
         char = read_input()
 
@@ -378,32 +384,32 @@ def get_next_text():
                 break
 
     # Check to see if we tried to read a character that was a skip or character character.
-    if input_heap[0] == CHAR_CHAR:
+    if buffer[0] == CHAR_CHAR:
 
-        if input_heap_pointer == 1:
+        if buffer_index == 1:
             char = read_input()
-            input_heap[1] = char
-            input_heap_pointer += 1
+            buffer[1] = char
+            buffer_index += 1
 
-        if input_heap_pointer == 2:
+        if buffer_index == 2:
             char = read_input()
-            input_heap[2] = char
-            input_heap_pointer += 1
+            buffer[2] = char
+            buffer_index += 1
 
 
 def append_string_label():
     """Adds the input_heap to the label_table as a label, but does not assign it a value."""
-    global table_heap_pointer
+    global label_table_index
     index = 1
 
     # Add size+1
-    label_table[table_heap_pointer] = input_heap_pointer
-    table_heap_pointer += 1
+    label_table[label_table_index] = buffer_index
+    label_table_index += 1
 
     # Copy in the label string
-    while index != input_heap_pointer:
-        label_table[table_heap_pointer] = input_heap[index]
-        table_heap_pointer += 1
+    while index != buffer_index:
+        label_table[label_table_index] = buffer[index]
+        label_table_index += 1
         index += 1
 
 
@@ -411,19 +417,19 @@ def hash_heap():
     """Treats the input_heap as the input for the hash function."""
     out = 0
 
-    temp = input_heap[2] & 0x40
+    temp = buffer[2] & 0x40
     temp = temp << 9
     out = out | temp
 
-    temp = input_heap[2] & 0x1f
+    temp = buffer[2] & 0x1f
     temp = temp << 10
     out = out | temp
 
-    temp = input_heap[1] & 0x1f
+    temp = buffer[1] & 0x1f
     temp = temp << 5
     out = out | temp
 
-    temp = input_heap[0] & 0x1f
+    temp = buffer[0] & 0x1f
     out = out | temp
 
     return out
@@ -434,13 +440,13 @@ def assemble_next_mnemonic(table):
     Fetches and returns the value of the next mnemonic from the given table.
     CANNOT BE USED FOR INSTRUCTIONS.
     """
-    global input_heap_pointer
+    global buffer_index
 
     get_next_text()
 
-    if input_heap_pointer == 2:
-        input_heap[2] = 0
-        input_heap_pointer += 1
+    if buffer_index == 2:
+        buffer[2] = 0
+        buffer_index += 1
 
     hash_val = hash_heap()
 
@@ -453,13 +459,13 @@ def assemble_next_mnemonic(table):
 
 def build_tables():
     """The first pass through the file, we build the tables"""
-    global table_heap_pointer
+    global label_table_index
 
     program_counter = 0
     while True:
         # Place the next chunk of admissible text into the heap.
         get_next_text()
-        first_char = input_heap[0]
+        first_char = buffer[0]
 
         # Check what type of admissible string it is.
         if first_char == STOP_CHAR:  # We're done
@@ -470,8 +476,8 @@ def build_tables():
             append_string_label()
 
             # Add the value to the table.
-            label_table[table_heap_pointer] = program_counter
-            table_heap_pointer += 1
+            label_table[label_table_index] = program_counter
+            label_table_index += 1
 
         elif first_char == CONST_CHAR:  # It's a constant
             # Add the label to the table.
@@ -482,8 +488,8 @@ def build_tables():
 
             # Get and store the value of the label.
             value = get_numeric_value()
-            label_table[table_heap_pointer] = value
-            table_heap_pointer += 1
+            label_table[label_table_index] = value
+            label_table_index += 1
 
         elif first_char == CHAR_CHAR:  # It's a character
             program_counter += 1
@@ -520,7 +526,7 @@ def assemble():
     while True:
         # Place the next chunk of admissible text into the heap.
         get_next_text()
-        first_char = input_heap[0]
+        first_char = buffer[0]
 
         # Check what type of admissible string it is.
         if first_char != LABEL_CHAR:  # Label declarations are ignored in this pass through.
@@ -535,7 +541,7 @@ def assemble():
                 get_next_text()
 
             elif first_char == CHAR_CHAR:  # It is a character.
-                value = input_heap[1]
+                value = buffer[1]
                 write_output(value)
 
             elif first_char == ARRAY_CHAR:  # It is an empty array, so we make it.

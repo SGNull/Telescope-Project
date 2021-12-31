@@ -15,12 +15,13 @@ JIF TRU >StartPoint
                0xa48c, 0x5000, 0b0010,  / LDI
                0x91ec, 0x6000, 0b0011,  / LOD
                0xca93, 0x7000, 0b0011,  / STR
-               0xd581, 0x8000, 0b0111,  / ALU
-               0xa581, 0x9000, 0b1111,  / ALI
-               0x9981, 0xA000, 0b0111,  / ALF
-               0x9921, 0xB000, 0b1111,  / AIF
-               0xb981, 0xC000, 0b0111,  / ALN
+               0x9981, 0x8000, 0b0111,  / ALF
+               0x9921, 0x9000, 0b1111,  / AIF
+               0xd581, 0xA000, 0b0111,  / ALU
+               0xa581, 0xB000, 0b1111,  / ALI
+               0x99c1, 0xC000, 0b0111,  / ANF
                0xb921, 0xD000, 0b1111,  / AIN
+               0xc1ee, 0xFFFF, 0b0000,  / NOP
                >TABLESTOP
                ])
 
@@ -32,7 +33,9 @@ JIF TRU >StartPoint
 			  0x50F2, 0x4,  / RG4
 			  0x54F2, 0x5,  / RG5
 			  0x58F2, 0x6,  / RG6
+			  0xD2AF, 0x6,  / OUT
 			  0x5CF2, 0x7,  / RG7
+			  0x0032, 0x7,  / RA
 			  0x0070, 0x8,  / PC
 			  0x01E9, 0x9,  / IO
 			  0x9D86, 0xA,  / FLG
@@ -80,7 +83,7 @@ JIF TRU >StartPoint
 			  ])
 
 / It looks strange, but SkipChars includes newline and tab.
-(#SkipChars = [' ', '
+(#SkipChars = [' ', ';', '
 ', '	', ',', '=', ':', '[', ']', '(', ')', >TABLESTOP])
 
 @COMMENT = '/'
@@ -97,7 +100,7 @@ JIF TRU >StartPoint
 @STOP = 0
 
 
-#Buffer: [~64]  / Buffer is input_heap
+#Buffer = [~128]  / Buffer is input_heap
 #BuffIdx = 0  / BuffIdx is input_heap_pointer
 
 #LblTblIdx = 0  / LblTblIdx is table_heap_pointer
@@ -107,59 +110,47 @@ JIF TRU >StartPoint
 (#StartPoint  / The starting point for the assembler.
 	
 	/ Write 0 to the input
-	LDI RG0 >INFLG
-	MOV FLG RG0
-	ALU AND RG0 0
-	MOV FLG RG0
+	LDI RG0 >INFLG; MOV FLG RG0
+	ALU AND RG0 0; MOV IO RG0
 	
 	/ Goto BuildTables
 	JIF TRU >BuildTables
 )
 
-(#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex, RG6:output, RG7:returnAdd
+(#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex
 	/ RG1 = index
-	/ RG2 = input_heap_pointer
+	/ RG2 = input_heap_pointer (BuffIdx)
 	/ RG3 = next_char
-	/ RG6 = out
-	/ RG7 = return address
 	
-	AIF AND RG2 0
-	LOD RG2 RG2 >BuffIdx
-	AIF AND RG6 0
+	ALI AND RG2 0; LOD RG2 RG2 >BuffIdx  / Get BuffIdx
+	ALI AND OUT 0
 	
-	#GVB.Loop
-		ALN SUB RG1 RG2
-		JIF EQZ >GVB.Done
+	ANF SUB RG1 RG2; JIF EQZ >GVB.Done  / If it's empty, just return 0.
+	
+	#GVB.FLoop  / do{
+		LOD RG3 RG1 >Buffer  / Get next character (at Buffer[index])
 		
-		LOD RG3 RG1 >Buffer
-		AIN SEL RG3 5
-		JIF EQZ >GVB.Skip
-			AIF ADD RG3 9
-			
+		AIN SEL RG3 5; JIF EQZ >GVB.Skip  / If it's a letter, add 9 to it.
+			ALI ADD RG3 9
 		#GVB.Skip
-		AIF AND RG3 0xF
-		ALF MUL RG6 RG0
-		ALF ADD RG6 RG3
 		
-		AIF ADD RG1 1
+		AIF AND RG3 0xF  / Mask the character to get the value.
+		ALF MUL OUT RG0; ALF ADD OUT RG3  / OUT = OUT * multiplier + value.
 		
-		
-	#GVB.Done
-
-	MOV PC RG7
+	AIF ADD RG1 1; ANF SUB RG1 RG2; JIF NEZ >GVB.FLoop  / }for(RG1; RG1 != RG2; RG1++)
+	
+	#GVB.Done; MOV PC RA  / Return
 )
 
-(#GetNumericValue  / UNSAFE for RG0-1, RG6:output, RG7:returnAdd
+(#GetNumericValue  / UNSAFE for RG0-1
 	/ RG0 = second_char & input_heap_pointer
 	/ RG1 = input_heap & HEX_CHAR & BIN_CHAR
 	
-	AIF AND RG0 0:LOD RG0 RG0 >BuffIdx
-	AIN SUB RG0 1
-	JIF NEZ >GNV.0  / "it is a 1 digit decimal number"
-		AIF AND RG6 0
-		LOD RG6 RG6 >Buffer
-		ALI AND RG6 0xF
-		MOV PC RG7
+	ALI AND RG0 0; LOD RG0 RG0 >BuffIdx
+	
+	AIN SUB RG0 1; JIF NEZ >GNV.0  / "it is a 1 digit decimal number"
+		ALI AND OUT 0; LOD OUT OUT >Buffer; ALI AND OUT 0xF
+		MOV PC RA
 	#GNV.0
 	
 	/Passes control straight to GetValueBase
@@ -293,84 +284,57 @@ JIF TRU >StartPoint
 )
 
 (#GetNext  / UNSAFE for ALL, RG7:returnAdd
-	/ RG0: Reserved for goto_char input
-	/ RG1 = char
-	/ RG2 = COMMAND_CHAR
-	/ RG3 = COMMENT_CHAR
-	ALI SUB SP 1
-	STR RG7 SP 0
+	/ RG0 = char
+	/ RG1 = COMMAND_CHAR & COMMENT_CHAR
+	/ RG2 = 1 (for table_index_lookup)
+	/ RG4 = input_heap_pointer (BuffIdx)
 	
-	LDI RG2 >COMMAND
-	LDI RG3 >COMMENT
-	LDI RG7 >GN.Loop1  / Function calls will use this as the return address by default.
+	/ Storing the return address on the stack
+	ALI SUB SP 1; STR RG7 SP 0
+	LDI RG2 1
 	
 	/ "Look for the start of a viable sequence"
 	#GN.Loop1
-		MOV RG1 IO
-		ALN SUB RG1 RG2
-		JIF NEZ >GN.L1
-			MOV RG0 RG2
-			JIF TRU >GotoChar
+		MOV RG0 IO
+		LDI RG7 >GN.Loop1
 		
-		#GN.L1
-		ALN SUB RG1 RG3
-		JIF NEZ >GN.L2
+		LDI RG1 >COMMAND; ALN SUB RG0 RG1; JIF EQZ >GotoChar
+
+		LDI RG1 >COMMENT; ALN SUB RG0 RG1; JIF NEZ >GN.L2
 			LDI RG0 >NEWLINE
 			JIF TRU >GotoChar
+		#GN.L2
 		
-		#GN.L2  / "if char is not a skip character"
-			MOV RG0 RG1
-			LDI RG1 >SkipChars
-			LDI RG2 1
-			LDI RG7 >GN.Ret1
-			JIF TRU >TblIdxLookup #GN.Ret1
-			
-			AIN ADD RG6 1  / Check if not NULL
-			JIF NCR >GetNext  / Reload the register values if skippable.
-			
-	/ Now:
-	/ RG0 = char
-	/ RG1 = constants (STOP, COMMENT, COMMAND, etc.)
-	/ RG2 = 1 (for table_index_lookup)
-	/ RG4 = input_heap_pointer (BuffIdx)
-	LDI RG1 >STOP
-	
+		/ "if char is not a skip character"
+		LDI RG1 >SkipChars
+		LDI RG7 >GN.Ret1; JIF TRU >TblIdxLookup; #GN.Ret1
+	AIN ADD RG6 1; JIF NCR >GN.Loop1
+    
 	/ "If we hit a stop character, just put that in the input heap"
-	ALN SUB RG0 RG1
-	JIF NEZ >GN.Skip1
+	LDI RG1 >STOP; ALN SUB RG0 RG1; JIF NEZ >GN.Skip1
 		STR RG0 RG0 >Buffer
 		LDI RG4 1
 		JIF TRU >GN.Done
 	#GN.Skip1
 	
 	ALI AND RG4 0
-	LDI RG2 1
 	
 	/ "Else, get the rest of the character sequence"
 	#GN.Loop2
-		STR RG0 RG4 >Buffer
-		ALI ADD RG4 1
+		STR RG0 RG4 >Buffer; ALI ADD RG4 1
 		
 		MOV RG0 IO
 		
-		LDI RG1 >COMMAND
-		ALN SUB RG0 RG1
-		JIF NEZ >GN.LL1
-			LDI RG7 >GN.Loop2D
-			JIF TRU >GotoChar
-		
+		LDI RG1 >COMMAND; ALN SUB RG0 RG1; JIF NEZ >GN.LL1
+			LDI RG7 >GN.Loop2D; JIF TRU >GotoChar
 		#GN.LL1
-		LDI RG1 >COMMENT
-		ALN SUB RG0 RG1
-		JIF NEZ >GN.LL2
-			LDI RG0 >NEWLINE
-			LDI RG7 >GN.Loop2D
-			JIF TRU >GotoChar
 		
+		LDI RG1 >COMMENT; ALN SUB RG0 RG1; JIF NEZ >GN.LL2
+			LDI RG0 >NEWLINE
+			LDI RG7 >GN.Loop2D; JIF TRU >GotoChar
 		#GN.LL2
-		LDI RG1 >STOP
-		ALN SUB RG0 RG1
-		JIF EQZ >GN.Loop2D
+		
+		LDI RG1 >STOP; ALN SUB RG0 RG1; JIF EQZ >GN.Loop2D
 		
 		/ "if char is a skip character"
 			LDI RG1 >SkipChars
@@ -411,10 +375,10 @@ JIF TRU >StartPoint
 	
 	
 	#GN.Done  / Assumes RG4 has the input_heap_pointer (BuffIdx) in it
+	
+	/ Update buffer index and return.
 	STR RG4 RG4 >BuffIdx
-	LOD RG7 SP 0
-	ALI ADD SP 1
-	MOV PC RG7
+	LOD RG7 SP 0; ALI ADD SP 1; MOV PC RG7
 )
 
 (#ApdStrLbl  / UNSAFE for RG0-3, RG7:returnAdd
@@ -423,115 +387,103 @@ JIF TRU >StartPoint
 	/ RG2 = index
 	/ RG3 = Buffer[index]
 	
-	ALI AND RG0 0:LOD RG0 RG0 >BuffIdx
+	ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx
 	LDI RG2 1
 	
-	/ "Add size+1"
-	ALI AND RG0 0:LOD RG1 RG1 >LblTblIdx
-	STR RG0 RG1 >LabelTable
-	ALI ADD RG1 1
+	/ "Add size+1" ...to the table.
+	ALI AND RG0 0; LOD RG0 RG0 >BuffIdx; STR RG0 RG1 >LabelTable; ALI ADD RG1 1
 	
 	/ "Copy in the label string"
-	ALN SUB RG2 RG0
-	JIF EQZ >ASL.Done
-	#ASL.Loop
-		LOD RG3 RG2 >Buffer
-		STR RG3 RG1 >LabelTable
-		ALI ADD RG1 1
+	ALN SUB RG2 RG0; JIF EQZ >ASL.Done; #ASL.WLoop
+		LOD RG3 RG2 >Buffer; STR RG3 RG1 >LabelTable; ALI ADD RG1 1
 		ALI ADD RG2 1
-		ALN SUB RG2 RG0
-		JIF NEZ >ASL.Loop
+		
+		ALN SUB RG2 RG0; JIF NEZ >ASL.WLoop
 	#ASL.Done
 	
 	/ Update the label table index and return.
-	STR RG1 RG1
+	STR RG1 RG1 >LblTblIdx
 	MOV PC RG7
 )
 
-(#HashHeap  / UNSAFE for RG0-2, RG6:output, RG7:returnAdd
+(#HashHeap  / UNSAFE for RG0-1, RG6:output, RG7:returnAdd
 	/ RG0 = temp
-	/ RG1 = 0x1f
-	/ RG2 = temp2
+	/ RG1 = 0x1f (bottom 5 bit mask)
 	LDI RG1 0x1F
 	ALI AND RG6 0
 	
-	LDI RG0 2:LOD RG0 RG0 >Buffer
-	MOV RG2 RG0
-	ALI SEL RG0 5
-	ALI SLB RG0 15
-	ALU OR RG6 RG0
+	LDI RG0 2; LOD RG0 RG0 >Buffer; MOV RG6 RG0
 	
-	ALU AND RG2 RG1
-	ALI SLB RG0 10
-	ALU OR RG6 RG2
+	ALU AND RG6 RG1; ALI SLB RG6 10
 	
-	LDI RG0 1:LOD RG0 RG0 >Buffer
-	ALU AND RG0 RG1
-	ALI SLB RG0 5
-	ALU OR RG6 RG0
+	ALI SEL RG0 5; ALI SLB RG0 15; ALU OR RG6 RG0
 	
-	ALI AND RG0 0:LOD RG0 RG0 >Buffer
-	ALU AND RG0 RG1
-	ALU OR RG6 RG0
+	LDI RG0 1; LOD RG0 RG0 >Buffer
+	
+	ALU AND RG0 RG1; ALI SLB RG0 5; ALU OR RG6 RG0
+	
+	ALI AND RG0 0; LOD RG0 RG0 >Buffer
+	
+	ALU AND RG0 RG1; ALU OR RG6 RG0
 	
 	MOV PC RG7
 )
 
 (#AssembleNext  / UNSAFE for ALL, RG0: table, RG6:output, RG7:returnAdd
 	
-	ALI SUB SP 2: STR RG0 SP 0: STR RG7 SP 1 / Push table(RG0) and returnAdd(RG7)
+	ALI SUB SP 2; STR RG0 SP 0; STR RG7 SP 1 / Push table(RG0) and returnAdd(RG7)
 	
-	LDI RG7 >AN.Ret0: JIF TRU >GetNext: #AN.Ret0  / get_next_text()
+	LDI RG7 >AN.Ret0; JIF TRU >GetNext; #AN.Ret0  / get_next_text()
 	
-	ALI AND RG1 0: LOD RG1 RG1 >BuffIdx  / RG1 = input_heap_pointer
+	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx  / RG1 = input_heap_pointer
 	
-	AIN SUB RG1 2: JIF NEZ >AN.Skip0  / if input_heap_pointer == 2
-		ALI AND RG2 0: LDI RG3 2: STR RG2 RG3 >Buffer  / input_heap[2] = 0
-		ALI ADD RG1 1: STR RG1 RG1 >BuffIdx  / input_heap_pointer++
+	AIN SUB RG1 2; JIF NEZ >AN.Skip0  / if input_heap_pointer == 2
+		ALI AND RG2 0; LDI RG3 2; STR RG2 RG3 >Buffer  / input_heap[2] = 0
+		ALI ADD RG1 1; STR RG1 RG1 >BuffIdx  / input_heap_pointer++
 	#AN.Skip0
 	
-	LDI RG7 >AN.Ret1: JIF TRU >HashHeap: #AN.Ret1: MOV RG0 RG6  / RG0 = hash_heap()
+	LDI RG7 >AN.Ret1; JIF TRU >HashHeap; #AN.Ret1; MOV RG0 RG6  / RG0 = hash_heap()
 	LOD RG1 SP 0 / Copy table to RG1 
 	LDI RG2 2  / RG2 = 2
 	
-	LDI RG7 >AN.Ret2: JIF TRU >TblIdxLookup: #AN.Ret2  / RG6 = TblIdxLookup(hash, table, 2)
+	LDI RG7 >AN.Ret2; JIF TRU >TblIdxLookup; #AN.Ret2  / RG6 = TblIdxLookup(hash, table, 2)
 	
-	ALI ADD RG6 1: LOD RG0 SP 0: ALU ADD RG6 RG0: LOD RG6 RG6 0 / RG6 = [table + RG6 + 1] = table[Idx + 1]
-	LOD RG7 SP 1: ALI ADD SP 2: MOV PC RG7 / Pop from stack and return
+	ALI ADD RG6 1; LOD RG0 SP 0; ALU ADD RG6 RG0; LOD RG6 RG6 0 / RG6 = [table + RG6 + 1] = table[Idx + 1]
+	LOD RG7 SP 1; ALI ADD SP 2; MOV PC RG7 / Pop from stack and return
 )
 
 (#BuildTables  / First pass through the file, build label table.
 
-	LDI RG0 0  / program_counter(RG0) = 0
-	ALI SUB SP 1: STR RG0 SP 0  / Push the program counter onto the stack.
+	ALI AND RG0 0  / program_counter(RG0) = 0
+	ALI SUB SP 1; STR RG0 SP 0  / Push the program counter onto the stack.
 	#BT.Loop
 		/ "Place the next chunk of admissible text into the heap."
-		LDI RG7 >BT.Ret0: JIF TRU >GetNext: #BT.Ret0  / GetNext()
-		ALI AND RG0 0: LOD RG0 RG0 >Buffer  / RG0 = first character in buffer
+		LDI RG7 >BT.Ret0; JIF TRU >GetNext; #BT.Ret0  / GetNext()
+		ALI AND RG0 0; LOD RG0 RG0 >Buffer  / RG0 = first character in buffer
 		
 		/ "Check what type of admissible string it is."
-		LDI RG1 >STOP: ALN SUB RG0 RG1: JIF EQZ >BT.Done  / "We're done"
+		LDI RG1 >STOP; ALN SUB RG0 RG1; JIF EQZ >BT.Done  / "We're done"
 		
-		LDI RG1 >LABEL: ALN SUB RG0 RG1: JIF NEZ >BT.Skip0  / "It's a label"
+		LDI RG1 >LABEL; ALN SUB RG0 RG1; JIF NEZ >BT.Skip0  / "It's a label"
 			/ "Add the label to the table."
-			LDI RG7 >BT.Ret1: JIF TRU >ApdStrLbl: #BT.Ret1
+			LDI RG7 >BT.Ret1; JIF TRU >ApdStrLbl; #BT.Ret1
 			
 			/ "Add the value to the table."
-			LOD RG0 SP 0: ALI AND RG1 0: LOD RG1 RG1 >LblTblIdx: STR RG0 RG1 >LabelTable
-			ALI ADD RG1 1: STR RG1 RG1 >LblTblIdx  / LblTblIdx++
+			LOD RG0 SP 0; ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx; STR RG0 RG1 >LabelTable
+			ALI ADD RG1 1; STR RG1 RG1 >LblTblIdx  / LblTblIdx++
 			JIF TRU >BT.Loop
 		#BT.Skip0
 		
-		LDI RG1 >CONST: ALN SUB RG0 RG1: JIF NEZ >BT.Skip1  / "It's a constant"
+		LDI RG1 >CONST; ALN SUB RG0 RG1; JIF NEZ >BT.Skip1  / "It's a constant"
 			/ "Add the label to the table."
-			LDI RG7 >BT.Ret2: JIF TRU >ApdStrLbl: #BT.Ret2
+			LDI RG7 >BT.Ret2; JIF TRU >ApdStrLbl; #BT.Ret2
 			
 			/ "Get the constant's text value."
-			LDI RG7 >BT.Ret3: JIF TRU >GetNext: #BT.Ret3
+			LDI RG7 >BT.Ret3; JIF TRU >GetNext; #BT.Ret3
 			
 			/ "Get and store the value of the label."
-			LDI RG7 >BT.Ret4: JIF TRU >GetNumericValue: #BT.Ret4
-			
+			LDI RG7 >BT.Ret4; JIF TRU >GetNumericValue; #BT.Ret4
+			ALI AND RG0 0;
 		#BT.Skip1
 		
 		
@@ -545,6 +497,7 @@ JIF TRU >StartPoint
 
 )
 
-#LabelTable  / The rest of memory is treated as the label table.
+#LabelTable
+/ The rest of memory is treated as the label table.
 / Structure: (size+1, l, a, b, e, l, value), (size+1, l, a, ...), ...
 / Where size+1 is the relative index of the value, 1 short of the next entry.
