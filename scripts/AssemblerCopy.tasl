@@ -19,7 +19,7 @@ JIF TRU >StartPoint
                0x9921, 0x9000, 0b1111,  / AIF
                0xd581, 0xA000, 0b0111,  / ALU
                0xa581, 0xB000, 0b1111,  / ALI
-               0x99c1, 0xC000, 0b0111,  / ANF
+               0xb8c1, 0xC000, 0b0111,  / AFN
                0xb921, 0xD000, 0b1111,  / AIN
                0xc1ee, 0xFFFF, 0b0000,  / NOP
                >TABLESTOP
@@ -100,8 +100,8 @@ JIF TRU >StartPoint
 @STOP = 0
 
 
-#Buffer = [~128]  / Buffer is input_heap
-#BuffIdx = 0  / BuffIdx is input_heap_pointer
+#Buffer = [~128]  / Buffer is buffer
+#BuffIdx = 0  / BuffIdx is buffer_index
 
 #LblTblIdx = 0  / LblTblIdx is table_heap_pointer
 
@@ -119,13 +119,13 @@ JIF TRU >StartPoint
 
 (#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex
 	/ RG1 = index
-	/ RG2 = input_heap_pointer (BuffIdx)
+	/ RG2 = buffer_index (BuffIdx)
 	/ RG3 = next_char
 	
 	ALI AND RG2 0; LOD RG2 RG2 >BuffIdx  / Get BuffIdx
 	ALI AND OUT 0
 	
-	ANF SUB RG1 RG2; JIF EQZ >GVB.Done  / If it's empty, just return 0.
+	AFN SUB RG1 RG2; JIF EQZ >GVB.Done  / If it's empty, just return 0.
 	
 	#GVB.FLoop  / do{
 		LOD RG3 RG1 >Buffer  / Get next character (at Buffer[index])
@@ -137,14 +137,14 @@ JIF TRU >StartPoint
 		AIF AND RG3 0xF  / Mask the character to get the value.
 		ALF MUL OUT RG0; ALF ADD OUT RG3  / OUT = OUT * multiplier + value.
 		
-	AIF ADD RG1 1; ANF SUB RG1 RG2; JIF NEZ >GVB.FLoop  / }for(RG1; RG1 != RG2; RG1++)
+	AIF ADD RG1 1; AFN SUB RG1 RG2; JIF NEZ >GVB.FLoop  / }for(RG1; RG1 != RG2; RG1++)
 	
 	#GVB.Done; MOV PC RA  / Return
 )
 
 (#GetNumericValue  / UNSAFE for RG0-1
-	/ RG0 = second_char & input_heap_pointer
-	/ RG1 = input_heap & HEX_CHAR & BIN_CHAR
+	/ RG0 = second_char & buffer_index
+	/ RG1 = buffer & HEX_CHAR & BIN_CHAR
 	
 	ALI AND RG0 0; LOD RG0 RG0 >BuffIdx
 	
@@ -155,87 +155,59 @@ JIF TRU >StartPoint
 	
 	/Passes control straight to GetValueBase
 	
-	LDI RG0 1:LOD RG0 RG0 >Buffer
-	
-	ALN SEL RG0 5
-	JIF NEZ >GNV.1
-		LDI RG0 10
-		AIF AND RG0 0
-		JIF TRU >GetValueBase
-		
+	LDI RG0 1; LOD RG0 RG0 >Buffer; AFN SEL RG0 5; JIF NEZ >GNV.1  / if bit 5 of Buffer[1] is off
+		LDI RG0 10; ALI AND RG1 0; JIF TRU >GetValueBase
 	#GNV.1
-	LDI RG1 >HEX_CHAR
-	ALN SUB RG0 RG1
-	JIF NEZ >GNV.2
-		LDI RG0 16
-		LDI RG1 2
-		JIF TRU >GetValueBase
-		
+	
+	LDI RG1 >HEX; AFN SUB RG0 RG1; JIF NEZ >GNV.2  / if Buffer[1] is HEX
+		LDI RG0 16; LDI RG1 2; JIF TRU >GetValueBase
 	#GNV.2
-	LDI RG1 >BIN_CHAR
-	ALN SUB RG0 RG1
-	JIF NEZ GNV.3
-		LDI RG0 2
-		LDI RG1 2
-		JIF TRU >GetValueBase
-		
+	
+	LDI RG1 >BIN; AFN SUB RG0 RG1; JIF NEZ >GNV.3
+		LDI RG0 2; LDI RG1 2; JIF TRU >GetValueBase
 	#GNV.3
-	HLT
-	0xFFF0
-	JIF TRU >StartPoint
+	
+	HLT; 0xFFF0; JIF TRU >StartPoint  / Stop; error code; restart assembler.
 )
 
 (#LabelLookup  / UNSAFE for ALL, RG6:output, RG7:returnAdd
 	/ RG0 = table_index
 	/ RG1 = table_heap_pointer
 	/ RG2 = size
-	/ RG3 = input_heap_pointer
+	/ RG3 = buffer_index
 	/ RG4 = loop_index
 	/ RG5 = temp
 	
-	AIF AND RG0 0:LOD RG1 RG1 >LblTblIdx
+	ALI AND RG0 0:LOD RG1 RG1 >LblTblIdx
 	
 	#LL.MainLoop
 		/ Check if we're out of labels to search through.
-		ALN SUB RG0 RG1
-		JIF LTZ >LL.MS1
-			HLT /exit(1)
-			0xFFF1 / print("LABEL NOT FOUND ERROR")
-			JIF TRU >StartPoint
-		
+		AFN SUB RG0 RG1; JIF LTZ >LL.MS1
+			HLT; 0xFFF1; JIF TRU >StartPoint
 		#LL.MS1
+		
 		/ Check if the label is the right size.
-		LOD RG2 RG0 >LabelTable
-		ALN SUB RG3 RG2
-		JIF NEZ >LL.MS2
+		LOD RG2 RG0 >LabelTable; AFN SUB RG3 RG2; JIF NEZ >LL.MS2
 			LDI RG4 1
 			
-			/ Loop through both the input_heap string and the table's string at the same time.
+			/ Loop through both the buffer string and the table's string at the same time.
 			#LL.SubLoop
 				/ If we reach the end of the heap, we have a match (cause they're the same size strings)
-				ALN SUB RG4 RG3
-				JIF NEZ >LL.SS
-					ALF ADD RG0 RG2
-					LOD RG6 RG0 >LabelTable
+				AFN SUB RG4 RG3; JIF NEZ >LL.SS
+					ALU ADD RG0 RG2; LOD OUT RG0 >LabelTable
 					JIF TRU >LL.Done
+				#LL.SS
 				
 				/ If any pair of characters don't match, exit the loop.
-				#LL.SS
 				MOV RG5 RG0
-				ALF ADD RG5 RG4
-				LOD RG5 RG4 >LabelTable
-				LOD RG6 RG4 >Buffer
-				ALN SUB RG5 RG6
-				JIF NEZ >LL.MS2 / break
+				ALI ADD RG5 RG4  / SOMETHING IS WRONG HERE.
+				LOD RG5 RG4 >LabelTable; LOD RG6 RG4 >Buffer; AFN SUB RG5 RG6; JIF NEZ >LL.MS2
 				
-				AIF ADD RG4 1
-				JIF TRU >LL.SubLoop
-				
-				
+			ALI ADD RG4 1; JIF TRU >LL.SubLoop
 		#LL.MS2
-		ALF ADD RG0 RG2
-		AIF ADD RG0 1
-		JIF TRU >LL.MainLoop
+		
+		ALU ADD RG0 RG2; ALI ADD RG0 1
+	JIF TRU >LL.MainLoop
 	
 	#LL.Done
 	MOV PC RG7
@@ -287,7 +259,7 @@ JIF TRU >StartPoint
 	/ RG0 = char
 	/ RG1 = COMMAND_CHAR & COMMENT_CHAR
 	/ RG2 = 1 (for table_index_lookup)
-	/ RG4 = input_heap_pointer (BuffIdx)
+	/ RG4 = buffer_index (BuffIdx)
 	
 	/ Storing the return address on the stack
 	ALI SUB SP 1; STR RG7 SP 0
@@ -348,9 +320,9 @@ JIF TRU >StartPoint
 			JIF CAR >GN.Loop2
 	#GN.Loop2D
 	
-	/ RG0 = input_heap[0] & char
-	/ RG1 = CHAR_CHAR & input_heap (Buffer)
-	/ RG4 = input_heap_pointer (BuffIdx)
+	/ RG0 = buffer[0] & char
+	/ RG1 = CHAR_CHAR & buffer (Buffer)
+	/ RG4 = buffer_index (BuffIdx)
 	
 	/ "Check to see if we tried to read a character that was a skip or character character"
 	ALI AND RG0 0: LOD RG0 RG0 >Buffer
@@ -374,7 +346,7 @@ JIF TRU >StartPoint
 			ALI ADD RG4 1
 	
 	
-	#GN.Done  / Assumes RG4 has the input_heap_pointer (BuffIdx) in it
+	#GN.Done  / Assumes RG4 has the buffer_index (BuffIdx) in it
 	
 	/ Update buffer index and return.
 	STR RG4 RG4 >BuffIdx
@@ -435,11 +407,11 @@ JIF TRU >StartPoint
 	
 	LDI RG7 >AN.Ret0; JIF TRU >GetNext; #AN.Ret0  / get_next_text()
 	
-	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx  / RG1 = input_heap_pointer
+	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx  / RG1 = buffer_index
 	
-	AIN SUB RG1 2; JIF NEZ >AN.Skip0  / if input_heap_pointer == 2
-		ALI AND RG2 0; LDI RG3 2; STR RG2 RG3 >Buffer  / input_heap[2] = 0
-		ALI ADD RG1 1; STR RG1 RG1 >BuffIdx  / input_heap_pointer++
+	AIN SUB RG1 2; JIF NEZ >AN.Skip0  / if buffer_index == 2
+		ALI AND RG2 0; LDI RG3 2; STR RG2 RG3 >Buffer  / buffer[2] = 0
+		ALI ADD RG1 1; STR RG1 RG1 >BuffIdx  / buffer_index++
 	#AN.Skip0
 	
 	LDI RG7 >AN.Ret1; JIF TRU >HashHeap; #AN.Ret1; MOV RG0 RG6  / RG0 = hash_heap()

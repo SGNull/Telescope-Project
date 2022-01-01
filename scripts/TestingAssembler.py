@@ -41,7 +41,7 @@ instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       0x9921, 0x9000, 0b1111,  # AIF
                       0xd581, 0xA000, 0b0111,  # ALU
                       0xa581, 0xB000, 0b1111,  # ALI
-                      0x99c1, 0xC000, 0b0111,  # ANF
+                      0xb8c1, 0xC000, 0b0111,  # AFN
                       0xb921, 0xD000, 0b1111,  # AIN
                       0xc1ee, 0xFFFF, 0b0000,  # NOP
                       NULL
