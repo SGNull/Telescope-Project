@@ -9,6 +9,7 @@ LDI - Load immediate, 1 operand w/ value
 LOD - RAM read, 2 operands w/ address
 STR - RAM write, 2 operands w/ address
 
+The following ALU instructions have changed their mnemonics, but the same machine code still does the same thing.
 ALU - normal ops, modifier = opcode
 ALI - immediate
 ALF - nosetflags

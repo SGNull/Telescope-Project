@@ -294,7 +294,7 @@ def label_lookup():
         if buffer_index == size:
             loop_index = 1
 
-            # Loop through both the input_heap string and the table's string at the same time.
+            # Loop through both the input_heap string and the entry's string at the same time.
             while True:
                 # If we reach the end of the heap, we have a match (cause they're the same size strings).
                 if loop_index == buffer_index:

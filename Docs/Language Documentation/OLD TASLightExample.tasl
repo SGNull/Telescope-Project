@@ -1,3 +1,7 @@
+/ ***************************************DEPRECATED***************************************
+/ This example is very different from how TASL v2 works, and as a result it will not
+/ be updated any more.
+
 / This is a comment, comments start at / and end at newline.
 / Comments should not be too long, and should start with a space (for cleanliness).
 

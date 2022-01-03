@@ -4,7 +4,7 @@ JIF TRU >StartPoint
 @INFLG = 0
 @OUTFLG = 0x800
 
-@TABLESTOP = 0xFFFF
+@TABLESTOP = 0xFFFF  / Must stay NULL.
 
 / Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
 (#InstTable = [0xd188, 0x0000, 0b0000,  / HLT
@@ -117,7 +117,7 @@ JIF TRU >StartPoint
 	JIF TRU >BuildTables
 )
 
-(#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex
+(#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex, returns value
 	/ RG1 = index
 	/ RG2 = buffer_index (BuffIdx)
 	/ RG3 = next_char
@@ -130,19 +130,19 @@ JIF TRU >StartPoint
 	#GVB.FLoop  / do{
 		LOD RG3 RG1 >Buffer  / Get next character (at Buffer[index])
 		
-		AIN SEL RG3 5; JIF EQZ >GVB.Skip  / If it's a letter, add 9 to it.
+		AIN SEL RG3 5; JIF EQZ >GVB.Num  / If it's a letter, add 9 to it.
 			ALI ADD RG3 9
-		#GVB.Skip
+		#GVB.Num
 		
-		AIF AND RG3 0xF  / Mask the character to get the value.
-		ALF MUL OUT RG0; ALF ADD OUT RG3  / OUT = OUT * multiplier + value.
+		ALI AND RG3 0xF  / Mask the character to get the value.
+		ALU MUL OUT RG0; ALU ADD OUT RG3  / OUT = OUT * multiplier + value.
 		
-	AIF ADD RG1 1; AFN SUB RG1 RG2; JIF NEZ >GVB.FLoop  / }for(RG1; RG1 != RG2; RG1++)
+	ALI ADD RG1 1; AFN SUB RG1 RG2; JIF NEZ >GVB.FLoop  / }for(RG1; RG1 != RG2; RG1++)
 	
 	#GVB.Done; MOV PC RA  / Return
 )
 
-(#GetNumericValue  / UNSAFE for RG0-1
+(#GetNumericValue  / UNSAFE for RG0-3, returns value
 	/ RG0 = second_char & buffer_index
 	/ RG1 = buffer & HEX_CHAR & BIN_CHAR
 	
@@ -155,104 +155,102 @@ JIF TRU >StartPoint
 	
 	/Passes control straight to GetValueBase
 	
-	LDI RG0 1; LOD RG0 RG0 >Buffer; AFN SEL RG0 5; JIF NEZ >GNV.1  / if bit 5 of Buffer[1] is off
+	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 5; JIF NEZ >GNV.Char  / if bit 5 of Buffer[1] is off
 		LDI RG0 10; ALI AND RG1 0; JIF TRU >GetValueBase
-	#GNV.1
+	#GNV.Char
 	
-	LDI RG1 >HEX; AFN SUB RG0 RG1; JIF NEZ >GNV.2  / if Buffer[1] is HEX
+	LDI RG1 >HEX; AFN SUB RG0 RG1; JIF NEZ >GNV.NH  / if Buffer[1] is HEX
 		LDI RG0 16; LDI RG1 2; JIF TRU >GetValueBase
-	#GNV.2
+	#GNV.NH
 	
-	LDI RG1 >BIN; AFN SUB RG0 RG1; JIF NEZ >GNV.3
+	LDI RG1 >BIN; AFN SUB RG0 RG1; JIF NEZ >GNV.Bad  / if Buffer[1] is BIN
 		LDI RG0 2; LDI RG1 2; JIF TRU >GetValueBase
-	#GNV.3
+	#GNV.Bad
+	/ We shouldn't get here, because GetNumericValue is always called on a number.
 	
 	HLT; 0xFFF0; JIF TRU >StartPoint  / Stop; error code; restart assembler.
 )
 
-(#LabelLookup  / UNSAFE for ALL, RG6:output, RG7:returnAdd
-	/ RG0 = table_index
+(#LabelLookup  / UNSAFE for ALL, returns label value
+	/ RG0 = index *of* (the 0th element of) the current entry in table
 	/ RG1 = table_heap_pointer
-	/ RG2 = size
+	/ RG2 = size (of whole entry - 1 == size of string + 1 == what the buffer_index should be)
 	/ RG3 = buffer_index
-	/ RG4 = loop_index
+	/ RG4 = current index *within* the string/entry
 	/ RG5 = temp
 	
-	ALI AND RG0 0:LOD RG1 RG1 >LblTblIdx
+	ALI AND RG0 0
+	ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx
 	
-	#LL.MainLoop
+	#LL.TableLoop
 		/ Check if we're out of labels to search through.
-		AFN SUB RG0 RG1; JIF LTZ >LL.MS1
-			HLT; 0xFFF1; JIF TRU >StartPoint
-		#LL.MS1
+		AFN SUB RG0 RG1; JIF LTZ >LL.OK
+			/ We should never reach here, because every label searched should exist.
+			HLT; 0xFFF1; JIF TRU >StartPoint  / Halt, error code, restart assembler.
+		#LL.OK
 		
 		/ Check if the label is the right size.
-		LOD RG2 RG0 >LabelTable; AFN SUB RG3 RG2; JIF NEZ >LL.MS2
+		LOD RG2 RG0 >LabelTable; AFN SUB RG3 RG2; JIF NEZ >LL.NotMatch
 			LDI RG4 1
 			
-			/ Loop through both the buffer string and the table's string at the same time.
-			#LL.SubLoop
+			/ Loop through both the buffer string and the entry's string at the same time.
+			#LL.EntryLoop
 				/ If we reach the end of the heap, we have a match (cause they're the same size strings)
-				AFN SUB RG4 RG3; JIF NEZ >LL.SS
-					ALU ADD RG0 RG2; LOD OUT RG0 >LabelTable
-					JIF TRU >LL.Done
-				#LL.SS
+				AFN SUB RG4 RG2; JIF NEZ >LL.DoLoop
+					ALU ADD RG0 RG2; LOD OUT RG0 >LabelTable; JIF TRU >LL.Done
+				#LL.DoLoop
 				
 				/ If any pair of characters don't match, exit the loop.
-				MOV RG5 RG0
-				ALI ADD RG5 RG4  / SOMETHING IS WRONG HERE.
-				LOD RG5 RG4 >LabelTable; LOD RG6 RG4 >Buffer; AFN SUB RG5 RG6; JIF NEZ >LL.MS2
+				MOV RG5 RG0; ALU ADD RG5 RG4; LOD RG5 RG5 >LabelTable  / RG5 = LabelTable[RG0 + RG4]
+				LOD RG6 RG4 >Buffer; AFN SUB RG5 RG6; JIF NEZ >LL.NotMatch  / exit if RG5 != Buffer[RG4]
 				
-			ALI ADD RG4 1; JIF TRU >LL.SubLoop
-		#LL.MS2
-		
-		ALU ADD RG0 RG2; ALI ADD RG0 1
-	JIF TRU >LL.MainLoop
+			ALI ADD RG4 1; JIF TRU >LL.EntryLoop  / Increment relative/string index and loop.
+		#LL.NotMatch
+	ALU ADD RG0 RG2; ALI ADD RG0 1; JIF TRU >LL.TableLoop  / move the table index to the next entry
 	
 	#LL.Done
-	MOV PC RG7
+	MOV PC RA
 )
 
-(#TblIdxLookup  / UNSAFE for RG3-5, RG0:key, RG1:table, RG2:entry_size, RG6:output, RG7:returnAdd
+(#TblIdxLookup  / UNSAFE for RG3-5, RG0:key, RG1:table, RG2:entry_size, returns index
 	/ RG3 = index
 	/ RG4 = next_entry_key
 	/ RG5 = TABLESTOP
-	AIF AND RG3 0
+	ALI AND RG3 0
 	LDI RG5 >TABLESTOP
+	
 	#TIL.Loop
-		STR RG3 RG3 >TIL.SMC
-		LOD RG4 RG1 #TIL.SMC[0]
+		STR RG3 RG3 >TIL.SMC; LOD RG4 RG1 #TIL.SMC 0  / next entry = [table + index]
 		
-		ALN SUB RG4 RG0
-		JIF NEZ TIL.Next
-			MOV RG6 RG3
+		AFN SUB RG4 RG0; JIF NEZ TIL.Skp1  / Check if there's a match
+			MOV OUT RG3
 			JIF TRU TIL.End
+		#TIL.Skp1
 		
-		ALN SUB RG4 RG5
-		JIF NEZ TIL.Next2
-			MOV RG6 RG5
+		AFN SUB RG4 RG5; JIF NEZ TIL.Skp2  / Check if we're at the end of the table.
+			MOV OUT RG5
 			JIF TRU TIL.End
+		#TIL.Skp2
 		
-		#TIL.Next2
-		ALF ADD RG3 RG2
-		JIF TRU TIL.Loop
-			
+		ALU ADD RG3 RG2
+	JIF TRU TIL.Loop
+	
 	#TIL.End
-	MOV PC RG7
+	MOV PC RA
 )
 
-(#GotoChar  / UNSAFE for RG5-6, RG0:target, RG7:returnAdd
+(#GotoChar  / UNSAFE for RG5-6, RG0:target
 	/ RG5 = char
 	/ RG6 = STOP_CHAR
 	LDI RG6 >STOP
+	
 	#GC.Loop
 		MOV RG5 IO
-		ALN SUB RG5 RG0
-		JIF EQZ >GC.Done
-		ALN SUB RG5 RG6
-		JIF NEZ >GC.Loop
+		AFN SUB RG5 RG0; JIF EQZ >GC.Done  / If we're at the target, we're done.
+	AFN SUB RG5 RG6; JIF NEZ >GC.Loop  / If we hit the end of the file, we're really done.
+	
 	#GC.Done
-	MOV PC RG7
+	MOV PC RA
 )
 
 (#GetNext  / UNSAFE for ALL, RG7:returnAdd
@@ -262,25 +260,24 @@ JIF TRU >StartPoint
 	/ RG4 = buffer_index (BuffIdx)
 	
 	/ Storing the return address on the stack
-	ALI SUB SP 1; STR RG7 SP 0
+	ALI SUB SP 1; STR RA SP 0
 	LDI RG2 1
 	
 	/ "Look for the start of a viable sequence"
 	#GN.Loop1
 		MOV RG0 IO
-		LDI RG7 >GN.Loop1
+		LDI RA >GN.Loop1
 		
-		LDI RG1 >COMMAND; ALN SUB RG0 RG1; JIF EQZ >GotoChar
+		LDI RG1 >COMMAND; AFN SUB RG0 RG1; JIF EQZ >GotoChar  / If command, goto command (already in RG0)
 
-		LDI RG1 >COMMENT; ALN SUB RG0 RG1; JIF NEZ >GN.L2
-			LDI RG0 >NEWLINE
-			JIF TRU >GotoChar
+		LDI RG1 >COMMENT; AFN SUB RG0 RG1; JIF NEZ >GN.L2  / If comment,
+			LDI RG0 >NEWLINE; JIF TRU >GotoChar            / Goto newline
 		#GN.L2
 		
-		/ "if char is not a skip character"
-		LDI RG1 >SkipChars
-		LDI RG7 >GN.Ret1; JIF TRU >TblIdxLookup; #GN.Ret1
-	AIN ADD RG6 1; JIF NCR >GN.Loop1
+		/ Do TblIdxLookup(char, SkipChars, 1)
+		LDI RG1 >SkipChars; LDI RA >GN.Ret1; JIF TRU >TblIdxLookup; #GN.Ret1  
+		
+	AIN ADD OUT 1; JIF NCR >GN.Loop1  / If TblIdxLookup did not return NULL, loop.
     
 	/ "If we hit a stop character, just put that in the input heap"
 	LDI RG1 >STOP; ALN SUB RG0 RG1; JIF NEZ >GN.Skip1
@@ -473,3 +470,4 @@ JIF TRU >StartPoint
 / The rest of memory is treated as the label table.
 / Structure: (size+1, l, a, b, e, l, value), (size+1, l, a, ...), ...
 / Where size+1 is the relative index of the value, 1 short of the next entry.
+/ It also happens to be the value that BuffIdx should be if the buffer contents match the label.
