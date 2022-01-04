@@ -253,7 +253,7 @@ JIF TRU >StartPoint
 	MOV PC RA
 )
 
-(#GetNext  / UNSAFE for ALL, RG7:returnAdd
+(#GetNext  / UNSAFE for ALL
 	/ RG0 = char
 	/ RG1 = COMMAND_CHAR & COMMENT_CHAR
 	/ RG2 = 1 (for table_index_lookup)
@@ -261,8 +261,8 @@ JIF TRU >StartPoint
 	
 	/ Storing the return address on the stack
 	ALI SUB SP 1; STR RA SP 0
-	LDI RG2 1
 	
+	LDI RG2 1
 	/ "Look for the start of a viable sequence"
 	#GN.Loop1
 		MOV RG0 IO
@@ -270,87 +270,65 @@ JIF TRU >StartPoint
 		
 		LDI RG1 >COMMAND; AFN SUB RG0 RG1; JIF EQZ >GotoChar  / If command, goto command (already in RG0)
 
-		LDI RG1 >COMMENT; AFN SUB RG0 RG1; JIF NEZ >GN.L2  / If comment,
-			LDI RG0 >NEWLINE; JIF TRU >GotoChar            / Goto newline
-		#GN.L2
+		LDI RG1 >COMMENT; AFN SUB RG0 RG1; JIF NEZ >GN.NotCom  / If comment,
+			LDI RG0 >NEWLINE; JIF TRU >GotoChar                / Goto newline
+		#GN.NotCom
 		
 		/ Do TblIdxLookup(char, SkipChars, 1)
 		LDI RG1 >SkipChars; LDI RA >GN.Ret1; JIF TRU >TblIdxLookup; #GN.Ret1  
-		
 	AIN ADD OUT 1; JIF NCR >GN.Loop1  / If TblIdxLookup did not return NULL, loop.
     
+	
 	/ "If we hit a stop character, just put that in the input heap"
-	LDI RG1 >STOP; ALN SUB RG0 RG1; JIF NEZ >GN.Skip1
+	LDI RG1 >STOP; AFN SUB RG0 RG1; JIF NEZ >GN.Skip1
 		STR RG0 RG0 >Buffer
 		LDI RG4 1
 		JIF TRU >GN.Done
 	#GN.Skip1
 	
-	ALI AND RG4 0
+	ALI AND RG4 0  / Set BuffIdx to 0
 	
-	/ "Else, get the rest of the character sequence"
+	/ If char is a character character, just put 3 things in the heap (we're expecting something like 'c')
+	LDI RG1 >CHAR; AFN SUB RG0 RG1; JIF NEZ >GN.Skip2
+		STR RG0 RG4 >Buffer
+		MOV RG0 IO; ALI ADD RG4 1; STR RG0 RG4 >Buffer
+		MOV RG0 IO; ALI ADD RG4 1; STR RG0 RG4 >Buffer
+		JIF TRU >GN.Done
+	#GN.Skip2
+	
+	
+	LDI RA >GN.LLRet; LDI RG1 >SkipChars  / Setting up arguments for TblIdxLookup
+	/ Get the rest of the character sequence using another loop.
 	#GN.Loop2
-		STR RG0 RG4 >Buffer; ALI ADD RG4 1
+		STR RG0 RG4 >Buffer; ALI ADD RG4 1  / Store the char in the buffer
 		
-		MOV RG0 IO
+		MOV RG0 IO  / Get the next one
 		
-		LDI RG1 >COMMAND; ALN SUB RG0 RG1; JIF NEZ >GN.LL1
-			LDI RG7 >GN.Loop2D; JIF TRU >GotoChar
+		LDI RG2 >COMMAND; AFN SUB RG0 RG2; JIF NEZ >GN.LL1  / If command, skip the command & "break"
+			LDI RA >GN.Loop2D; JIF TRU >GotoChar
 		#GN.LL1
 		
-		LDI RG1 >COMMENT; ALN SUB RG0 RG1; JIF NEZ >GN.LL2
-			LDI RG0 >NEWLINE
-			LDI RG7 >GN.Loop2D; JIF TRU >GotoChar
+		LDI RG2 >COMMENT; AFN SUB RG0 RG2; JIF NEZ >GN.LL2  / If comment, skip the comment & "break"
+			LDI RG0 >NEWLINE; LDI RA >GN.Loop2D; JIF TRU >GotoChar
 		#GN.LL2
 		
-		LDI RG1 >STOP; ALN SUB RG0 RG1; JIF EQZ >GN.Loop2D
+		LDI RG2 >STOP; AFN SUB RG0 RG2; JIF EQZ >GN.Loop2D  / If we reach a stop character, break.
 		
-		/ "if char is a skip character"
-			LDI RG1 >SkipChars
-			
-			/ Preserving RG4 (TblIdxLookup is UNSAFE for that register)
-			ALI SUB SP 1: STR RG4 SP 0
-			LDI RG7 >GN.LLRet: JIF TRU >TblIdxLookup #GN.LLRet
-			LOD RG4 SP 0: ALI ADD SP 1
-			
-			ALN ADD RG6 1
-			JIF CAR >GN.Loop2
+		ALI SUB SP 1; STR RG4 SP 0  / Push BuffIdx
+		JIF TRU >TblIdxLookup; #GN.LLRet  / Search SkipChars for char (RA and RG1 already set up)
+		LOD RG4 SP 0; ALI ADD SP 1  / Pop BuffIdx
+		
+		AFN ADD OUT 1; JIF CAR >GN.Loop2  / If the character is not a skip character, keep going.
 	#GN.Loop2D
-	
-	/ RG0 = buffer[0] & char
-	/ RG1 = CHAR_CHAR & buffer (Buffer)
-	/ RG4 = buffer_index (BuffIdx)
-	
-	/ "Check to see if we tried to read a character that was a skip or character character"
-	ALI AND RG0 0: LOD RG0 RG0 >Buffer
-	LDI RG1 >CHAR
-	ALN SUB RG0 RG1
-	JIF NEZ >GN.Done
-	
-		LDI RG1 >Buffer
-		
-		AIN SUB RG4 1
-		JIF NEZ >GN.ESkip
-			MOV RG0 IO
-			STR RG0 RG1 1
-			ALI ADD RG4 1
-		
-		#GN.ESkip
-		AIN SUB RG4 2
-		JIF NEZ >GN.Done
-			MOV RG0 IO
-			STR RG0 RG1 2
-			ALI ADD RG4 1
 	
 	
 	#GN.Done  / Assumes RG4 has the buffer_index (BuffIdx) in it
-	
 	/ Update buffer index and return.
 	STR RG4 RG4 >BuffIdx
-	LOD RG7 SP 0; ALI ADD SP 1; MOV PC RG7
+	LOD RA SP 0; ALI ADD SP 1; MOV PC RA
 )
 
-(#ApdStrLbl  / UNSAFE for RG0-3, RG7:returnAdd
+(#ApdStrLbl  / UNSAFE for RG0-3
 	/ RG0 = BuffIdx
 	/ RG1 = LblTblIdx
 	/ RG2 = index
@@ -363,62 +341,58 @@ JIF TRU >StartPoint
 	ALI AND RG0 0; LOD RG0 RG0 >BuffIdx; STR RG0 RG1 >LabelTable; ALI ADD RG1 1
 	
 	/ "Copy in the label string"
-	ALN SUB RG2 RG0; JIF EQZ >ASL.Done; #ASL.WLoop
-		LOD RG3 RG2 >Buffer; STR RG3 RG1 >LabelTable; ALI ADD RG1 1
-		ALI ADD RG2 1
+	#ASL.FLoop
+		LOD RG3 RG2 >Buffer; STR RG3 RG1 >LabelTable; ALI ADD RG1 1  / Store Buffer[index] in LabelTable
 		
-		ALN SUB RG2 RG0; JIF NEZ >ASL.WLoop
-	#ASL.Done
+	ALI ADD RG2 1; AFN SUB RG2 RG0; JIF NEZ >ASL.FLoop; #ASL.Done  / for(index; index != BuffIdx; index++)
 	
 	/ Update the label table index and return.
 	STR RG1 RG1 >LblTblIdx
-	MOV PC RG7
+	MOV PC RA
 )
 
-(#HashHeap  / UNSAFE for RG0-1, RG6:output, RG7:returnAdd
+(#HashBuff  / UNSAFE for RG0-1, returns the hash of the buffer's contents.
 	/ RG0 = temp
 	/ RG1 = 0x1f (bottom 5 bit mask)
+	
+	/ Takes the bottom 5 bits of Buffer[2] Buffer[1] Buffer[0] and appends them in that order.
+	/ Bit 15 is the 5th bit of Buffer[2], which is 0 if it's a number, and 1 if it's a character. 
 	LDI RG1 0x1F
-	ALI AND RG6 0
+	ALI AND OUT 0
 	
-	LDI RG0 2; LOD RG0 RG0 >Buffer; MOV RG6 RG0
-	
-	ALU AND RG6 RG1; ALI SLB RG6 10
-	
-	ALI SEL RG0 5; ALI SLB RG0 15; ALU OR RG6 RG0
+	LDI RG0 2; LOD RG0 RG0 >Buffer; MOV OUT RG0
+	ALU AND OUT RG1; ALI SLB OUT 10
+	ALI SEL RG0 5; ALI SLB RG0 15; ALU OR OUT RG0
 	
 	LDI RG0 1; LOD RG0 RG0 >Buffer
-	
-	ALU AND RG0 RG1; ALI SLB RG0 5; ALU OR RG6 RG0
+	ALU AND RG0 RG1; ALI SLB RG0 5; ALU OR OUT RG0
 	
 	ALI AND RG0 0; LOD RG0 RG0 >Buffer
+	ALU AND RG0 RG1; ALU OR OUT RG0
 	
-	ALU AND RG0 RG1; ALU OR RG6 RG0
-	
-	MOV PC RG7
+	MOV PC RA
 )
 
-(#AssembleNext  / UNSAFE for ALL, RG0: table, RG6:output, RG7:returnAdd
+(#AssembleNext  / UNSAFE for ALL, RG0: table, returns mnemonic's value
 	
-	ALI SUB SP 2; STR RG0 SP 0; STR RG7 SP 1 / Push table(RG0) and returnAdd(RG7)
+	ALI SUB SP 2; STR RG0 SP 0; STR RA SP 1 / Push table(RG0) and RA
 	
-	LDI RG7 >AN.Ret0; JIF TRU >GetNext; #AN.Ret0  / get_next_text()
+	LDI RA >AN.Ret0; JIF TRU >GetNext; #AN.Ret0  / get_next_text()
 	
 	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx  / RG1 = buffer_index
 	
-	AIN SUB RG1 2; JIF NEZ >AN.Skip0  / if buffer_index == 2
-		ALI AND RG2 0; LDI RG3 2; STR RG2 RG3 >Buffer  / buffer[2] = 0
+	AIN SUB RG1 2; JIF NEZ >AN.Skip0  / if buffer_index == 2 (if it's a 2 char mnemonic)
+		ALI AND RG2 0; STR RG2 RG1 >Buffer  / buffer[2] = 0
 		ALI ADD RG1 1; STR RG1 RG1 >BuffIdx  / buffer_index++
 	#AN.Skip0
 	
-	LDI RG7 >AN.Ret1; JIF TRU >HashHeap; #AN.Ret1; MOV RG0 RG6  / RG0 = hash_heap()
-	LOD RG1 SP 0 / Copy table to RG1 
-	LDI RG2 2  / RG2 = 2
+	LDI RA >AN.Ret1; JIF TRU >HashBuff; #AN.Ret1   / HashBuff()
 	
-	LDI RG7 >AN.Ret2; JIF TRU >TblIdxLookup; #AN.Ret2  / RG6 = TblIdxLookup(hash, table, 2)
+	MOV RG0 OUT; LOD RG1 SP 0; LDI RG2 2 / RG0 = hash key, RG1 = table, RG2 = 2
+	LDI RA >AN.Ret2; JIF TRU >TblIdxLookup; #AN.Ret2  / TblIdxLookup(hash, table, 2)
 	
-	ALI ADD RG6 1; LOD RG0 SP 0; ALU ADD RG6 RG0; LOD RG6 RG6 0 / RG6 = [table + RG6 + 1] = table[Idx + 1]
-	LOD RG7 SP 1; ALI ADD SP 2; MOV PC RG7 / Pop from stack and return
+	ALI ADD OUT 1; LOD RG0 SP 0; ALU ADD OUT RG0; LOD OUT OUT 0 / RG6 = [table + RG6 + 1] = table[Idx + 1]
+	LOD RA SP 1; ALI ADD SP 2; MOV PC RA / Pop from stack and return
 )
 
 (#BuildTables  / First pass through the file, build label table.
@@ -427,15 +401,15 @@ JIF TRU >StartPoint
 	ALI SUB SP 1; STR RG0 SP 0  / Push the program counter onto the stack.
 	#BT.Loop
 		/ "Place the next chunk of admissible text into the heap."
-		LDI RG7 >BT.Ret0; JIF TRU >GetNext; #BT.Ret0  / GetNext()
+		LDI RA >BT.Ret0; JIF TRU >GetNext; #BT.Ret0  / GetNext()
 		ALI AND RG0 0; LOD RG0 RG0 >Buffer  / RG0 = first character in buffer
 		
 		/ "Check what type of admissible string it is."
-		LDI RG1 >STOP; ALN SUB RG0 RG1; JIF EQZ >BT.Done  / "We're done"
+		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ >BT.Done  / "We're done"
 		
-		LDI RG1 >LABEL; ALN SUB RG0 RG1; JIF NEZ >BT.Skip0  / "It's a label"
+		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF NEZ >BT.Skip0  / "It's a label"
 			/ "Add the label to the table."
-			LDI RG7 >BT.Ret1; JIF TRU >ApdStrLbl; #BT.Ret1
+			LDI RA >BT.Ret1; JIF TRU >ApdStrLbl; #BT.Ret1
 			
 			/ "Add the value to the table."
 			LOD RG0 SP 0; ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx; STR RG0 RG1 >LabelTable
@@ -443,15 +417,15 @@ JIF TRU >StartPoint
 			JIF TRU >BT.Loop
 		#BT.Skip0
 		
-		LDI RG1 >CONST; ALN SUB RG0 RG1; JIF NEZ >BT.Skip1  / "It's a constant"
+		LDI RG1 >CONST; AFN SUB RG0 RG1; JIF NEZ >BT.Skip1  / "It's a constant"
 			/ "Add the label to the table."
-			LDI RG7 >BT.Ret2; JIF TRU >ApdStrLbl; #BT.Ret2
+			LDI RA >BT.Ret2; JIF TRU >ApdStrLbl; #BT.Ret2
 			
 			/ "Get the constant's text value."
-			LDI RG7 >BT.Ret3; JIF TRU >GetNext; #BT.Ret3
+			LDI RA >BT.Ret3; JIF TRU >GetNext; #BT.Ret3
 			
 			/ "Get and store the value of the label."
-			LDI RG7 >BT.Ret4; JIF TRU >GetNumericValue; #BT.Ret4
+			LDI RA >BT.Ret4; JIF TRU >GetNumericValue; #BT.Ret4
 			ALI AND RG0 0;
 		#BT.Skip1
 		

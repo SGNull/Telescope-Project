@@ -358,6 +358,16 @@ def get_next_text():
         buffer_index = 1
         return
 
+    # If we reach the character character, just put the next 2 things into the buffer.
+    if char == CHAR_CHAR:
+        buffer[0] = char
+        char = read_input()
+        buffer[1] = char
+        char = read_input()
+        buffer[2] = char
+        buffer_index = 3
+        return
+
     buffer_index = 0
 
     # Else, get the rest of the character sequence
@@ -382,19 +392,6 @@ def get_next_text():
             result = table_index_lookup(char, SKIP_CHARS, 1)
             if result != NULL:
                 break
-
-    # Check to see if we tried to read a character that was a skip or character character.
-    if buffer[0] == CHAR_CHAR:
-
-        if buffer_index == 1:
-            char = read_input()
-            buffer[1] = char
-            buffer_index += 1
-
-        if buffer_index == 2:
-            char = read_input()
-            buffer[2] = char
-            buffer_index += 1
 
 
 def append_string_label():
