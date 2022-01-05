@@ -202,7 +202,7 @@ JIF TRU >StartPoint
 				
 				/ If any pair of characters don't match, exit the loop.
 				MOV RG5 RG0; ALU ADD RG5 RG4; LOD RG5 RG5 >LabelTable  / RG5 = LabelTable[RG0 + RG4]
-				LOD RG6 RG4 >Buffer; AFN SUB RG5 RG6; JIF NEZ >LL.NotMatch  / exit if RG5 != Buffer[RG4]
+				LOD OUT RG4 >Buffer; AFN SUB RG5 OUT; JIF NEZ >LL.NotMatch  / exit if RG5 != Buffer[RG4]
 				
 			ALI ADD RG4 1; JIF TRU >LL.EntryLoop  / Increment relative/string index and loop.
 		#LL.NotMatch
@@ -212,7 +212,7 @@ JIF TRU >StartPoint
 	MOV PC RA
 )
 
-(#TblIdxLookup  / UNSAFE for RG3-5, RG0:key, RG1:table, RG2:entry_size, returns index
+(#TblIdxLookup  / UNSAFE for RG3-5, RG0:key, RG1:table, RG2:entry_size, returns table index
 	/ RG3 = index
 	/ RG4 = next_entry_key
 	/ RG5 = TABLESTOP
@@ -399,40 +399,88 @@ JIF TRU >StartPoint
 
 	ALI AND RG0 0  / program_counter(RG0) = 0
 	ALI SUB SP 1; STR RG0 SP 0  / Push the program counter onto the stack.
+	
 	#BT.Loop
-		/ "Place the next chunk of admissible text into the heap."
 		LDI RA >BT.Ret0; JIF TRU >GetNext; #BT.Ret0  / GetNext()
 		ALI AND RG0 0; LOD RG0 RG0 >Buffer  / RG0 = first character in buffer
 		
-		/ "Check what type of admissible string it is."
-		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ >BT.Done  / "We're done"
+		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ >BT.Done  / If the first char is STOP, we're done
 		
-		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF NEZ >BT.Skip0  / "It's a label"
-			/ "Add the label to the table."
+		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF NEZ >BT.NotLbl  / If first char is LABEL.
+			/ Add the label to the table
 			LDI RA >BT.Ret1; JIF TRU >ApdStrLbl; #BT.Ret1
 			
-			/ "Add the value to the table."
+			/ Add the value to the table.
 			LOD RG0 SP 0; ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx; STR RG0 RG1 >LabelTable
-			ALI ADD RG1 1; STR RG1 RG1 >LblTblIdx  / LblTblIdx++
+			ALI ADD RG1 1; STR RG1 RG1 >LblTblIdx
+			
+			/ Loop
 			JIF TRU >BT.Loop
-		#BT.Skip0
+		#BT.NotLbl
 		
-		LDI RG1 >CONST; AFN SUB RG0 RG1; JIF NEZ >BT.Skip1  / "It's a constant"
-			/ "Add the label to the table."
+		LDI RG1 >CONST; AFN SUB RG0 RG1; JIF NEZ >BT.NotConst  / If first char is CONST
+			/ Add the label to the table.
 			LDI RA >BT.Ret2; JIF TRU >ApdStrLbl; #BT.Ret2
 			
-			/ "Get the constant's text value."
+			/ Get the constant's text and value, and store the value in the label table.
 			LDI RA >BT.Ret3; JIF TRU >GetNext; #BT.Ret3
-			
-			/ "Get and store the value of the label."
 			LDI RA >BT.Ret4; JIF TRU >GetNumericValue; #BT.Ret4
-			ALI AND RG0 0;
-		#BT.Skip1
+			ALI AND RG0 0; LOD RG0 RG0 >LblTblIdx; STR OUT RG0 >LabelTable
+			ALI ADD RG0 1; STR RG0 RG0 >LblTblIdx
+			
+			/ Loop
+			JIF TRU >BT.Loop
+		#BT.NotConst
 		
+		/ If the first char is CHAR, program counter++
+		LDI RG1 >CHAR; AFN SUB RG0 RG1; JIF NEZ >BT.NotChar
+			LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
+			JIF TRU >BT.Loop
+		#BT.NotChar
 		
+		/ If the first char is ARRAY, do program counter += GetValueVase(10,1)
+		LDI RG1 >ARRAY; AFN SUB RG0 RG1; JIF NEZ >BT.NotArr
+			LDI RG0 10; LDI RG1 1; LDI RA >BT.Ret5; JIF TRU >GetValueBase; #BT.Ret5
+			LOD RG0 SP 0; ALU ADD RG0 OUT; STR RG0 SP 0
+			JIF TRU >BT.Loop
+		#BT.NotArr
+		
+		/ If the first char is a number, program counter++
+		AIN SEL RG0 5; JIF NEZ >BT.NotNum  
+			LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
+			JIF TRU >BT.Loop
+		#BT.NotNum
+		
+		/ Now we know that whatever is in the buffer is an instruction
+		
+		/ program counter++
+		LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
+		
+		/ Hash the instruction & call TblIdxLookup(instruction hash, InstTable, 3)
+		LDI RA >BT.Ret6; JIF TRU >HashBuff; #BT.Ret6
+		MOV RG0 OUT; LDI RG1 >InstTable; LDI RG2 3; LDI RA BT.Ret7; JIF TRU >TblIdxLookup; #BT.Ret7
+		
+		/ Grab the instruction bitmap into RG0, and read input based on that.
+		ALI ADD OUT 2; LOD RG0 OUT >InstTable
+		AIN SEL RG0 2; JIF EQZ BT.NoMod; MOV RG1 IO; #BT.NoMod
+		AIN SEL RG0 1; JIF EQZ BT.NoOp0; MOV RG1 IO; #BT.NoOp0
+		AIN SEL RG0 0; JIF EQZ BT.NoOp1; MOV RG1 IO; #BT.NoOp1  / Yes, this label is in the right order.
+		
+		/ And finally, loop.
+		JIF TRU >BT.Loop
+	#BT.Done
+	
+	/ Pop the stack (SP should be 0), reset input pointer, and go to the next step.
+	ALI ADD SP 1; MOV IO SP; JIF TRU >Assemble
 )
 
 (#Assemble  / Second pass through the file, do the actual assembling.
+
+	#ASM.Loop / Not sure if we need this label yet, or if Assemble will work.
+	LDI RA >ASM.Ret0; JIF TRU >GetNext; #ASM.Ret0  / GetNext
+	
+	ALI AND RG0 0; LOD RG0 RG0 >Buffer  / Get first character.
+	
 	
 )
 
