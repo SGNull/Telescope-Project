@@ -107,11 +107,33 @@ JIF TRU >StartPoint
 
 )
 
+/ --------------------------------------- The Assembler -------------------------------------
+/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and only then.
+
+(/ Currently unused functions. Should be implemented to easily switch to file system.
+	(#GetInput  / Returns next input value.
+		LDI FLG >INFLG
+		MOV OUT IO
+		MOV PC RA
+	)
+
+	(#ResetInput  / Resets the input to the beginning.
+		LDI FLG >INFLG
+		LDI IO 0
+		MOV PC RA
+	)
+
+	(#WriteOutput  / Writes RG0 to the output.
+		LDI FLG >OUTFLG
+		MOV IO RG0
+		MOV PC RA
+	)
+)
+
 (#StartPoint  / The starting point for the assembler.
 	
 	/ Write 0 to the input
-	LDI RG0 >INFLG; MOV FLG RG0
-	ALU AND RG0 0; MOV IO RG0
+	LDI FLG >INFLG; LDI IO 0
 	
 	/ Goto BuildTables
 	JIF TRU >BuildTables
@@ -130,7 +152,7 @@ JIF TRU >StartPoint
 	#GVB.FLoop  / do{
 		LOD RG3 RG1 >Buffer  / Get next character (at Buffer[index])
 		
-		AIN SEL RG3 5; JIF EQZ >GVB.Num  / If it's a letter, add 9 to it.
+		AIN SEL RG3 6; JIF EQZ >GVB.Num  / If it's a letter, add 9 to it.
 			ALI ADD RG3 9
 		#GVB.Num
 		
@@ -155,7 +177,7 @@ JIF TRU >StartPoint
 	
 	/Passes control straight to GetValueBase
 	
-	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 5; JIF NEZ >GNV.Char  / if bit 5 of Buffer[1] is off
+	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 6; JIF NEZ >GNV.Char  / If Buffer[1] is a number, too.
 		LDI RG0 10; ALI AND RG1 0; JIF TRU >GetValueBase
 	#GNV.Char
 	
@@ -259,8 +281,11 @@ JIF TRU >StartPoint
 	/ RG2 = 1 (for table_index_lookup)
 	/ RG4 = buffer_index (BuffIdx)
 	
-	/ Storing the return address on the stack
+	/ Storing the return address and flags on the stack
 	ALI SUB SP 1; STR RA SP 0
+	
+	/ Set the IO to the input ROM
+	LDI FLG >INFLG
 	
 	LDI RG2 1
 	/ "Look for the start of a viable sequence"
@@ -401,12 +426,17 @@ JIF TRU >StartPoint
 	ALI SUB SP 1; STR RG0 SP 0  / Push the program counter onto the stack.
 	
 	#BT.Loop
-		LDI RA >BT.Ret0; JIF TRU >GetNext; #BT.Ret0  / GetNext()
-		ALI AND RG0 0; LOD RG0 RG0 >Buffer  / RG0 = first character in buffer
+		/ GetNext()
+		LDI RA >BT.Ret0; JIF TRU >GetNext; #BT.Ret0
 		
-		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ >BT.Done  / If the first char is STOP, we're done
+		/ RG0 = first character in buffer
+		ALI AND RG0 0; LOD RG0 RG0 >Buffer
 		
-		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF NEZ >BT.NotLbl  / If first char is LABEL.
+		/ If the first char is STOP, we're done
+		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ >BT.Done
+		
+		/ If first char is LABEL.
+		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF NEZ >BT.NotLbl
 			/ Add the label to the table
 			LDI RA >BT.Ret1; JIF TRU >ApdStrLbl; #BT.Ret1
 			
@@ -418,7 +448,8 @@ JIF TRU >StartPoint
 			JIF TRU >BT.Loop
 		#BT.NotLbl
 		
-		LDI RG1 >CONST; AFN SUB RG0 RG1; JIF NEZ >BT.NotConst  / If first char is CONST
+		/ If first char is CONST
+		LDI RG1 >CONST; AFN SUB RG0 RG1; JIF NEZ >BT.NotConst
 			/ Add the label to the table.
 			LDI RA >BT.Ret2; JIF TRU >ApdStrLbl; #BT.Ret2
 			
@@ -446,7 +477,7 @@ JIF TRU >StartPoint
 		#BT.NotArr
 		
 		/ If the first char is a number, program counter++
-		AIN SEL RG0 5; JIF NEZ >BT.NotNum  
+		AIN SEL RG0 6; JIF NEZ >BT.NotNum  
 			LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
 			JIF TRU >BT.Loop
 		#BT.NotNum
@@ -470,18 +501,40 @@ JIF TRU >StartPoint
 		JIF TRU >BT.Loop
 	#BT.Done
 	
-	/ Pop the stack (SP should be 0), reset input pointer, and go to the next step.
-	ALI ADD SP 1; MOV IO SP; JIF TRU >Assemble
+	/ Pop the stack, reset input pointer, and go to the next step.
+	LDI IO 0; ALI ADD SP 1; JIF TRU >Assemble
 )
 
 (#Assemble  / Second pass through the file, do the actual assembling.
-
+	
 	#ASM.Loop / Not sure if we need this label yet, or if Assemble will work.
-	LDI RA >ASM.Ret0; JIF TRU >GetNext; #ASM.Ret0  / GetNext
-	
-	ALI AND RG0 0; LOD RG0 RG0 >Buffer  / Get first character.
-	
-	
+		/ GetNext
+		LDI RA >ASM.Ret0; JIF TRU >GetNext; #ASM.Ret0
+		
+		/ Get first character.
+		ALI AND RG0 0; LOD RG0 RG0 >Buffer
+		
+		/ Ignore labels this passthrough
+		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF EQZ >ASM.Loop
+		
+		/ If REF, get and write the value.
+		LDI RG1 >REF; AFN SUB RG0 RG1; JIF NEZ >ASM.NotRef
+			
+		#ASM.NotRef
+		
+		LDI RG1 >CONST; AFN SUB RG0 RG1; JIF NEZ >ASM.NotConst
+			
+		#ASM.NotConst
+		
+		LDI RG1 >CHAR; AFN SUB RG0 RG1; JIF NEZ >ASM.NotChar
+			
+		#ASM.NotChar
+		
+		LDI RG1 >ARRAY; AFN SUB RG0 RG1; JIF NEZ >ASM.NotArr
+			
+		#ASM.NotArr
+		
+		AIN SEL RG0 6; 
 )
 
 (#StopPoint
