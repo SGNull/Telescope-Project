@@ -399,22 +399,27 @@ JIF TRU >StartPoint
 )
 
 (#AssembleNext  / UNSAFE for ALL, RG0: table, returns mnemonic's value
+	/ Push table(RG0) and RA
+	ALI SUB SP 2; STR RG0 SP 0; STR RA SP 1
 	
-	ALI SUB SP 2; STR RG0 SP 0; STR RA SP 1 / Push table(RG0) and RA
+	/ get_next_text()
+	LDI RA >AN.Ret0; JIF TRU >GetNext; #AN.Ret0
 	
-	LDI RA >AN.Ret0; JIF TRU >GetNext; #AN.Ret0  / get_next_text()
+	/ RG1 = buffer_index
+	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx
 	
-	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx  / RG1 = buffer_index
-	
-	AIN SUB RG1 2; JIF NEZ >AN.Skip0  / if buffer_index == 2 (if it's a 2 char mnemonic)
+	/ if buffer_index == 2 (if it's a 2 char mnemonic)
+	AIN SUB RG1 2; JIF NEZ >AN.Skip0
 		ALI AND RG2 0; STR RG2 RG1 >Buffer  / buffer[2] = 0
 		ALI ADD RG1 1; STR RG1 RG1 >BuffIdx  / buffer_index++
 	#AN.Skip0
 	
-	LDI RA >AN.Ret1; JIF TRU >HashBuff; #AN.Ret1   / HashBuff()
+	/ HashBuff()
+	LDI RA >AN.Ret1; JIF TRU >HashBuff; #AN.Ret1
 	
-	MOV RG0 OUT; LOD RG1 SP 0; LDI RG2 2 / RG0 = hash key, RG1 = table, RG2 = 2
-	LDI RA >AN.Ret2; JIF TRU >TblIdxLookup; #AN.Ret2  / TblIdxLookup(hash, table, 2)
+	/ TblIdxLookup(hash, table, 2)
+	MOV RG0 OUT; LOD RG1 SP 0; LDI RG2 2
+	LDI RA >AN.Ret2; JIF TRU >TblIdxLookup; #AN.Ret2
 	
 	ALI ADD OUT 1; LOD RG0 SP 0; ALU ADD OUT RG0; LOD OUT OUT 0 / RG6 = [table + RG6 + 1] = table[Idx + 1]
 	LOD RA SP 1; ALI ADD SP 2; MOV PC RA / Pop from stack and return
