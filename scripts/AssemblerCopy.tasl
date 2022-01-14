@@ -108,7 +108,7 @@ JIF TRU >StartPoint
 )
 
 / --------------------------------------- The Assembler -------------------------------------
-/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and only then.
+/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.
 
 (/ Currently unused functions. Should be implemented to easily switch to file system.
 	(#GetInput  / Returns next input value.
@@ -144,22 +144,29 @@ JIF TRU >StartPoint
 	/ RG2 = buffer_index (BuffIdx)
 	/ RG3 = next_char
 	
-	ALI AND RG2 0; LOD RG2 RG2 >BuffIdx  / Get BuffIdx
+	/ Get BuffIdx & setup the output
+	ALI AND RG2 0; LOD RG2 RG2 >BuffIdx
 	ALI AND OUT 0
 	
-	AFN SUB RG1 RG2; JIF EQZ >GVB.Done  / If it's empty, just return 0.
+	/ If it's empty, just return 0.
+	AFN SUB RG1 RG2; JIF EQZ >GVB.Done
 	
 	#GVB.FLoop  / do{
-		LOD RG3 RG1 >Buffer  / Get next character (at Buffer[index])
+		/ Get next character (at Buffer[index])
+		LOD RG3 RG1 >Buffer
 		
-		AIN SEL RG3 6; JIF EQZ >GVB.Num  / If it's a letter, add 9 to it.
+		/ If it's a letter, add 9 to it.
+		AIN SEL RG3 6; JIF EQZ >GVB.Num
 			ALI ADD RG3 9
 		#GVB.Num
 		
-		ALI AND RG3 0xF  / Mask the character to get the value.
-		ALU MUL OUT RG0; ALU ADD OUT RG3  / OUT = OUT * multiplier + value.
+		/ Mask the character to get the value.
+		ALI AND RG3 0xF
+		/ OUT = OUT * multiplier + value.
+		ALU MUL OUT RG0; ALU ADD OUT RG3
 		
-	ALI ADD RG1 1; AFN SUB RG1 RG2; JIF NEZ >GVB.FLoop  / }for(RG1; RG1 != RG2; RG1++)
+	/ }for(RG1; RG1 != RG2; RG1++)
+	ALI ADD RG1 1; AFN SUB RG1 RG2; JIF NEZ >GVB.FLoop
 	
 	#GVB.Done; MOV PC RA  / Return
 )
@@ -170,22 +177,24 @@ JIF TRU >StartPoint
 	
 	ALI AND RG0 0; LOD RG0 RG0 >BuffIdx
 	
-	AIN SUB RG0 1; JIF NEZ >GNV.0  / "it is a 1 digit decimal number"
+	/ Check if it is a 1 digit decimal number
+	AIN SUB RG0 1; JIF NEZ >GNV.0
 		ALI AND OUT 0; LOD OUT OUT >Buffer; ALI AND OUT 0xF
 		MOV PC RA
 	#GNV.0
-	
-	/Passes control straight to GetValueBase
-	
-	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 6; JIF NEZ >GNV.Char  / If Buffer[1] is a number, too.
+
+	/ If Buffer[1] is a number, too.
+	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 6; JIF NEZ >GNV.Char
 		LDI RG0 10; ALI AND RG1 0; JIF TRU >GetValueBase
 	#GNV.Char
 	
-	LDI RG1 >HEX; AFN SUB RG0 RG1; JIF NEZ >GNV.NH  / if Buffer[1] is HEX
+	/ if Buffer[1] is HEX
+	LDI RG1 >HEX; AFN SUB RG0 RG1; JIF NEZ >GNV.NH
 		LDI RG0 16; LDI RG1 2; JIF TRU >GetValueBase
 	#GNV.NH
 	
-	LDI RG1 >BIN; AFN SUB RG0 RG1; JIF NEZ >GNV.Bad  / if Buffer[1] is BIN
+	/ if Buffer[1] is BIN
+	LDI RG1 >BIN; AFN SUB RG0 RG1; JIF NEZ >GNV.Bad
 		LDI RG0 2; LDI RG1 2; JIF TRU >GetValueBase
 	#GNV.Bad
 	/ We shouldn't get here, because GetNumericValue is always called on a number.
@@ -226,9 +235,11 @@ JIF TRU >StartPoint
 				MOV RG5 RG0; ALU ADD RG5 RG4; LOD RG5 RG5 >LabelTable  / RG5 = LabelTable[RG0 + RG4]
 				LOD OUT RG4 >Buffer; AFN SUB RG5 OUT; JIF NEZ >LL.NotMatch  / exit if RG5 != Buffer[RG4]
 				
-			ALI ADD RG4 1; JIF TRU >LL.EntryLoop  / Increment relative/string index and loop.
+			/ Increment relative/string index and loop.
+			ALI ADD RG4 1; JIF TRU >LL.EntryLoop
 		#LL.NotMatch
-	ALU ADD RG0 RG2; ALI ADD RG0 1; JIF TRU >LL.TableLoop  / move the table index to the next entry
+	/ move the table index to the next entry
+	ALU ADD RG0 RG2; ALI ADD RG0 1; JIF TRU >LL.TableLoop  
 	
 	#LL.Done
 	MOV PC RA
@@ -242,14 +253,17 @@ JIF TRU >StartPoint
 	LDI RG5 >TABLESTOP
 	
 	#TIL.Loop
-		STR RG3 RG3 >TIL.SMC; LOD RG4 RG1 #TIL.SMC 0  / next entry = [table + index]
+		/ next entry = [table + index]
+		STR RG3 RG3 >TIL.SMC; LOD RG4 RG1 #TIL.SMC 0
 		
-		AFN SUB RG4 RG0; JIF NEZ TIL.Skp1  / Check if there's a match
+		/ Check if there's a match
+		AFN SUB RG4 RG0; JIF NEZ TIL.Skp1
 			MOV OUT RG3
 			JIF TRU TIL.End
 		#TIL.Skp1
 		
-		AFN SUB RG4 RG5; JIF NEZ TIL.Skp2  / Check if we're at the end of the table.
+		/ Check if we're at the end of the table.
+		AFN SUB RG4 RG5; JIF NEZ TIL.Skp2
 			MOV OUT RG5
 			JIF TRU TIL.End
 		#TIL.Skp2
@@ -522,28 +536,76 @@ JIF TRU >StartPoint
 		/ Ignore labels this passthrough
 		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF EQZ >ASM.Loop
 		
-		/ If REF, get and write the value.
+		/ If STOP, we're done.
+		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ ASM.Done
+		
+		/ If REF, lookup and write the value, then loop
 		LDI RG1 >REF; AFN SUB RG0 RG1; JIF NEZ >ASM.NotRef
-			
+			LDI RA >ASM.RetRef; JIF TRU >LabelLookup; #ASM.RetRef
+			LDI FLG >OUTFLG; MOV IO OUT; LDI FLG >INFLG
+			JIF TRU >ASM.Loop
 		#ASM.NotRef
 		
+		/ If CONST, skip over the next string and loop
 		LDI RG1 >CONST; AFN SUB RG0 RG1; JIF NEZ >ASM.NotConst
-			
+			LDI RA >ASM.Loop; JIF TRU >GetNext
 		#ASM.NotConst
 		
+		/ If CHAR, write the character directly to the output and loop
 		LDI RG1 >CHAR; AFN SUB RG0 RG1; JIF NEZ >ASM.NotChar
-			
+			LDI RG1 1; LOD RG0 RG1 >Buffer  / The character is at Buffer[1]
+			LDI FLG >OUTFLG; MOV IO RG0; LDI FLG >INFLG
+			JIF TRU >ASM.Loop
 		#ASM.NotChar
 		
+		/ If ARRAY, get the value of the number, and write 0's that many times to the output
 		LDI RG1 >ARRAY; AFN SUB RG0 RG1; JIF NEZ >ASM.NotArr
+			/ OUT = GetValueBase(10, 1)
+			LDI RG0 10; LDI RG1 1; LDI RA ASM.RetArray; JIF TRU >GetValueBase; #ASM.RetArray
 			
+			/ num_zeros = 0
+			ALI AND RG0 0
+			
+			/ Check to make sure the value isn't 0
+			AFN SUB RG0 OUT; JIF EQZ >ASM.Loop
+			
+			/ Set up the output and a 0 register for writing.
+			LDI FLG >OUTFLG
+			ALI AND RG1 0
+			
+			/ for (num_zeros; num_zeros != value; num_zeros++), write 0 to output.
+			#ASM.ArrLoop
+				MOV IO RG1
+				ALI ADD RG0 1
+			AFN SUB RG0 OUT; JIF NEZ >ASM.ArrLoop
+			
+			LDI FLG >INFLG
+			JIF TRU >ASM.Loop
 		#ASM.NotArr
 		
-		AIN SEL RG0 6; 
+		/ If it's a number, get the value of the number and write that to the output, then loop.
+		/ This check must happen towards the end, because of how imprecise it is.
+		AIN SEL RG0 6; JIF NEZ >ASM.NotNum
+			LDI RG0 10; LDI RG1 1; LDI RA ASM.RetNum; JIF TRU >GetValueBase; #ASM.RetNum
+			LDI FLG >OUTFLG; MOV IO OUT; LDI FLG >INFLG
+			JIF TRU >ASM.Loop
+		#ASM.NotNum
+		
+		/ If the program makes it to this point, the string is assumed to be an instruction.
+		/ First, hash and lookup the instruction via TblIdxLookup(HashBuff(), InstTable, 3).
+		LDI RA >ASM.Ret1; JIF TRU >HashBuff; #ASM.Ret1
+		MOV RG0 OUT; LDI RG1 >InstTable; LDI RG2 3; LDI RA >ASM.Ret2; JIF TRU >TblIdxLookup; #ASM.Ret2
+		
+		/ Then, get the base machine-code and the bitmap for the instruction.
+		ALI ADD OUT 1; LOD RG0 OUT >InstTable  / MC
+		ALI ADD OUT 1; LOD RG1 OUT >InstTable  / BMP
+		
+		/ Now gather the operands according to the bitmap.
+	#ASM.Done
 )
 
 (#StopPoint
-
+	
 )
 
 #LabelTable

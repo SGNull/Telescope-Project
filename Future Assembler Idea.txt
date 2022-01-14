@@ -1,0 +1,2 @@
+Some kind of seperate "enforcer" program could be made which would check that .tasl files comply with the standard language syntax/format.
+This could be optionally ran by the end user, or it could be called by some user-facing super-program which "calls" the enforcer, assembler, compressor, etc.

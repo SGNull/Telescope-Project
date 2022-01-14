@@ -255,7 +255,7 @@ def get_value_base(multiplier, starting_index):
 
 
 def get_numeric_value():
-    """Interprets the contents of the input_heap as a number, returns the value."""
+    """Interprets the contents of the buffer as a number, returns the value."""
 
     if buffer_index == 1: # it is a 1 digit decimal number
         char = buffer[0]
@@ -294,7 +294,7 @@ def label_lookup():
         if buffer_index == size:
             loop_index = 1
 
-            # Loop through both the input_heap string and the entry's string at the same time.
+            # Loop through both the buffer string and the entry's string at the same time.
             while True:
                 # If we reach the end of the heap, we have a match (cause they're the same size strings).
                 if loop_index == buffer_index:
@@ -395,7 +395,7 @@ def get_next_text():
 
 
 def append_string_label():
-    """Adds the input_heap to the label_table as a label, but does not assign it a value."""
+    """Adds the buffer to the label_table as a label, but does not assign it a value."""
     global label_table_index
     index = 1
 
@@ -410,8 +410,8 @@ def append_string_label():
         index += 1
 
 
-def hash_heap():
-    """Treats the input_heap as the input for the hash function."""
+def hash_buffer():
+    """Treats the buffer as the input for the hash function."""
     out = 0
 
     temp = buffer[2] & 0x40
@@ -445,7 +445,7 @@ def assemble_next_mnemonic(table):
         buffer[2] = 0
         buffer_index += 1
 
-    hash_val = hash_heap()
+    hash_val = hash_buffer()
 
     index = table_index_lookup(hash_val, table, 2)
 
@@ -502,7 +502,7 @@ def build_tables():
             program_counter += 1
 
             # Hash the instruction, and lookup how many strings we have to skip.
-            hash_key = hash_heap()
+            hash_key = hash_buffer()
             index = table_index_lookup(hash_key, instructions_table, 3)
             bmp_index = index + 2
             bitmap = instructions_table[bmp_index]
@@ -544,9 +544,7 @@ def assemble():
             elif first_char == ARRAY_CHAR:  # It is an empty array, so we make it.
                 value = get_value_base(10, 1)
                 num_zeros = 0
-                while True:
-                    if num_zeros == value:
-                        break
+                while num_zeros != value:
                     write_output(0)
                     num_zeros += 1
 
@@ -556,7 +554,7 @@ def assemble():
 
             else:  # It's an instruction.
                 # Hash the instruction.
-                hash_val = hash_heap()
+                hash_val = hash_buffer()
 
                 # Translate the instruction and get the bitmap.
                 index = table_index_lookup(hash_val, instructions_table, 3)
