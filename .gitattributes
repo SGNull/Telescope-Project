@@ -1,6 +1,2 @@
-# Custom language linguist testing
-*.tasl linguist-detectable=true linguist-language=TASL
-*.tlo linguist-detectable=true
-
 # Auto detect text files and perform LF normalization
 * text=auto
