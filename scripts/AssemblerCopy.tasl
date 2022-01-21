@@ -597,10 +597,36 @@ JIF TRU >StartPoint
 		MOV RG0 OUT; LDI RG1 >InstTable; LDI RG2 3; LDI RA >ASM.Ret2; JIF TRU >TblIdxLookup; #ASM.Ret2
 		
 		/ Then, get the base machine-code and the bitmap for the instruction.
+		/ They're stored on the stack, because AssembleNext is unsafe for ALL registers.
 		ALI ADD OUT 1; LOD RG0 OUT >InstTable  / MC
 		ALI ADD OUT 1; LOD RG1 OUT >InstTable  / BMP
+		ALI SUB SP 2; STR RG0 SP 0; STR RG1 SP 1  / Stack push
 		
 		/ Now gather the operands according to the bitmap.
+		
+		/ If the Mod bit is on, call AssembleNext(ModTable) and OR it with the machine code.
+		AIN SEL RG1 2; JIF EQZ >ASM.NoMod
+			LDI RG0 >ModTable; LDI RA >ASM.RetMod; JIF TRU >AssembleNext; #ASM.RetMod
+			LOD RG0 SP 0; ALI SLB OUT 8; ALU OR RG0 OUT; STR RG0 SP 0
+			/ Restore the bitmap for the next check.
+			LOD RG1 SP 1
+		#ASM.NoMod
+		
+		/ If the Op0 bit is on, call AssembleNext(RegTable) and OR it with the machine code
+		AIN SEL RG1 2; JIF EQZ >ASM.NoOp0
+			LDI RG0 >RegTable; LDI RA >ASM.RetOp0; JIF TRU >AssembleNext; #ASM.RetOp0
+			LOD RG0 SP 0; ALI SLB OUT 4; ALU OR RG0 OUT; STR RG0 SP 0
+			/ Restore the bitmap for the next check.
+			LOD RG1 SP 1
+		#ASM.NoOp0
+		
+		/ If Op1 is on, check if the immediate bit is on too.
+		/ If it's an immediate, Op1 is a value, so call GetNext and GetNumericValue
+		/ Else it's a register, so just call AssembleNext(RegTable)
+		AIN SEL RG1 2; JIF EQZ >ASM.NoOp1
+			
+		#ASM.NoOp1
+		
 	#ASM.Done
 )
 

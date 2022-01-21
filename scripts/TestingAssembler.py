@@ -213,6 +213,15 @@ def write_output(value):
     output_ROM.append(value)
 
 
+def SEL(value, bit):
+    """
+    The SEL function in TASL:
+    takes a value and the bit to select from it, and returns it in bit 0.
+    """
+    mask = 1 << bit
+    return (mask & value) >> bit
+
+
 # -------------------------------------------The Assembler------------------------------------------------
 def print_input_heap():  # TODO: Debug only.
 
@@ -414,7 +423,7 @@ def hash_buffer():
     """Treats the buffer as the input for the hash function."""
     out = 0
 
-    temp = buffer[2] & 0x40
+    temp = SEL(buffer[2], 6)
     temp = temp << 9
     out = out | temp
 
@@ -506,11 +515,11 @@ def build_tables():
             index = table_index_lookup(hash_key, instructions_table, 3)
             bmp_index = index + 2
             bitmap = instructions_table[bmp_index]
-            if (bitmap & 0b100) != 0:
+            if SEL(bitmap, 2) != 0:
                 get_next_text()
-            if (bitmap & 0b010) != 0:
+            if SEL(bitmap, 1) != 0:
                 get_next_text()
-            if (bitmap & 0b001) != 0:
+            if SEL(bitmap, 0) != 0:
                 get_next_text()
 
     # After we're done, pass control to the actual assembler with the input reset
@@ -564,18 +573,18 @@ def assemble():
                 bitmap = instructions_table[bmp_index]
 
                 # Gather operands according to the bitmap.
-                if (bitmap & 0b0100) != 0:
+                if SEL(bitmap, 2) != 0:
                     value = assemble_next_mnemonic(modifier_table)
                     value = value << 8
                     out = out | value
 
-                if (bitmap & 0b0010) != 0:
+                if SEL(bitmap, 1) != 0:
                     value = assemble_next_mnemonic(register_table)
                     value = value << 4
                     out = out | value
 
-                if (bitmap & 0b0001) != 0:
-                    if (bitmap & 0b1000) != 0:
+                if SEL(bitmap, 0) != 0:
+                    if SEL(bitmap, 3) != 0:
                         get_next_text()
                         value = get_numeric_value()
                         value = value & 0xf

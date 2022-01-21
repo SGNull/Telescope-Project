@@ -42,5 +42,6 @@ if [Label] {==, !=, >, >=, <, <=} [Label2] (... code here ...)
 
 while [Label] {==, !=, >, >=, <, <=} [Label2] (... code here ...)
 
-[Label] {!= &= |= x= += -= *= /= %= <= >=} [Label]   =   ALU *[Symbol]* *[Label1]* *[Label2]*
+[Label] {! & | x + - * / % < >}= [Label] 
+=  ALU *[Symbol]* *[Label1]* *[Label2]*
 Note: !=, <=, and >= have different meanings here than in the if statement.
