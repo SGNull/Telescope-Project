@@ -116,7 +116,7 @@ CONST_CHAR = ord('@')    # Constants end at a skippable character.
 HEX_CHAR = ord('x')      # Hexadecimal numbers can have varying length, and end at a skippable character.
 BIN_CHAR = ord('b')      # Binary numbers have the same syntax as hexadecimal numbers.
 REF_CHAR = ord('>')      # References replace the following label with the value of the label.
-CHAR_CHAR = ord('\'')    # Character syntax works somewhat similar to how it works in python.
+CHAR_CHAR = ord("'")    # Character syntax works somewhat similar to how it works in python.
 #                          However, it forces the assembler to take ANY *single* character and write it to the output.
 ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character, in decimal only.
 STOP_CHAR = 0
@@ -223,7 +223,7 @@ def SEL(value, bit):
 
 
 # -------------------------------------------The Assembler------------------------------------------------
-def print_input_heap():  # TODO: Debug only.
+def print_buffer():  # TODO: Debug only.
 
     print("Printing heap contents...")
     out = ""
@@ -282,9 +282,9 @@ def get_numeric_value():
         return get_value_base(2, 2)
 
     else:
-        print_input_heap()
+        print_buffer()
         print("NUMERIC VALUE TYPE ERROR")
-        exit(1)
+        raise ValueError
 
 
 def label_lookup():
@@ -324,7 +324,6 @@ def table_index_lookup(key, table, entry_size):
     index = 0
     while True:
         next_entry_key = table[index]
-
         if next_entry_key == key:
             return index
         if next_entry_key == NULL:
@@ -424,7 +423,7 @@ def hash_buffer():
     out = 0
 
     temp = SEL(buffer[2], 6)
-    temp = temp << 9
+    temp = temp << 15
     out = out | temp
 
     temp = buffer[2] & 0x1f
@@ -458,6 +457,11 @@ def assemble_next_mnemonic(table):
 
     index = table_index_lookup(hash_val, table, 2)
 
+    if index == NULL:
+        print_buffer()
+        print("OPERAND NOT FOUND ERROR")
+        raise NameError
+
     value_index = index + 1
     value = table[value_index]
     return value
@@ -465,6 +469,8 @@ def assemble_next_mnemonic(table):
 
 def build_tables():
     """The first pass through the file, we build the tables"""
+    print("Building tables...")  # For debugging, this should be left in.
+
     global label_table_index
 
     program_counter = 0
@@ -485,6 +491,7 @@ def build_tables():
             label_table[label_table_index] = program_counter
             label_table_index += 1
 
+        # TODO: this does not let constants be declared as characters (error on line: value = get_numeric_value())
         elif first_char == CONST_CHAR:  # It's a constant
             # Add the label to the table.
             append_string_label()
@@ -493,7 +500,10 @@ def build_tables():
             get_next_text()
 
             # Get and store the value of the label.
-            value = get_numeric_value()
+            if buffer[0] == CHAR_CHAR:
+                value = buffer[1]
+            else:
+                value = get_numeric_value()
             label_table[label_table_index] = value
             label_table_index += 1
 
@@ -504,7 +514,7 @@ def build_tables():
             zeros = get_value_base(10, 1)  # A decimal number of zeros follows this character.
             program_counter += zeros
 
-        elif (first_char & 0x40) == 0:  # It's a number
+        elif SEL(first_char, 6) == 0:  # It's a number
             program_counter += 1
 
         else:  # It's an instruction
@@ -513,6 +523,10 @@ def build_tables():
             # Hash the instruction, and lookup how many strings we have to skip.
             hash_key = hash_buffer()
             index = table_index_lookup(hash_key, instructions_table, 3)
+            if index == NULL:
+                print_buffer()
+                print("INSTRUCTION NOT FOUND ERROR")
+                raise NameError
             bmp_index = index + 2
             bitmap = instructions_table[bmp_index]
             if SEL(bitmap, 2) != 0:
@@ -529,6 +543,8 @@ def build_tables():
 
 def assemble():
     """The second pass through the file, the assembly is translated into machine code."""
+    print("Assembling...")  # For debugging, this should be left in.
+
     while True:
         # Place the next chunk of admissible text into the heap.
         get_next_text()
@@ -557,7 +573,7 @@ def assemble():
                     write_output(0)
                     num_zeros += 1
 
-            elif (first_char & 0x40) == 0:  # It is a numeric value.
+            elif SEL(first_char, 6) == 0:  # It is a numeric value.
                 value = get_numeric_value()
                 write_output(value)
 

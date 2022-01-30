@@ -16,7 +16,7 @@ Create a UI root program as a medium/long term scheduler (fancy way of saying tr
 
 Create a file system for storing many things on one drive
 
-Create a new assembler which works based off of the file system architecture
+Modify the assembler to work based off of the file system architecture
 
 Create a router
  - Involves new computer architecture

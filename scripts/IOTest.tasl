@@ -1,0 +1,40 @@
+/ This is a test to make sure that I/O interactions work.
+/ It takes a number from I/O and does a few operations on it.
+
+/ I/O specs for this test:
+/   No IOP controls, but IOP output probe
+/   I/O goes to one register
+/   User-controlled SR flip-flop for write input
+/   If the CPU reads, write should be turned off
+/   Read input should be !write
+
+/ The program waits for a write signal
+/ Multiplies the given number by 3
+/ Waits for a reading signal
+/ Then writes the result to I/O and to IOP
+
+%OUTTO IOTest.tlo%
+
+/ Wait for a writing signal
+#WaitWrite
+JIF PNW >WaitWrite
+
+/ Multiply the given number by 3
+MOV RG0 IO
+ALI MUL RG0 3
+
+/ Wait for a reading signal
+#WaitRead
+JIF PNR >WaitRead
+
+/ Write the result to I/O
+MOV IO RG0
+
+/ Write the result to IOP
+ALI SLB RG0 0xb
+ALU OR FLG RG0
+
+/ Done
+HLT
+0xFFF1
+JIF TRU >WaitWrite

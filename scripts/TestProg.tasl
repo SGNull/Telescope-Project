@@ -3,7 +3,6 @@
 / This includes all instructions, a few registers, and a couple ALU ops.
 
 / It multiplies 8 by 6 in three different ways.
-/ The output is written to the I/O each time.
 / If the number is incorrect, it will also write NULL to the stop line in RAM.
 / If it works every time, the answer will be written to the stop line.
 
@@ -84,15 +83,15 @@ JIF TRU >Main.Init
 	MOV RG3 RG1
 	
 	/ Then we make sure that neither value is zero.
-	ALI OR RG0 0
+	AIF OR RG0 0
 	JIF EQZ >FunctionCalc.Done
-	ALI OR RG1 0
+	AIF OR RG1 0
 	JIF EQZ >FunctionCalc.Done
 	
 	/ Now we do the addition loop.
 	#FunctionCalc.Loop
 		ALU ADD RG2 RG0
-		ALI SUB RG3 1
+		AIF SUB RG3 1
 		JIF NEZ >FunctionCalc.Loop
 	
 	/ Finally, we return the value.
@@ -137,7 +136,7 @@ JIF TRU >Main.Init
 / If it does match, it increments RG4 and returns control.
 #FailCheck
 	/ Do the check, and fail if not equal.
-	ALN SUB RG2 RG7
+	AFN SUB RG2 RG7
 	JIF NEZ >FailCheck.Fail
 	
 	/ Increment the counter and return to the previous spot.

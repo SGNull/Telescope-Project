@@ -1,5 +1,9 @@
 Instruction set:
 ----------------
+Instructions are formatted like:
+[4-bit Instruction Code] [4-bit Modifier] [4-bit Operand 0] [4-bit Operand 1]
+Some instructions require an additional 16-bit address/value after the full 16-bit instruction
+
 0 HLT - HALT, no operands
 1 RSM - Resume process in EPC, no operands
 2 SYS - Syscall, no operands (can be executed with ExEn off)
