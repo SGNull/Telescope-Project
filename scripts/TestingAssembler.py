@@ -8,11 +8,11 @@
 # As a result, there are some odd code style choices that were made throughout this program.
 # This was done to make this source code as close to the TASL source code as possible.
 
-# TODO: Combine all tables, separate instruction bitmaps.
-
 import sys
 
 # --------------------------------------Simulation Constants/Globals---------------------------------------
+# TODO: Add option to enable/disable debugging.
+DEBUG_MODE = True
 OUTPUT_SUFFIX = ".tlo"
 ACCEPTED_IN_SUFFIX = ["tasl", "tl", "rtl"]
 
@@ -169,9 +169,13 @@ def setup():
         print("Error: input file empty.")
         exit(1)
 
-    input_ROM.append(STOP_CHAR)  # All words after the program until the end of memory would be 0 anyways.
+    # 2 STOP_CHARs are appended to the end of memory, just to make sure that the assembler does not go past them
+    # There are some edge cases where this could happen if only 1 was used.
+    # However, since the end of memory would be all 0's anyways, this "fix" is actually realistic.
+    input_ROM.append(STOP_CHAR)
     input_ROM.append(STOP_CHAR)
 
+    print("")
     print("Starting the assembler...")
     start_point()
 
@@ -184,6 +188,16 @@ def setup():
 
     with open(output_file_path, 'w') as out_file:
         out_file.writelines(output_lines)
+
+    if DEBUG_MODE is True:
+        print("")
+        print("Debugging is enabled.")
+        print("")
+
+        # Debug functions go here.
+        print_label_table()
+
+        print("")
 
     print("The simulation has finished.")
 
@@ -222,9 +236,41 @@ def SEL(value, bit):
     return (mask & value) >> bit
 
 
-# -------------------------------------------The Assembler------------------------------------------------
-def print_buffer():  # TODO: Debug only.
+def print_label_table():
+    """Prints the contents of the label table in an easy-to-read format."""
+    # See the label table structure to better understand how this works.
 
+    print("Printing label table...")
+    index = 0
+    label_num = 0
+
+    # While we're not at the end of the label table,
+    while index < label_table_index:
+        # Increment the label number we're on
+        label_num += 1
+        # Get the size (+1) of the label string
+        size = label_table[index]
+        # Go to the start of the string and write it into the variable "label"
+        index += 1
+        label = ""
+        for offset in range(0, size - 1):
+            label += chr(label_table[index + offset])
+
+        # Now get the value right after the string.
+        index += size - 1
+        value = label_table[index]
+
+        # Then print the label number, label name, and its value
+        print("Label " + str(label_num) + ": " + label + ", " + str(value))
+
+        # Finally, increment the index for the next label
+        index += 1
+
+    print("Done printing label table.")
+
+
+def print_buffer():
+    """Prints the contents of the buffer."""
     print("Printing heap contents...")
     out = ""
 
@@ -234,6 +280,9 @@ def print_buffer():  # TODO: Debug only.
     last_elem = buffer[(buffer_index - 1)]
     out = out + chr(last_elem) + "\n"
     print(out)
+
+
+# -------------------------------------------The Assembler------------------------------------------------
 
 
 def start_point():

@@ -138,6 +138,10 @@ JIF TRU >StartPoint
 	/ Set the stack to 0 (in case something went wrong during the last pass)
 	LDI SP 0
 	
+	/ "Clear" the label table
+	STR SP SP >LblTblIdx
+	
+	
 	/ Goto BuildTables
 	JIF TRU >BuildTables
 )

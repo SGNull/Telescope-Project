@@ -1,0 +1,54 @@
+/ Test comment
+/ This is a simple, incremental test file for the assembler.
+/ This is not meant to actually run on the CPU.
+/ Test empty line
+
+/ Test command
+%TEST COMMAND%
+
+/ Test constant
+@CONSTANT = 2
+
+/ Test label
+#MyLabel
+
+/ Test instructions
+MOV RG0 RG1
+ALU ADD RG0 RG1
+
+/ Test hex number
+0x0222
+
+/ Test dec number
+5
+
+/ Test binary number
+0b01010
+
+/ Test character
+'a'
+
+/ Test newline as character
+'
+'
+
+/ Test comment as character
+'/'
+
+/ Test character symbol as character
+''' /'
+
+/ Test label reference
+>MyLabel
+
+/ Test constant reference
+>CONSTANT
+
+/ Test empty array construction
+#MyArray = [~5]
+0xFFFF
+
+/ Test sameline instructions
+LDI RA >MyReturn; MOV PC RA; #MyReturn
+
+/ Test stop assembler without newline at end of file.
