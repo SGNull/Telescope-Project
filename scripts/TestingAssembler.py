@@ -178,8 +178,9 @@ def setup():
     print("")
     print("Starting the assembler...")
     start_point()
+    print("Assembler is done running.")
 
-    print("Assembler is done running, sending the output ROM contents to the output file...")
+    print("Sending the output ROM contents to the output file...")
     output_lines.append(LOGISIM_FILE_HEADER + "\n")
 
     for val in output_ROM:
@@ -189,9 +190,11 @@ def setup():
     with open(output_file_path, 'w') as out_file:
         out_file.writelines(output_lines)
 
+    print("Contents written to output.")
+
     if DEBUG_MODE is True:
         print("")
-        print("Debugging is enabled.")
+        print("Debug mode is enabled")
         print("")
 
         # Debug functions go here.
@@ -230,7 +233,8 @@ def write_output(value):
 def SEL(value, bit):
     """
     The SEL function in TASL:
-    takes a value and the bit to select from it, and returns it in bit 0.
+
+    Takes a value and the bit to select from that value, then returns that bit in position 0.
     """
     mask = 1 << bit
     return (mask & value) >> bit
@@ -238,16 +242,15 @@ def SEL(value, bit):
 
 def print_label_table():
     """Prints the contents of the label table in an easy-to-read format."""
-    # See the label table structure to better understand how this works.
+    # See the label table structure to better understand how this function works.
 
     print("Printing label table...")
+    print("Format: Address - Label")
+    print("=======================")
     index = 0
-    label_num = 0
 
     # While we're not at the end of the label table,
     while index < label_table_index:
-        # Increment the label number we're on
-        label_num += 1
         # Get the size (+1) of the label string
         size = label_table[index]
         # Go to the start of the string and write it into the variable "label"
@@ -261,12 +264,12 @@ def print_label_table():
         value = label_table[index]
 
         # Then print the label number, label name, and its value
-        print("Label " + str(label_num) + ": " + label + ", " + str(value))
+        print(form_hex(value) + " - " + label)
 
         # Finally, increment the index for the next label
         index += 1
 
-    print("Done printing label table.")
+    print("=======================")
 
 
 def print_buffer():
@@ -282,7 +285,26 @@ def print_buffer():
     print(out)
 
 
-# -------------------------------------------The Assembler------------------------------------------------
+def form_hex(num):
+    """Formats a given integer into a 2-byte hexadecimal string. Mustn't be larger than 2^16"""
+
+    # Get the part of the hex number that should contain 4 characters
+    hex_str = hex(num)
+    parts = hex_str.split('x')
+    length = len(parts[1])
+
+    # If it's over 4, error.
+    if length > 4:
+        print("Value too large in form_hex().")
+        raise ValueError
+
+    # If not, insert zeros and return.
+    num_zeros = 4 - length
+    new_str = "0x" + ('0' * num_zeros) + parts[1]
+    return new_str
+
+
+# ------------------------------------------------The Assembler------------------------------------------------------
 
 
 def start_point():
@@ -540,7 +562,6 @@ def build_tables():
             label_table[label_table_index] = program_counter
             label_table_index += 1
 
-        # TODO: this does not let constants be declared as characters (error on line: value = get_numeric_value())
         elif first_char == CONST_CHAR:  # It's a constant
             # Add the label to the table.
             append_string_label()

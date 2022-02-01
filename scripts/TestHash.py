@@ -27,7 +27,7 @@ def main():
             break
 
         else:
-            print("Input did not have 3 characters.")
+            print("Input did not have 2 or 3 characters.")
 
 
 main()
