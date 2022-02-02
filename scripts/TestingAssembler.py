@@ -17,6 +17,7 @@ OUTPUT_SUFFIX = ".tlo"
 ACCEPTED_IN_SUFFIX = ["tasl", "tl", "rtl"]
 
 LOGISIM_FILE_HEADER = "v2.0 raw"
+RTL_HEADER = "NOTE: DESPITE THEIR APPEARANCE, RTL FILES CANNOT BE ASSEMBLED"
 
 output_lines = []  # Should be in Logisim's drive format.
 
@@ -137,8 +138,8 @@ def to_out_format(value):
     return hex(value)[2:]
 
 
-def setup():
-    """Makes sure everything is ready for the assembler to run in the simulation."""
+def main():
+    """Sets up the simulation, runs the assembler, and runs any extra features requested."""
     # Check that the arguments are correct.
     print("Checking the arguments...")
 
@@ -222,6 +223,10 @@ def setup():
         # Debug functions go here.
         print_label_table()
 
+        print("")
+
+        write_RTL(input_file_name + ".rtl")
+
     print("")
 
     print("The simulation has finished.")
@@ -264,6 +269,57 @@ def SEL(value, bit):
     return (mask & value) >> bit
 
 
+def print_buffer():
+    """Prints the contents of the buffer."""
+    print("Printing heap contents...")
+    print(buff_string() + "\n")
+
+
+def form_hex(num):
+    """Formats a given integer into a 2-byte hexadecimal string. Mustn't be larger than 2^16"""
+    # Get the part of the hex number that should contain 4 characters
+    hex_str = hex(num)
+    parts = hex_str.split('x')
+    length = len(parts[1])
+
+    # If it's over 4, error.
+    if length > 4:
+        print("Value too large in form_hex().")
+        raise ValueError
+
+    # If not, insert zeros and return.
+    num_zeros = 4 - length
+    new_str = "0x" + ('0' * num_zeros) + parts[1]
+    return new_str
+
+
+def buff_string():
+    """Returns the contents of the buffer as a string"""
+    buf_string = ""
+    for i in range(0, buffer_index):
+        buf_string += chr(buffer[i])
+
+    return buf_string
+
+
+# ------------------------------------------------Extra Features------------------------------------------------------
+
+
+def write_RTL(RTL_file_path):
+    """Creates an RTL copy of the TASL2 file for reference when debugging"""
+
+    # Reduce the input ROM to RTL lines
+    print("Translating input file into RTL...")
+    RTL_lines = reduce_input_ROM(True)
+    print("Translation finished.")
+
+    # Now write the lines to the output
+    print("Attempting to write to the RTL output file...")
+    with open(RTL_file_path, 'w') as RTL_out_file:
+        RTL_out_file.writelines(RTL_lines)
+        print("RTL output file written.")
+
+
 def print_label_table():
     """Prints the contents of the label table in an easy-to-read format."""
     # See the label table structure to better understand how this function works.
@@ -295,35 +351,103 @@ def print_label_table():
     print("=======================")
 
 
-def print_buffer():
-    """Prints the contents of the buffer."""
-    print("Printing heap contents...")
-    out = ""
+def reduce_input_ROM(to_RTL):
+    """
+    Uses assembler functions to generate a reduced version of the input file.
 
-    for i in range(0, buffer_index - 1):
-        out = out + chr(buffer[i]) + " "
+    If to_RTL is true, it will generate the lines for a .rtl file as opposed to a .tl file.
 
-    last_elem = buffer[(buffer_index - 1)]
-    out = out + chr(last_elem) + "\n"
-    print(out)
+    :returns a list of lines for the output file.
+    """
 
+    # Reset the input pointer before continuing
+    write_0_to_input()
 
-def form_hex(num):
-    """Formats a given integer into a 2-byte hexadecimal string. Mustn't be larger than 2^16"""
-    # Get the part of the hex number that should contain 4 characters
-    hex_str = hex(num)
-    parts = hex_str.split('x')
-    length = len(parts[1])
+    # Setup the output lines for the loop
+    outlines = []
 
-    # If it's over 4, error.
-    if length > 4:
-        print("Value too large in form_hex().")
-        raise ValueError
+    # RTL files should start with an empty line (or comment) to match the Logisim drive line numbers.
+    if to_RTL:
+        outlines.append(RTL_HEADER + "\n")
 
-    # If not, insert zeros and return.
-    num_zeros = 4 - length
-    new_str = "0x" + ('0' * num_zeros) + parts[1]
-    return new_str
+    # Loop through the input file again
+    while True:
+        get_next_text()
+        first_char = buffer[0]
+
+        # Stop on STOP_CHAR
+        if first_char is STOP_CHAR:
+            break
+
+        # Ignore labels if RTL
+        elif first_char is LABEL_CHAR:
+            # If this does not occur within the elif block, it will treat labels as instructions.
+            if not to_RTL:
+                outlines.append(buff_string() + "\n")
+
+        # Ignore constants if RTL
+        elif first_char is CONST_CHAR:
+            temp_string = ""
+
+            if not to_RTL:
+                temp_string = buff_string()
+
+            get_next_text()
+
+            if not to_RTL:
+                outlines.append(temp_string + " " + buff_string() + "\n")
+
+        # Write everything else to the output.
+        elif first_char is CHAR_CHAR:
+            temp_string = buff_string()
+
+            # Check for strange edge-cases if reducing to_RTL
+            if to_RTL and temp_string[1] == '\n':
+                temp_string = "'\\n'"
+            elif to_RTL and temp_string[1] == "'":
+                temp_string = "''' \\'"
+
+            outlines.append(temp_string + "\n")
+
+        elif first_char is REF_CHAR:
+            outlines.append(buff_string() + "\n")
+
+        elif chr(first_char).isnumeric():
+            outlines.append(buff_string() + "\n")
+
+        # If to_RTL, we want to write all of the zeros to the output
+        elif first_char is ARRAY_CHAR:
+            buff_stuff = buff_string()
+            if to_RTL:
+                num_zeros = int(buff_stuff[1:])
+                for i in range(0, num_zeros):
+                    outlines.append("0x0000\n")
+            else:
+                outlines.append(buff_stuff + "\n")
+
+        else: # if the buffer contains an instruction
+            # This part is mostly a direct copy from build_tables
+            instruction = buff_string()
+
+            hash_key = hash_buffer()
+            index = table_index_lookup(hash_key, instructions_table, 3)
+
+            bmp_index = index + 2
+            bitmap = instructions_table[bmp_index]
+
+            if SEL(bitmap, 2) != 0:
+                get_next_text()
+                instruction += " " + buff_string()
+            if SEL(bitmap, 1) != 0:
+                get_next_text()
+                instruction += " " + buff_string()
+            if SEL(bitmap, 0) != 0:
+                get_next_text()
+                instruction += " " + buff_string()
+
+            outlines.append(instruction + "\n")
+
+    return outlines
 
 
 # ------------------------------------------------The Assembler------------------------------------------------------
@@ -701,4 +825,4 @@ def assemble():
                 write_output(out)
 
 
-setup()
+main()
