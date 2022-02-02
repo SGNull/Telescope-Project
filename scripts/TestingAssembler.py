@@ -11,8 +11,8 @@
 import sys
 
 # --------------------------------------Simulation Constants/Globals---------------------------------------
-# TODO: Add option to enable/disable debugging.
-DEBUG_MODE = True
+DEBUG_ARG = "-d"
+
 OUTPUT_SUFFIX = ".tlo"
 ACCEPTED_IN_SUFFIX = ["tasl", "tl", "rtl"]
 
@@ -20,9 +20,9 @@ LOGISIM_FILE_HEADER = "v2.0 raw"
 
 output_lines = []  # Should be in Logisim's drive format.
 
-input_ROM = []  # Should be characters.
+input_ROM = []     # Should be characters.
 input_pointer = 0  # Would be a physical counter attached to the input_ROM.
-output_ROM = []  # Should be 16-bit numbers.
+output_ROM = []    # Should be 16-bit instructions.
 
 NULL = 0xFFFF
 
@@ -116,9 +116,9 @@ CONST_CHAR = ord('@')    # Constants end at a skippable character.
 HEX_CHAR = ord('x')      # Hexadecimal numbers can have varying length, and end at a skippable character.
 BIN_CHAR = ord('b')      # Binary numbers have the same syntax as hexadecimal numbers.
 REF_CHAR = ord('>')      # References replace the following label with the value of the label.
-CHAR_CHAR = ord("'")    # Character syntax works somewhat similar to how it works in python.
+CHAR_CHAR = ord("'")     # Character syntax works somewhat similar to how it works in python.
 #                          However, it forces the assembler to take ANY *single* character and write it to the output.
-ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character, in decimal only.
+ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character *in decimal only*.
 STOP_CHAR = 0
 
 BUFFER_HEAP_SIZE = 128
@@ -134,52 +134,73 @@ label_table_index = 0  # Would be a variable in Logisim.
 # ------------------------------------------The Simulation--------------------------------------------------
 def to_out_format(value):
     """Takes a given value and returns the Logisim formatted version of that number."""
-
     return hex(value)[2:]
 
 
 def setup():
     """Makes sure everything is ready for the assembler to run in the simulation."""
+    # Check that the arguments are correct.
     print("Checking the arguments...")
 
-    if len(sys.argv) != 2:
-        print("Error: Expected 1 argument (input file path), got " + str(len(sys.argv) - 1) + " instead.")
-        exit(2)
+    if len(sys.argv) != 2 and len(sys.argv) != 3:
+        print("Error: Expected 1 or 2 arguments (input file path and debug mode), got " + str(len(sys.argv) - 1) +
+              " instead.")
+        raise ValueError
 
+    # Check if we're in debug mode.
+    in_debug_mode = False
+    if len(sys.argv) == 3:
+        if sys.argv[2] != DEBUG_ARG:
+            print("Argument 2 should be " + DEBUG_ARG + " for debug mode, not: " + sys.argv[2])
+            raise ValueError
+        else:
+            in_debug_mode = True
+
+    # Check input file suffix
     input_file_path = sys.argv[1]
     input_file_suffix = input_file_path.split('.')[1]
 
-    if input_file_suffix != "tasl":
-        print("Error: Expected input file type to be in " + str(ACCEPTED_IN_SUFFIX) + ", got a " + input_file_suffix +
-              " file instead.")
-        exit(2)
+    if input_file_suffix not in ACCEPTED_IN_SUFFIX:
+        print("Error: Expected input file type to be one of " + str(ACCEPTED_IN_SUFFIX) + ", got a " +
+              input_file_suffix + " file instead.")
+        raise ValueError
 
+    # Get output file location
     input_file_name = input_file_path.split('.')[0]
     output_file_path = input_file_name + OUTPUT_SUFFIX
 
+    print("Done getting arguments.")
+    print("")
+
+    # Create the simulation input ROM.
     with open(input_file_path, 'r') as in_file:
-        print("Done getting arguments, now writing to the simulation ROM input...")
+        print("Input file found, writing to the simulation's ROM input...")
         char = in_file.read(1)
         while char:
             char = ord(char)
             input_ROM.append(char)
             char = in_file.read(1)
+        print("Done writing to the ROM input.")
 
+    # If there's nothing in the ROM, then there was some kind of issue with the input file.
     if len(input_ROM) == 0:
-        print("Error: input file empty.")
-        exit(1)
+        print("Error: input file empty or not readable/found.")
+        raise Warning
 
     # 2 STOP_CHARs are appended to the end of memory, just to make sure that the assembler does not go past them
     # There are some edge cases where this could happen if only 1 was used.
-    # However, since the end of memory would be all 0's anyways, this "fix" is actually realistic.
+    # However, since the end of ROM would be all 0's anyways, this "fix" is actually realistic.
     input_ROM.append(STOP_CHAR)
     input_ROM.append(STOP_CHAR)
 
+    # Start the assembler.
     print("")
     print("Starting the assembler...")
     start_point()
     print("Assembler is done running.")
+    print("")
 
+    # Send the assembler's results to the output file.
     print("Sending the output ROM contents to the output file...")
     output_lines.append(LOGISIM_FILE_HEADER + "\n")
 
@@ -192,7 +213,8 @@ def setup():
 
     print("Contents written to output.")
 
-    if DEBUG_MODE is True:
+    # If we're in debug mode, call the debugging functions.
+    if in_debug_mode:
         print("")
         print("Debug mode is enabled")
         print("")
@@ -200,7 +222,7 @@ def setup():
         # Debug functions go here.
         print_label_table()
 
-        print("")
+    print("")
 
     print("The simulation has finished.")
 
@@ -208,6 +230,7 @@ def setup():
 def read_input():
     """
     Returns the next character from the input, incrementing the input pointer.
+
     This would happen automatically when doing LDI FLG >INPUT_FLG, MOV RG0 IO
     """
     global input_pointer
@@ -225,6 +248,7 @@ def write_0_to_input():
 def write_output(value):
     """
     Writes the value to the output.
+
     Would automatically increment some output pointer in Logisim when LDI FLG >OUTPUT_FLG, MOV IO RG0
     """
     output_ROM.append(value)
@@ -243,7 +267,6 @@ def SEL(value, bit):
 def print_label_table():
     """Prints the contents of the label table in an easy-to-read format."""
     # See the label table structure to better understand how this function works.
-
     print("Printing label table...")
     print("Format: Address - Label")
     print("=======================")
@@ -287,7 +310,6 @@ def print_buffer():
 
 def form_hex(num):
     """Formats a given integer into a 2-byte hexadecimal string. Mustn't be larger than 2^16"""
-
     # Get the part of the hex number that should contain 4 characters
     hex_str = hex(num)
     parts = hex_str.split('x')
@@ -336,7 +358,6 @@ def get_value_base(multiplier, starting_index):
 
 def get_numeric_value():
     """Interprets the contents of the buffer as a number, returns the value."""
-
     if buffer_index == 1: # it is a 1 digit decimal number
         char = buffer[0]
         return char & 0xF
@@ -414,7 +435,6 @@ def goto_char(target):
 
 def get_next_text():
     """Reads the next viable sequence of characters from input into the heap"""
-
     global buffer_index
 
     # Look for the start of a viable sequence
