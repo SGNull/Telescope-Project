@@ -256,6 +256,7 @@ JIF TRU >StartPoint
 	/ RG3 = index
 	/ RG4 = next_entry_key
 	/ RG5 = TABLESTOP
+	
 	ALI AND RG3 0
 	LDI RG5 >TABLESTOP
 	
@@ -265,21 +266,16 @@ JIF TRU >StartPoint
 		
 		/ Check if there's a match
 		AFN SUB RG4 RG0; JIF NEZ >TIL.Skp1
-			MOV OUT RG3
-			JIF TRU >TIL.End
+			MOV OUT RG3; MOV PC RA
 		#TIL.Skp1
 		
 		/ Check if we're at the end of the table.
 		AFN SUB RG4 RG5; JIF NEZ >TIL.Skp2
-			MOV OUT RG5
-			JIF TRU >TIL.End
+			MOV OUT RG5; MOV PC RA
 		#TIL.Skp2
 		
 		ALU ADD RG3 RG2
 	JIF TRU >TIL.Loop
-	
-	#TIL.End
-	MOV PC RA
 )
 
 (#GotoChar  / UNSAFE for RG5-6, RG0:target
@@ -328,8 +324,7 @@ JIF TRU >StartPoint
 	/ "If we hit a stop character, just put that in the input heap"
 	LDI RG1 >STOP; AFN SUB RG0 RG1; JIF NEZ >GN.Skip1
 		STR RG0 RG0 >Buffer
-		LDI RG4 1
-		JIF TRU >GN.Done
+		LDI RG4 1; JIF TRU >GN.Done
 	#GN.Skip1
 	
 	ALI AND RG4 0  / Set BuffIdx to 0

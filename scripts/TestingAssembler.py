@@ -401,11 +401,13 @@ def reduce_input_ROM(to_RTL):
         elif first_char is CHAR_CHAR:
             temp_string = buff_string()
 
-            # Check for strange edge-cases if reducing to_RTL
+            # Check for edge-cases if reducing to_RTL
             if to_RTL and temp_string[1] == '\n':
                 temp_string = "'\\n'"
             elif to_RTL and temp_string[1] == "'":
                 temp_string = "''' \\'"
+            elif to_RTL and temp_string[1] == "\t":
+                temp_string = "'\\t'"
 
             outlines.append(temp_string + "\n")
 
