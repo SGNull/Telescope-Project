@@ -82,10 +82,6 @@ JIF TRU >StartPoint
 			  >TABLESTOP
 			  ])
 
-/ It looks strange, but SkipChars includes newline and tab.
-(#SkipChars = [' ', ';', '
-', '	', ',', '=', ':', '[', ']', '(', ')', >TABLESTOP])
-
 @COMMENT = '/'
 @NEWLINE = '
 '
@@ -110,6 +106,7 @@ JIF TRU >StartPoint
 / --------------------------------------- The Assembler -------------------------------------
 / FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.
 
+
 (/ Currently unused functions. Should be implemented to easily switch to file system.
 	(#GetInput  / Returns next input value.
 		LDI FLG >INFLG
@@ -130,6 +127,7 @@ JIF TRU >StartPoint
 	)
 )
 
+
 (#StartPoint  / The starting point for the assembler.
 	
 	/ Write 0 to the input
@@ -145,6 +143,7 @@ JIF TRU >StartPoint
 	/ Goto BuildTables
 	JIF TRU >BuildTables
 )
+
 
 (#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex, returns value
 	/ RG1 = index
@@ -178,6 +177,7 @@ JIF TRU >StartPoint
 	#GVB.Done; MOV PC RA  / Return
 )
 
+
 (#GetNumericValue  / UNSAFE for RG0-3, returns value
 	/ RG0 = second_char & buffer_index
 	/ RG1 = buffer & HEX_CHAR & BIN_CHAR
@@ -208,6 +208,7 @@ JIF TRU >StartPoint
 	
 	HLT; 0xFFF0; JIF TRU >StartPoint  / Stop; error code; restart assembler.
 )
+
 
 (#LabelLookup  / UNSAFE for ALL, returns label value
 	/ RG0 = index *of* (the 0th element of) the current entry in table
@@ -253,6 +254,7 @@ JIF TRU >StartPoint
 	MOV PC RA
 )
 
+
 (#TblIdxLookup  / UNSAFE for RG3-5, RG0:key, RG1:table, RG2:entry_size, returns table index
 	/ RG3 = index
 	/ RG4 = next_entry_key
@@ -279,6 +281,39 @@ JIF TRU >StartPoint
 	JIF TRU >TIL.Loop
 )
 
+
+(#IsCharImportant  / UNSAFE for RG3, RG0:char, returns 1 if important, 0 if not.
+
+	/ This check includes uppercase, lowercase, and some other symbols we may care about
+	LDI RG3 61; AFN SUB RG3 RG0; JIF GEZ >ICI.NotBig
+		/ But it includes brackets too, which we don't care about, so check for those
+		LDI RG3 '['; AFN SUB RG3 RG0; JIF EQZ >ICI.False
+		LDI RG3 ']'; AFN SUB RG3 RG0; JIF EQZ >ICI.False
+		JIF TRU >ICI.True
+	#ICI.NotBig
+	
+	/ This check includes dash, dot, comment, and numbers
+	LDI RG3 44; AFN SUB RG3 RG0; JIF GEZ >ICI.Small
+		LDI RG3 58; AFN SUB RG0 RG3; JIF LTZ >ICI.True
+	#ICI.Small
+	
+	/ Now check for label and single quotes individually (too difficult to check using bit patterns)
+	LDI RG3 >LABEL; AFN SUB RG3 RG0; JIF EQZ >ICI.True
+	LDI RG3 >CHAR; AFN SUB RG3 RG0; JIF EQZ >ICI.True
+	
+	/ Finally, do a quick check to see if it's EOM
+	AIF OR RG0 0; JIF EQZ >ICI.True
+	
+	/ If it fell through all of the previous checks, it's not important, so return false
+	#ICI.False
+	ALI AND OUT 0; MOV PC RA
+	
+	/ If it passed any of the checks, return true.
+	#ICI.True
+	ALI NOT OUT 0; MOV PC RA
+)
+
+
 (#GotoChar  / UNSAFE for RG5-6, RG0:target
 	/ RG5 = char
 	/ RG6 = STOP_CHAR
@@ -293,10 +328,10 @@ JIF TRU >StartPoint
 	MOV PC RA
 )
 
+
 (#GetNext  / UNSAFE for ALL
 	/ RG0 = char
 	/ RG1 = COMMAND_CHAR & COMMENT_CHAR
-	/ RG2 = 1 (for table_index_lookup)
 	/ RG4 = buffer_index (BuffIdx)
 	
 	/ Storing the return address and flags on the stack
@@ -305,7 +340,6 @@ JIF TRU >StartPoint
 	/ Set the IO to the input ROM
 	LDI FLG >INFLG
 	
-	LDI RG2 1
 	/ "Look for the start of a viable sequence"
 	#GN.Loop1
 		MOV RG0 IO
@@ -319,11 +353,9 @@ JIF TRU >StartPoint
 			LDI RG0 >NEWLINE; JIF TRU >GotoChar
 		#GN.NotCom
 		
-		/ Do TblIdxLookup(char, SkipChars, 1)
-		LDI RG1 >SkipChars; LDI RA >GN.Ret1; JIF TRU >TblIdxLookup; #GN.Ret1  
-		
-	/ If TblIdxLookup did not return NULL, loop.
-	AIN ADD OUT 1; JIF NCR >GN.Loop1
+		/ Check if the character is important, and loop if not.
+		LDI RA >GN.Ret1; JIF TRU >IsCharImportant; #GN.Ret1; AIF OR OUT 0
+	JIF EQZ >GN.Loop1
 	
 	/ "If we hit a stop character, just put that in the input heap"
 	LDI RG1 >STOP; AFN SUB RG0 RG1; JIF NEZ >GN.Skip1
@@ -342,15 +374,18 @@ JIF TRU >StartPoint
 		JIF TRU >GN.Done
 	#GN.Skip2
 	
-	/ Setting up arguments for TblIdxLookup, and reserving space on the stack for BuffIdx
-	LDI RA >GN.LLRet; LDI RG1 >SkipChars; LDI RG2 1
-	ALI SUB SP 1
+	/ Setting up RA for IsCharImportant
+	LDI RA >GN.LLRet
 	
 	/ Get the rest of the character sequence using another loop.
 	#GN.Loop2
 		/ Store the character in the buffer and get the next one.
 		STR RG0 RG4 >Buffer; ALI ADD RG4 1
 		MOV RG0 IO
+		
+		/ If this is an unimportant character, break
+		JIF TRU >IsCharImportant; #GN.LLRet
+		AIF OR OUT 0; JIF EQZ >GN.Loop2D
 		
 		/ If command, skip the command & break
 		LDI RG3 >COMMAND; AFN SUB RG0 RG3; JIF NEZ >GN.LL1  
@@ -362,25 +397,17 @@ JIF TRU >StartPoint
 			LDI RG0 >NEWLINE; LDI RA >GN.Loop2D; JIF TRU >GotoChar
 		#GN.LL2
 		
-		/ If we reach a stop character, break.
-		LDI RG3 >STOP; AFN SUB RG0 RG3; JIF EQZ >GN.Loop2D  
-		
-		/ Push/pop BuffIdx and search SkipChars for char (arguments are already set up)
-		STR RG4 SP 0
-		JIF TRU >TblIdxLookup; #GN.LLRet
-		LOD RG4 SP 0
-		
-		AIN ADD OUT 1; JIF CAR >GN.Loop2  / If the character is not a skip character, keep going.
+		/ Finally, if it's not a stop character, loop.
+		LDI RG3 >STOP; AFN SUB RG0 RG3; JIF NEZ >GN.Loop2
 	#GN.Loop2D
 	
-	/ BuffIdx is done being stored on the stack
-	ALI ADD SP 1
 	
 	#GN.Done  / Assumes RG4 has the buffer_index (BuffIdx) in it
 	/ Update buffer index and return.
 	STR RG4 RG4 >BuffIdx
 	LOD RA SP 0; ALI ADD SP 1; MOV PC RA
 )
+
 
 (#ApdStrLbl  / UNSAFE for RG0-3
 	/ RG0 = BuffIdx
@@ -405,6 +432,7 @@ JIF TRU >StartPoint
 	MOV PC RA
 )
 
+
 (#HashBuff  / UNSAFE for RG0-1, returns the hash of the buffer's contents.
 	/ RG0 = temp
 	/ RG1 = 0x1f (bottom 5 bit mask)
@@ -426,6 +454,7 @@ JIF TRU >StartPoint
 	
 	MOV PC RA
 )
+
 
 (#AssembleNext  / UNSAFE for ALL, RG0: table, returns mnemonic's value
 	/ Push table(RG0) and RA
@@ -458,6 +487,7 @@ JIF TRU >StartPoint
 	ALI ADD OUT 1; LOD RG0 SP 0; ALU ADD OUT RG0; LOD OUT OUT 0 / RG6 = table[Idx + 1]
 	LOD RA SP 1; ALI ADD SP 2; MOV PC RA / Pop from stack and return
 )
+
 
 (#BuildTables  / First pass through the file, build label table.
 

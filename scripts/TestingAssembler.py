@@ -108,10 +108,6 @@ modifier_table = [0xD1EE, 0x0,  # NOT
                   NULL
                   ]
 
-# SKIP_CHARS ends in NULL, not because NULL is skipped, but because tables are NULL terminated
-SKIP_CHARS = [ord('\n'), ord('\t'), ord('('), ord(')'), ord(' '), ord(','),
-              ord('='), ord(':'), ord('['), ord(']'), ord(';'), NULL]
-
 COMMENT_CHAR = ord('/')  # Comments end at a newline character.
 NEWLINE_CHAR = ord('\n')
 COMMAND_CHAR = ord('%')  # Commands are for later assemblers.
@@ -471,6 +467,31 @@ def reduce_input_ROM(to_RTL):
 # ------------------------------------------------The Assembler------------------------------------------------------
 
 
+def is_char_important(char_num):
+    # First check if it's 0 (cause we care about the stop character)
+    if char_num == 0:
+        return True
+
+    # This includes uppercase, lowercase, and some other symbols that we may or may not care about
+    if char_num > 61:
+        # But it includes brackets too, which we don't care about, so check for those
+        if char_num == ord('[') or char_num == ord(']'):
+            return False
+        else:
+            return True
+
+    # Now check if it's a comment char or a number
+    elif 58 > char_num > 44:
+        return True
+
+    # Finally, check if it's a label or a single quote (these are too individualized to check for otherwise)
+    elif char_num == ord("#") or char_num == ord("'"):
+        return True
+
+    # If it fell through all checks, return false
+    return False
+
+
 def start_point():
     # Reset input
     write_0_to_input()
@@ -576,24 +597,22 @@ def goto_char(target):
 
 
 def get_next_text():
-    """Reads the next viable sequence of characters from input into the heap"""
+    """Reads the next viable sequence of characters from input into the buffer"""
     global buffer_index
 
     # Look for the start of a viable sequence
     while True:
         char = read_input()
+
+        # Check what the character is
         if char == COMMAND_CHAR:
             goto_char(COMMAND_CHAR)
-
         elif char == COMMENT_CHAR:
             goto_char(NEWLINE_CHAR)
+        elif is_char_important(char):
+            break
 
-        else:  # if char is not a skip character
-            result = table_index_lookup(char, SKIP_CHARS, 1)
-            if result == NULL:
-                break  # We've found something that is not skippable.
-
-    # If we hit a stop character, just put that in the input heap.
+    # If we hit a stop character, just put that in the buffer.
     if char == STOP_CHAR:
         buffer[0] = char
         buffer_index = 1
@@ -621,18 +640,13 @@ def get_next_text():
         if char == COMMAND_CHAR:
             goto_char(COMMAND_CHAR)
             break
-
         elif char == COMMENT_CHAR:
             goto_char(NEWLINE_CHAR)
             break
-
         elif char == STOP_CHAR:
             break
-
-        else:  # if char is a skip character
-            result = table_index_lookup(char, SKIP_CHARS, 1)
-            if result != NULL:
-                break
+        elif not is_char_important(char):  # if char is a skip character
+            break
 
 
 def append_string_label():
