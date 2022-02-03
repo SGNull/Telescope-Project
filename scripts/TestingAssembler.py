@@ -14,6 +14,9 @@ import sys
 DEBUG_ARG = "-d"
 
 OUTPUT_SUFFIX = ".tlo"
+TABLE_FILE_SUFFIX = ".table"
+REDUCED_FILE_SUFFIX = ".rtl"
+
 ACCEPTED_IN_SUFFIX = ["tasl", "tl", "rtl"]
 
 LOGISIM_FILE_HEADER = "v2.0 raw"
@@ -221,11 +224,11 @@ def main():
         print("")
 
         # Debug functions go here.
-        print_label_table()
+        make_table_file(input_file_name + TABLE_FILE_SUFFIX)
 
         print("")
 
-        write_RTL(input_file_name + ".rtl")
+        write_RTL(input_file_name + REDUCED_FILE_SUFFIX)
 
     print("")
 
@@ -305,6 +308,21 @@ def buff_string():
 # ------------------------------------------------Extra Features------------------------------------------------------
 
 
+def make_table_file(table_file_path):
+    """Creates a file containing the contents of the label table."""
+
+    # Gather the contents of the label table
+    print("Scanning the label table...")
+    lines = gather_label_table()
+    print("Done scanning.")
+
+    # Now write the lines to the output
+    print("Attempting to write to the table output file...")
+    with open(table_file_path, 'w') as table_out_file:
+        table_out_file.writelines(lines)
+        print("Table output file written.")
+
+
 def write_RTL(RTL_file_path):
     """Creates an RTL copy of the TASL2 file for reference when debugging"""
 
@@ -320,13 +338,11 @@ def write_RTL(RTL_file_path):
         print("RTL output file written.")
 
 
-def print_label_table():
-    """Prints the contents of the label table in an easy-to-read format."""
+def gather_label_table():
+    """Returns the constants of the label table in an easy-to-read format as a list of lines."""
     # See the label table structure to better understand how this function works.
-    print("Printing label table...")
-    print("Format: Address - Label")
-    print("=======================")
     index = 0
+    outlines = []
 
     # While we're not at the end of the label table,
     while index < label_table_index:
@@ -343,12 +359,12 @@ def print_label_table():
         value = label_table[index]
 
         # Then print the label number, label name, and its value
-        print(form_hex(value) + " - " + label)
+        outlines.append(form_hex(value) + " - " + label + "\n")
 
         # Finally, increment the index for the next label
         index += 1
 
-    print("=======================")
+    return outlines
 
 
 def reduce_input_ROM(to_RTL):
