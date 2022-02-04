@@ -45,7 +45,7 @@ ALU ADD RG0 RG1
 >CONSTANT
 
 / Test empty array construction
-#MyArray = [~5]
+#MyArray = (~5)
 0xFFFF
 
 / Test sameline instructions

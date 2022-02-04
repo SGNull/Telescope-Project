@@ -522,13 +522,9 @@ def is_char_important(char_num):
     if char_num == 0:
         return True
 
-    # This includes uppercase, lowercase, and some other symbols that we may or may not care about
+    # This includes uppercase, lowercase, and some other symbols that we may care about
     if char_num > 61:
-        # But it includes brackets too, which we don't care about, so check for those
-        if char_num == ord('[') or char_num == ord(']'):
-            return False
-        else:
-            return True
+        return True
 
     # Now check if it's a comment char or a number
     elif 58 > char_num > 44:
@@ -600,6 +596,7 @@ def label_lookup():
     while True:
         # Check if we're out of labels to search through.
         if table_index >= label_table_index:
+            print_buffer()
             print("LABEL NOT FOUND ERROR")
             exit(1)
 
@@ -788,6 +785,9 @@ def build_tables():
             label_table[label_table_index] = program_counter
             label_table_index += 1
 
+        elif first_char == REF_CHAR:
+            program_counter += 1
+
         elif first_char == CONST_CHAR:  # It's a constant
             # Add the label to the table.
             append_string_label()
@@ -814,8 +814,6 @@ def build_tables():
             program_counter += 1
 
         else:  # It's an instruction
-            program_counter += 1
-
             # Hash the instruction, and lookup how many strings we have to skip (unless it's CAL).
             hash_key = hash_buffer()
 
@@ -823,6 +821,7 @@ def build_tables():
                 program_counter += 3
 
             else:
+                program_counter += 1
                 index = table_index_lookup(hash_key, instructions_table, 3)
                 if index == NULL:
                     print_buffer()

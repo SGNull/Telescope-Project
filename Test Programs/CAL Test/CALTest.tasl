@@ -2,14 +2,16 @@
 
 JMP >Main
 
-#MyVar = 10
+#MyVar = 0
 
 #MyFunc
 	MOV RG0 RG1
 	RET
 
 #Main
-	ZRO RG0; LOD RG0 RG0 >MyVar
+	ZRO RG0; LOD RG1 RG0 >MyVar
 	CAL >MyFunc
+	ALI ADD RG0 1
+	STR RG0 RG0 >MyVar
 	MOV IO RG0
-	HLT
+	JMP >Main
