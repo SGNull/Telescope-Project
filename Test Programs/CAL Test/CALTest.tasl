@@ -1,0 +1,15 @@
+/ Test for the CAL macro mnemonic.
+
+JMP >Main
+
+#MyVar = 10
+
+#MyFunc
+	MOV RG0 RG1
+	RET
+
+#Main
+	ZRO RG0; LOD RG0 RG0 >MyVar
+	CAL >MyFunc
+	MOV IO RG0
+	HLT

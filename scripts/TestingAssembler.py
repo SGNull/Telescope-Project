@@ -12,10 +12,12 @@ import sys
 
 # --------------------------------------Simulation Constants/Globals---------------------------------------
 DEBUG_ARG = "-d"
+COMPRESS_ARG = "-c"
 
 OUTPUT_SUFFIX = ".tlo"
 TABLE_FILE_SUFFIX = ".table"
 REDUCED_FILE_SUFFIX = ".rtl"
+COMPRESSED_FILE_SUFFIX = ".tl"
 
 ACCEPTED_IN_SUFFIX = ["tasl", "tl", "rtl"]
 
@@ -31,6 +33,8 @@ output_ROM = []    # Should be 16-bit instructions.
 NULL = 0xFFFF
 
 # --------------------------------------Assembler Constants/Globals----------------------------------------
+CAL_HASH = 0xb023
+
 # There will be three tables that the assembler will draw from, in addition to the label table:
 # Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
 instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
@@ -48,6 +52,19 @@ instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       0xb8c1, 0xC000, 0b0111,  # AFN
                       0xb921, 0xD000, 0b1111,  # AIN
                       0xc1ee, 0xFFFF, 0b0000,  # NOP
+
+                      0xd0b2, 0x3087, 0b0000,  # RET
+                      0xbe5a, 0xb100, 0b0010,  # ZRO
+                      0xb2ae, 0xb000, 0b0010,  # NUL
+                      0xcc30, 0x9200, 0b0010,  # PAS
+                      0xa270, 0xbbb0, 0b1001,  # PSH
+                      0xc1f0, 0xb9b0, 0b1001,  # POP
+                      0xc1a3, 0xcb00, 0b0011,  # CMP
+                      0xc1aa, 0x4600, 0b0000,  # JMP
+                      0xc4aa, 0x4000, 0b0000,  # JEQ
+                      0x95ca, 0x4800, 0b0000,  # JNE
+                      0xd18a, 0x4100, 0b0000,  # JLT
+                      0x94ea, 0x4900, 0b0000,  # JGE
                       NULL
                       ]
 
@@ -110,7 +127,7 @@ modifier_table = [0xD1EE, 0x0,  # NOT
 
 COMMENT_CHAR = ord('/')  # Comments end at a newline character.
 NEWLINE_CHAR = ord('\n')
-COMMAND_CHAR = ord('%')  # Commands are for later assemblers.
+MULTI_LINE_CHAR = ord('%')  # Commands are for later assemblers.
 LABEL_CHAR = ord('#')    # Labels end at a skippable character.
 CONST_CHAR = ord('@')    # Constants end at a skippable character.
 HEX_CHAR = ord('x')      # Hexadecimal numbers can have varying length, and end at a skippable character.
@@ -149,12 +166,15 @@ def main():
 
     # Check if we're in debug mode.
     in_debug_mode = False
+    compress = False
     if len(sys.argv) == 3:
-        if sys.argv[2] != DEBUG_ARG:
-            print("Argument 2 should be " + DEBUG_ARG + " for debug mode, not: " + sys.argv[2])
-            raise ValueError
-        else:
+        if sys.argv[2] == DEBUG_ARG:
             in_debug_mode = True
+        elif sys.argv[2] == COMPRESS_ARG:
+            compress = True
+        else:
+            print("Bad second argument: " + sys.argv[2])
+            raise ValueError
 
     # Check input file suffix
     input_file_path = sys.argv[1]
@@ -193,41 +213,47 @@ def main():
     input_ROM.append(STOP_CHAR)
     input_ROM.append(STOP_CHAR)
 
-    # Start the assembler.
-    print("")
-    print("Starting the assembler...")
-    start_point()
-    print("Assembler is done running.")
-    print("")
-
-    # Send the assembler's results to the output file.
-    print("Sending the output ROM contents to the output file...")
-    output_lines.append(LOGISIM_FILE_HEADER + "\n")
-
-    for val in output_ROM:
-        out = to_out_format(val)
-        output_lines.append(out + "\n")
-
-    with open(output_file_path, 'w') as out_file:
-        out_file.writelines(output_lines)
-
-    print("Contents written to output.")
-
-    # If we're in debug mode, call the debugging functions.
-    if in_debug_mode:
+    if compress:
         print("")
-        print("Debug mode is enabled")
+        print("Compression enabled, starting compressor...")
+        compress_file(input_file_name + COMPRESSED_FILE_SUFFIX)
+        print("Compressor finished.")
+
+    else:
+        # Start the assembler.
+        print("")
+        print("Starting the assembler...")
+        start_point()
+        print("Assembler is done running.")
         print("")
 
-        # Debug functions go here.
-        make_table_file(input_file_name + TABLE_FILE_SUFFIX)
+        # Send the assembler's results to the output file.
+        print("Sending the output ROM contents to the output file...")
+        output_lines.append(LOGISIM_FILE_HEADER + "\n")
 
-        print("")
+        for val in output_ROM:
+            out = to_out_format(val)
+            output_lines.append(out + "\n")
 
-        write_RTL(input_file_name + REDUCED_FILE_SUFFIX)
+        with open(output_file_path, 'w') as out_file:
+            out_file.writelines(output_lines)
+
+        print("Contents written to output.")
+
+        # If we're in debug mode, call the debugging functions.
+        if in_debug_mode:
+            print("")
+            print("Debug mode is enabled")
+            print("")
+
+            # Debug functions go here.
+            make_table_file(input_file_name + TABLE_FILE_SUFFIX)
+
+            print("")
+
+            write_RTL(input_file_name + REDUCED_FILE_SUFFIX)
 
     print("")
-
     print("The simulation has finished.")
 
 
@@ -304,6 +330,21 @@ def buff_string():
 # ------------------------------------------------Extra Features------------------------------------------------------
 
 
+def compress_file(TL_file_path):
+    """Creates a TL copy of the TASL file for module-based programs."""
+
+    # Reduce the input ROM to TL lines
+    print("Compressing input ROM to TL...")
+    TL_lines = reduce_input_ROM(False)
+    print("Compression finished.")
+
+    # Now write the lines to the output
+    print("Attempting to write the results of compression...")
+    with open(TL_file_path, 'w') as TL_out_file:
+        TL_out_file.writelines(TL_lines)
+        print("TL output file written.")
+
+
 def make_table_file(table_file_path):
     """Creates a file containing the contents of the label table."""
 
@@ -320,7 +361,7 @@ def make_table_file(table_file_path):
 
 
 def write_RTL(RTL_file_path):
-    """Creates an RTL copy of the TASL2 file for reference when debugging"""
+    """Creates an RTL copy of the TASL file for reference when debugging"""
 
     # Reduce the input ROM to RTL lines
     print("Translating input file into RTL...")
@@ -444,22 +485,31 @@ def reduce_input_ROM(to_RTL):
             instruction = buff_string()
 
             hash_key = hash_buffer()
-            index = table_index_lookup(hash_key, instructions_table, 3)
 
-            bmp_index = index + 2
-            bitmap = instructions_table[bmp_index]
+            if hash_key == CAL_HASH:
+                if to_RTL:
+                    outlines.append("MOV RA PC\n")
+                    outlines.append("ALI ADD RA 4\n")
+                    outlines.append("JIF TRU\n")
+                else:
+                    outlines.append("CAL\n")
+            else:
+                index = table_index_lookup(hash_key, instructions_table, 3)
 
-            if SEL(bitmap, 2) != 0:
-                get_next_text()
-                instruction += " " + buff_string()
-            if SEL(bitmap, 1) != 0:
-                get_next_text()
-                instruction += " " + buff_string()
-            if SEL(bitmap, 0) != 0:
-                get_next_text()
-                instruction += " " + buff_string()
+                bmp_index = index + 2
+                bitmap = instructions_table[bmp_index]
 
-            outlines.append(instruction + "\n")
+                if SEL(bitmap, 2) != 0:
+                    get_next_text()
+                    instruction += " " + buff_string()
+                if SEL(bitmap, 1) != 0:
+                    get_next_text()
+                    instruction += " " + buff_string()
+                if SEL(bitmap, 0) != 0:
+                    get_next_text()
+                    instruction += " " + buff_string()
+
+                outlines.append(instruction + "\n")
 
     return outlines
 
@@ -605,8 +655,8 @@ def get_next_text():
         char = read_input()
 
         # Check what the character is
-        if char == COMMAND_CHAR:
-            goto_char(COMMAND_CHAR)
+        if char == MULTI_LINE_CHAR:
+            goto_char(MULTI_LINE_CHAR)
         elif char == COMMENT_CHAR:
             goto_char(NEWLINE_CHAR)
         elif is_char_important(char):
@@ -637,8 +687,8 @@ def get_next_text():
 
         char = read_input()
 
-        if char == COMMAND_CHAR:
-            goto_char(COMMAND_CHAR)
+        if char == MULTI_LINE_CHAR:
+            goto_char(MULTI_LINE_CHAR)
             break
         elif char == COMMENT_CHAR:
             goto_char(NEWLINE_CHAR)
@@ -766,21 +816,26 @@ def build_tables():
         else:  # It's an instruction
             program_counter += 1
 
-            # Hash the instruction, and lookup how many strings we have to skip.
+            # Hash the instruction, and lookup how many strings we have to skip (unless it's CAL).
             hash_key = hash_buffer()
-            index = table_index_lookup(hash_key, instructions_table, 3)
-            if index == NULL:
-                print_buffer()
-                print("INSTRUCTION NOT FOUND ERROR")
-                raise NameError
-            bmp_index = index + 2
-            bitmap = instructions_table[bmp_index]
-            if SEL(bitmap, 2) != 0:
-                get_next_text()
-            if SEL(bitmap, 1) != 0:
-                get_next_text()
-            if SEL(bitmap, 0) != 0:
-                get_next_text()
+
+            if hash_key == CAL_HASH:
+                program_counter += 3
+
+            else:
+                index = table_index_lookup(hash_key, instructions_table, 3)
+                if index == NULL:
+                    print_buffer()
+                    print("INSTRUCTION NOT FOUND ERROR")
+                    raise NameError
+                bmp_index = index + 2
+                bitmap = instructions_table[bmp_index]
+                if SEL(bitmap, 2) != 0:
+                    get_next_text()
+                if SEL(bitmap, 1) != 0:
+                    get_next_text()
+                if SEL(bitmap, 0) != 0:
+                    get_next_text()
 
     # After we're done, pass control to the actual assembler with the input reset
     write_0_to_input()
@@ -827,34 +882,41 @@ def assemble():
                 # Hash the instruction.
                 hash_val = hash_buffer()
 
-                # Translate the instruction and get the bitmap.
-                index = table_index_lookup(hash_val, instructions_table, 3)
-                value_index = index + 1
-                out = instructions_table[value_index]
-                bmp_index = value_index + 1
-                bitmap = instructions_table[bmp_index]
+                # See if it's CAL
+                if hash_val == CAL_HASH:
+                    write_output(0x3078)  # MOV RA PC
+                    write_output(0xb974)  # ALI ADD RA 4
+                    write_output(0x4600)  # JIF TRU
 
-                # Gather operands according to the bitmap.
-                if SEL(bitmap, 2) != 0:
-                    value = assemble_next_mnemonic(modifier_table)
-                    value = value << 8
-                    out = out | value
+                else:
+                    # Translate the instruction and get the bitmap.
+                    index = table_index_lookup(hash_val, instructions_table, 3)
+                    value_index = index + 1
+                    out = instructions_table[value_index]
+                    bmp_index = value_index + 1
+                    bitmap = instructions_table[bmp_index]
 
-                if SEL(bitmap, 1) != 0:
-                    value = assemble_next_mnemonic(register_table)
-                    value = value << 4
-                    out = out | value
+                    # Gather operands according to the bitmap.
+                    if SEL(bitmap, 2) != 0:
+                        value = assemble_next_mnemonic(modifier_table)
+                        value = value << 8
+                        out = out | value
 
-                if SEL(bitmap, 0) != 0:
-                    if SEL(bitmap, 3) != 0:
-                        get_next_text()
-                        value = get_numeric_value()
-                        value = value & 0xf
-                    else:
+                    if SEL(bitmap, 1) != 0:
                         value = assemble_next_mnemonic(register_table)
-                    out = out | value
+                        value = value << 4
+                        out = out | value
 
-                write_output(out)
+                    if SEL(bitmap, 0) != 0:
+                        if SEL(bitmap, 3) != 0:
+                            get_next_text()
+                            value = get_numeric_value()
+                            value = value & 0xf
+                        else:
+                            value = assemble_next_mnemonic(register_table)
+                        out = out | value
+
+                    write_output(out)
 
 
 main()

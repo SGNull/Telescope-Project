@@ -1,0 +1,33 @@
+TASL3 is happening! New mnemonics!
+
+
+RET - MOV PC RA
+
+ZRO - ALI AND [Your Register] 0
+NUL - ALI NOT [Your Register] 0
+PAS - AIF OR [Your Register] 0
+
+PSH - ALI SUB SP [Your Number]
+POP - ALI ADD SP [Your Number]
+
+CMP - AFN SUB [Your Reg] [Your Reg]
+JMP - JIF TRU
+JEQ - JIF EQZ
+JNE - JIF NEZ
+JLT - JIF LTZ
+JGE - JIF GEZ
+
+
+The first macro! Resolves #14 (but it's hardcoded into the assembler)
+
+CAL - MOV RA PC; ALI ADD RA 4; JIF TRU
+
+
+
+Changed "Commands" to just multi-line comments, because that's what they really are right now.
+
+Resolved #8 by adding the ability to provide -c to the Python assembler. Note: You cannot run both -c and -d at the same time.
+
+Updated the custom buttons file with the new compressor.
+
+Exported the TASL3 UDL file.

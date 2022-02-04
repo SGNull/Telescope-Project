@@ -6,6 +6,8 @@ JIF TRU >StartPoint
 
 @TABLESTOP = 0xFFFF  / Must stay NULL.
 
+@CALHASH = 0xb023
+
 / Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
 (#InstTable = [0xd188, 0x0000, 0b0000,  / HLT
                0xb672, 0x1000, 0b0000,  / RSM
@@ -22,6 +24,19 @@ JIF TRU >StartPoint
                0xb8c1, 0xC000, 0b0111,  / AFN
                0xb921, 0xD000, 0b1111,  / AIN
                0xc1ee, 0xFFFF, 0b0000,  / NOP
+			   
+			   0xd0b2, 0x3087, 0b0000,  / RET
+               0xbe5a, 0xb100, 0b0010,  / ZRO
+               0xb2ae, 0xb000, 0b0010,  / NUL
+               0xcc30, 0x9200, 0b0010,  / PAS
+               0xa270, 0xbbb0, 0b1001,  / PSH
+               0xc1f0, 0xb9b0, 0b1001,  / POP
+               0xc1a3, 0xcb00, 0b0011,  / CMP
+               0xc1aa, 0x4600, 0b0000,  / JMP
+               0xc4aa, 0x4000, 0b0000,  / JEQ
+               0x95ca, 0x4800, 0b0000,  / JNE
+               0xd18a, 0x4100, 0b0000,  / JLT
+               0x94ea, 0x4900, 0b0000,  / JGE
                >TABLESTOP
                ])
 
@@ -85,7 +100,7 @@ JIF TRU >StartPoint
 @COMMENT = '/'
 @NEWLINE = '
 '
-@COMMAND = '%'
+@MULTILINE = '%'
 @LABEL = '#'
 @CONST = '@'
 @HEX = 'x'
@@ -331,7 +346,7 @@ JIF TRU >StartPoint
 
 (#GetNext  / UNSAFE for ALL
 	/ RG0 = char
-	/ RG1 = COMMAND_CHAR & COMMENT_CHAR
+	/ RG1 = MULTILINE & COMMENT_CHAR
 	/ RG4 = buffer_index (BuffIdx)
 	
 	/ Storing the return address and flags on the stack
@@ -345,8 +360,8 @@ JIF TRU >StartPoint
 		MOV RG0 IO
 		LDI RA >GN.Loop1
 		
-		/ If command, goto command (already in RG0)
-		LDI RG1 >COMMAND; AFN SUB RG0 RG1; JIF EQZ >GotoChar  
+		/ If multiline, goto multiline (already in RG0)
+		LDI RG1 >MULTILINE; AFN SUB RG0 RG1; JIF EQZ >GotoChar  
 
 		/ If comment, goto newline
 		LDI RG1 >COMMENT; AFN SUB RG0 RG1; JIF NEZ >GN.NotCom
@@ -387,8 +402,8 @@ JIF TRU >StartPoint
 		JIF TRU >IsCharImportant; #GN.LLRet
 		AIF OR OUT 0; JIF EQZ >GN.Loop2D
 		
-		/ If command, skip the command & break
-		LDI RG3 >COMMAND; AFN SUB RG0 RG3; JIF NEZ >GN.LL1  
+		/ If MULTILINE, skip the MULTILINE & break
+		LDI RG3 >MULTILINE; AFN SUB RG0 RG3; JIF NEZ >GN.LL1  
 			LDI RA >GN.Loop2D; JIF TRU >GotoChar
 		#GN.LL1
 		
@@ -568,6 +583,13 @@ JIF TRU >StartPoint
 		
 		/ Hash the instruction & call TblIdxLookup(instruction hash, InstTable, 3)
 		LDI RA >BT.Ret6; JIF TRU >HashBuff; #BT.Ret6
+		
+		/ But check if it's CAL first, and if so add 3 to the program counter
+		LDI RG1 >CALHASH; AFN SUB RG1 OUT; JIF NEZ >BT.NotCal
+			LOD RG0 SP 0; ALI ADD RG0 3; STR RG0 SP 0
+			JIF TRU >BT.Loop
+		#BT.NotCal
+		
 		MOV RG0 OUT; LDI RG1 >InstTable; LDI RG2 3; LDI RA >BT.Ret7; JIF TRU >TblIdxLookup; #BT.Ret7
 		
 		/ If we get NULL from TblIdxLookup, the instruction was not found.
@@ -675,6 +697,17 @@ JIF TRU >StartPoint
 	/ If the program makes it to this point, the string is assumed to be an instruction.
 	/ First, hash and lookup the instruction via TblIdxLookup(HashBuff(), InstTable, 3).
 	LDI RA >ASM.Ret1; JIF TRU >HashBuff; #ASM.Ret1
+	
+	/ But check if it's CAL first, and if so just write the CAL code to the output.
+	LDI RG1 >CALHASH; AFN SUB RG1 OUT; JIF NEZ >ASM.NotCal
+		LDI FLG >OUTFLG
+		LDI RG1 0x3078; MOV IO RG1  / MOV RA PC
+		LDI RG1 0xb974; MOV IO RG1  / ALI ADD RA 4
+		LDI RG1 0x4600; MOV IO RG1  / JIF TRU (expecting the user to type a reference after this)
+		LDI FLG >INFLG
+		JIF TRU >Assemble
+	#ASM.NotCal
+	
 	MOV RG0 OUT; LDI RG1 >InstTable; LDI RG2 3; LDI RA >ASM.Ret2; JIF TRU >TblIdxLookup; #ASM.Ret2
 	
 	/ Then, get the base machine-code and the bitmap for the instruction.
