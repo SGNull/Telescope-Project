@@ -3,7 +3,7 @@
 This is a personal project of mine that is still being developed, and probably will be for ~~a few months~~ quite some time, now that it's my official senior project.
 
 I had a lot of different, rather big goals for this project. Here are just a few of them:
-1. Design a CPU with a simple yet robust ISA capable of running a simple OS.
+1. Design a CPU with a simple yet robust ISA capable of running a simple OS ~~in [Logisim](https://www.cburch.com/logisim/)~~ in [Digital](https://github.com/hneemann/Digital).
 2. Come up with an assembly language for the CPU, that can enable large programs like operating systems.
 3. Write a fully-functional assembler that can run ON the CPU.
 4. Write a lightweight and small-scale operating system.
