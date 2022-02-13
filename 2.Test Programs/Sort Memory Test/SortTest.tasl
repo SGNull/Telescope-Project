@@ -1,0 +1,87 @@
+JMP >START
+%
+ A sort test to make sure that memory access works fine.
+ 
+ Reads IO until the list is full.
+ Then goes back and sorts the list using insertion sort.
+ Finally, it reads the contents of memory to the I/O.
+ 
+ Note that this is a really bad sorting algorithm in this architecture, given that memory access is 3 clock cycles. 
+ However, this is very good for a memory test.
+%
+
+
+
+/ Data "segment"
+
+@LIST_SIZE = 10
+#List = (~10)
+
+
+
+/ Populate the table
+#START
+
+LDI RG0 >LIST_SIZE
+ALI SUB RG0 1
+
+#WaitIO
+	JIF PNW >WaitIO
+	STR IO RG0 >List
+	AIF SUB RG0 1
+	JIF GEZ >WaitIO
+
+
+
+/ Insertion sort 
+
+/ RG0 is the forwards index 'i'
+/ RG1 is the backwards index 'j'
+/ RG2 is the current forward value 'key'
+/ RG3 is the current backward value 'List[j]'
+/ RG4 is LIST_SIZE
+
+ZRO RG0
+LDI RG4 >LIST_SIZE
+
+#ForwLoop
+	/ j = previous i, then i++
+	MOV RG1 RG0
+	ALI ADD RG0 1
+	
+	/ if at end, break. If not, get the current value and loop
+	CMP RG0 RG4; JEQ >Done
+	LOD RG2 RG0 >List
+	
+	#BackLoop
+		/ If j<0 (outside array) or key >= List[j] (in order), break
+		PAS RG1; JIF LTZ >EndB
+		LOD RG3 RG1 >List; CMP RG2 RG3; JGE >EndB
+		
+		/ Else, shift List[j] to the right
+		ALI ADD RG1 1; STR RG3 RG1 >List
+		
+		/ j-- and loop
+		ALI SUB RG1 2; JMP >BackLoop
+	#EndB
+	
+	/ After breaking, List[j+1] = key and loop
+	ALI ADD RG1 1; STR RG2 RG1 >List
+	JMP >ForwLoop
+#Done
+
+
+
+/ Print the results & halt
+
+ZRO RG0
+LDI RG1 >LIST_SIZE
+
+#ListLoop
+	LOD IO RG0 >List
+	ALI ADD RG0 1
+	CMP RG0 RG1; JNE >ListLoop
+#BrkLL
+
+/ Halt
+HLT; JMP >START

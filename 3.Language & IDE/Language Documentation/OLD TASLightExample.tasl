@@ -1,0 +1,64 @@
+/ ***************************************DEPRECATED***************************************
+/ This example is very different from how TASL v2 works, and as a result it will not
+/ be updated any more.
+
+/ This is a comment, comments start at / and end at newline.
+/ Comments should not be too long, and should start with a space (for cleanliness).
+
+/ You can also import files (if supported) using the following syntax:
+%Path\To\MyFile.tl%
+/ .tl files have all unecessary things removed from them, but still have labels/constants.
+
+/ Functionally, importing means converting your .tasl to .tl.
+/ Then copy-pasting the referenced .tl files together into a temp file.
+/ Then running that temp file through the assembler.
+
+/ Labels start at # and end at a space
+/ Labels are replaced by their address everywhere they occur.
+#Label
+
+/ Using labels, we can make variables:
+#myVariable hF0F0
+/ NOTE: this places the variable right where it is in memory. 
+/ If you define variables at the start of your code, put a jump to start before it.
+
+/ Constants can also be declared, like so:
+@MYCONSTANT h0550
+/ They must have a 2-byte hex value.
+
+/ Empty static arrays can be declared like so:
+arr myArray h0008
+/ Where the hex number is how many elements to include.
+/ Arrays are initialized to zero by default.
+
+/ Constants are not placed in memory, and are replaced by their value everywhere they occur.
+/ Variables are placed in memory right after the machine code
+/ References are replaced by the address of this memory location.
+/ Arrays follow the same rules as variables.
+
+/ ----NO LABELS CAN REPEAT----
+
+/ Instructions have varying length depending on how many operands are needed.
+/ Each component of an instruction is seperated by one and only one space. 
+/ They must also always follow this order: 
+/ InstrMnemonic ModifMnemonic Oper0Mnemonic Oper1Mnemonic d[decNum] OR h[hexNum] OR >Label
+/ Additionally, all mnemonics must be in all caps.
+/ Operand1Mnemonic should be a number in immediate-value ALU instructions
+
+ALU ADD RG0 RG1
+ALI SLB RG0 hA
+LDI EXA h0030
+JIF TRU >Label
+SYS
+HLT
+
+/ You can also just use hexadecimal on a line, like so:
+#MyLookupTable
+h1000 / This is my first value
+h3045 / This is my second
+h0034 / and so on...
+h2228 / ...
+h5452
+h6780
+
+/ Additionally, you can use parentheses to create collapsable sections of code.

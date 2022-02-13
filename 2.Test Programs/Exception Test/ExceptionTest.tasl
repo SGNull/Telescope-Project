@@ -1,0 +1,36 @@
+/ A simple test of exceptions, HLT, LDI, RSM and SYS
+/ We load some values into EXA, EPC, and FLG.
+/ Then, we use RSM to jump to FakePoint as a user process. 
+/ This memory location has all 0's by default, so it's like a user attempting to HLT.
+/ This should cause a PRIV exception, along with an OOB and CTDZ.
+/ Then the CPU will jump to ExHandler to resolve the exceptions.
+/ ExHandler will then use a syscall to jump to the end point.
+/ The RAM should end on "600D".
+
+%OUTTO ExceptionTest.tlo%
+
+/ Defining the user process flags
+@PROCFLAGS 0x000C
+@FAKEPOINT 0xCAB1
+
+
+/ Setting up registers
+LDI EXA >ExHandler
+LDI EPC >FAKEPOINT
+LDI FLG >PROCFLAGS
+/ Jump to FakePoint
+RSM
+/ We shouldn't get here, so halt. 
+HLT
+
+/The real end point.
+#EndPoint
+HLT
+0x600D
+
+/ The exception handler, which jumps to EndPoint using SYS.
+#ExHandler
+	LDI EXA >EndPoint
+	SYS
+	/ We shouldn't get here, so halt.
+	HLT

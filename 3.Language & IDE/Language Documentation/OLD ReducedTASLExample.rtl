@@ -1,0 +1,30 @@
+
+LDI EXA
+h0007
+LDI EPC
+hCAB1
+LDI FLG
+h000C
+RSM
+HLT
+
+/ RTL files are an intermediary file type between .tasl and .tlo.
+/ They contain Reduced TASL Language, which is directly translatable to machine code.
+/ This is because it contains only recognized mnemonics and hexadecimal.
+/ Additionally, each line corresponds to one word of machine code.
+/ Assemblers do not need to use RTL, they can simply translate directly to machine code.
+/ However, we can't do so as easily, so we have to use this.
+
+/  The process to go from TASL to RTL:
+/  1. Remove all comments and blank lines.
+/  2. Create variables/arrays as labels for data at the bottom of your code.
+/  3. Put labels out in front of the line right below them.
+/  4. Replace references to constants with their values and remove their declarations.
+/  5. Replace references to variables/arrays/labels with the line number at their declaration 
+/     spot MINUS ONE (Notepad++ starts at line 1, ROM starts at 0).
+/  6. When you're done translating, put a blank line at the beginning of the file.
+/     This is because the Logisim drive image will start with "v2.0 raw", so we're making the 
+/     line numbers match up.
+
+/ Note that this is different from TL files, in that it is meant for easy user assembling
+/ It also cannot be assembled by an assembler (unless it is built specifically to translate RTL)

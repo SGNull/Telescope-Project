@@ -1,5 +1,5 @@
 """
-Usage: FTLV1.py InputFile (optional OutputFile defaults to InputFile.lmem)
+Usage: FTLV1.py InputFile (optional OutputFile defaults to InputFile.hex)
 
 This is a converter that takes a text file as input, and outputs an unpacked ASCII Logisim drive image.
 The specific drive dimensions are: 8-bit words x N-bit addressing.
@@ -11,7 +11,7 @@ import sys  # For file arguments
 
 # File name constants
 CONVERTER_FILE_NAME = "FTLV1.py"
-OUTPUT_FILE_TYPE = ".lmem"
+OUTPUT_FILE_TYPE = ".hex"
 
 # Important translation constants
 OUTPUT_EOF = "0"
@@ -24,7 +24,7 @@ GOOD_EXIT_CODE = 0
 
 # List of characters to replace:
 REPLACE_CHARS = {
-    '\t': "    "
+
 }
 
 

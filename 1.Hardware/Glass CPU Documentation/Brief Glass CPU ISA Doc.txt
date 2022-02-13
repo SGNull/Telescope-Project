@@ -1,0 +1,112 @@
+Instruction set:
+----------------
+Instructions are formatted like:
+[4-bit Instruction Code] [4-bit Modifier] [4-bit Operand 0] [4-bit Operand 1]
+Some instructions require an additional 16-bit address/value after the full 16-bit instruction
+
+0 HLT - HALT, no operands
+1 RSM - Resume process in EPC, no operands
+2 SYS - Syscall, no operands (can be executed with ExEn off)
+3 MOV - MOV, 2 operands: write to first on left
+
+4 JIF - Jump if, no operands w/ address, modifier=condition
+5 LDI - Load immediate, 1 operand w/ value
+6 LOD - RAM read, 2 operands w/ address: Address + value in right op -> left op
+7 STR - RAM write, 2 operands w/ address: Left op -> Address + value in right op
+For STR, if op0 = op1, no value is added to the address.
+This does not happen with LOD, as it would force things like reg = array[index] to use 2 registers.
+
+ALU ops: 2 operands, modifier = opcode: left op [operation] right op -> left op
+8 ALF - setflags
+9 AIF - immediate, setflags
+a ALU - normal ops
+b ALI - immediate
+
+c AFN - nowrite, setflags
+d AIN - immediate+nowrite, setflags
+e NOP - nowrite (does nothing)
+f NOP - immediate+nowrite (really does nothing)
+
+
+
+Registers:
+----------
+0-5 general purpose registers RG0-5
+6 OUT is RG6 (for function outputs)
+7 RA is RG7  (for function return addresses)
+
+8 PC  - Program counter
+9 IO  - I/O Device (pointed to by IOP)
+a FLG - Flags (x5 IOP, x3 EXC, x4 Ov Ca <0 =0, x2 prvUE, x2 curUE) (R/W ALUF & IOP only)
+b SP  - Stack pointer
+c HLB - HI/LO address bounds, split by byte. (generates OOB exception) (W prot., R HI only)
+d CTD - Count-down timer (generates CTDZ exception) (W prot.)
+e EPC - Exception return program counter (R/W prot.)
+f EXA - Exception handler address (R/W prot.)
+
+
+
+ALU Operations:
+---------------
+0 NOT - bitwise NOT B
+1 AND - bitwise AND
+2 OR  - bitwise OR
+3 XOR - bitwise XOR
+
+4 SLB - shift left by B w/ carry bit set to OR of all overflow bits
+5 SRB - shift right by B w/ carry bit set to OR of all underflow bits
+6 SEL - select bit B from A (returns it in the bit0 position)
+7 ENC - runs B through a priority encoder
+
+8 NEG - negate B
+9 ADD - add
+a ADC - add + carry
+b SUB - subtract (A-B)
+
+c SBB - subtract with borrow (A-B)
+d MUL - multiply
+e DIV - unsigned division (A/B)
+f MOD - modulo (A%B)
+
+
+
+Jump Conditions:
+----------------
+0 EQZ - Last ALU result was equal to zero
+1 LTZ - Last ALU result was less than zero (sign)
+2 CAR - Last ALU result generated a carry/borrow/shift over/under
+3 OVR - Last ALU result had unexpected sign for signed arithmetic
+
+4 PRD - I/O port is reading from the CPU
+5 PWT - I/O port is writing to the CPU
+6 TRU - Unconditional jump
+7 RND - Randomly jump
+
+8 NEZ - Last ALU result was not equal to zero
+9 GEZ - Last ALU result was greater or equal to zero
+a NCR - Last ALU op did not cause CAR
+b NOV - Last ALU op did not cause OVR
+
+c PNR - I/O port is not reading from the CPU
+d PNW - I/O port is not writing to the CPU
+
+
+Exceptions/Interrupts
+---------------------
+Maskable:
+Maskable exceptions/interrupts are disabled when IntEn, the E in current UE, is off.
+ 0 INT0 - Interrupt line 0
+ 1 INT1 - Interrupt line 1
+ 2 INT2 - Interrupt line 2
+ 3 CTDZ - The countdown timer reached zero.
+
+Non-Maskable:
+ 4 SYS  - The process requested a syscall.
+ 5 NMIT - Non-maskable, high priority interrupt.
+
+Non-Ignorable:
+Non-ignorable exceptions/interrupts completely block reading & writing immediately.
+ 6 PRIV - A user process used HLT, RSM, or triggered register protections.
+ 7 OOB  - A user process tried to access memory outside of its HI/LO bounds. 
+ 
+Only the highest priority interrupt goes through at a time.

@@ -1,0 +1,125 @@
+ISA for Glass CPU Control Unit:
+-------------------------------
+HLT - HALT, no operands
+RSM - Resume, no operands
+SYS - syscall, no operands
+MOV - MOV, 2 operands
+JIF - Jump if, no operands w/ address, modifier=condition
+LDI - Load immediate, 1 operand w/ value
+LOD - RAM read, 2 operands w/ address
+STR - RAM write, 2 operands w/ address
+
+The following ALU instructions have changed their mnemonics, but the same machine code still does the same thing.
+ALU - normal ops, modifier = opcode
+ALI - immediate
+ALF - nosetflags
+AIF - immediate+nosetflags
+ALN - nowrite
+AIN - immediate+nowrite
+Anything beyond AIN should be invalid
+
+
+
+Encoder Inputs: 	Corresponding ROM Actions:												Control Code (hex):
+--------------- 	--------------------------												-------------------
+HLT					Reset state, PC+1, pause CPU.											34000
+RSM					Reset state, setW PC, Read1->Bus, setR1 EPC, pop UE, set LOen.			2004A
+SYS					Reset State, PC+1, SYS exception.										32000
+MOV					Reset state, PC+1, setR1 op1, setW op0, Read1->Bus.						30188
+
+JIF Fail			Reset state, PC+2.														28000
+JIF/LDI State0		PC+1.																	10000
+JIF State1			Reset state, setW PC, RAM->Bus.											20044
+
+LDI State1			Reset state, PC+1, setW op0, RAM->Bus.									30084
+
+MEM State0			PC+1, adder enable, setR1 op1, Read1->Bus.								10908
+MEM State1			PC+1, adder enable, RAM->Bus.											10804
+LOD State2			Reset state, adder enable, setW op0, RAM->Bus.							20884
+STR State2			Reset state, adder enable, setR0 op0, Read0->Bus, RAM write.			20A10
+
+ALU					Reset state, PC+1, ALU operation, setR0 op0, setR1 op1, setW op0.		31380
+
+EXtr State0			setR1 PC, setW EPC, Read1->Bus.											00028
+EXtr State1			Reset state, setW PC, Read1->Bus, EBclr, rst LOen, setR1 EXA, push UE.	20049
+
+PRIN Exception		Reset state, PC+1, PRIN. (note this assumes single word PRIN)			30400
+
+
+
+Actions in Order:
+-----------------
+Reset state
+PC+1
+
+PC+2
+Pause CPU
+SYS exception
+ALU operation
+
+Adder enable
+PRIN exception
+setR0 op0
+setR1 op1
+
+setW op0
+setW PC
+setR1 PC + setW EPC
+Read0->Bus + RAM write
+
+Read1->Bus
+RAM->Bus
+setR1 EPC + pop UE stack + set LOen
+setR1 EXA + push UE stack + EBclr + reset LOen
+
+
+
+Control Unit Outputs:
+---------------------
+PC+1
+PC+2
+
+RAM->Bus
+RAM Write
+Read0->Bus
+Read1->Bus
+
+Write Code
+Write      = OR of all setW
+Read0 Code
+Read0      = OR of all setR0
+Read1 Code
+Read1      = OR of all setR1
+
+To Kernel: Push UE Stack & Reset LOEn & Clear EB
+To Process: Pop UE Stack & Set LOEn
+
+ALU Enable
+ALU Flags Write
+ALU Immediate
+ALU OpCode
+
+SYS Exception
+PRIN Exception
+
+
+
+Read/Write Codes:
+-----------------
+Write can be:
+ -op0
+ -PC
+ -EPC
+
+Read1 can be:
+ -op1
+ -PC
+ -EPC
+ -EXA
+
+Read0 can be:
+ -op0
+
+PC=8
+EPC=B
+EXA=F

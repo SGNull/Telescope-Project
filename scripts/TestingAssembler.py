@@ -14,12 +14,12 @@ import sys
 DEBUG_ARG = "-d"
 COMPRESS_ARG = "-c"
 
-OUTPUT_SUFFIX = ".tlo"
+OUTPUT_SUFFIX = ".tlo.hex"
 TABLE_FILE_SUFFIX = ".table"
 REDUCED_FILE_SUFFIX = ".rtl"
 COMPRESSED_FILE_SUFFIX = ".tl"
 
-ACCEPTED_IN_SUFFIX = ["tasl", "tl", "rtl"]
+ACCEPTED_IN_SUFFIX = ["tasl", "tl"]
 
 LOGISIM_FILE_HEADER = "v2.0 raw"
 RTL_HEADER = "NOTE: DESPITE THEIR APPEARANCE, RTL FILES CANNOT BE ASSEMBLED"
@@ -51,7 +51,7 @@ instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       0xa581, 0xB000, 0b1111,  # ALI
                       0xb8c1, 0xC000, 0b0111,  # AFN
                       0xb921, 0xD000, 0b1111,  # AIN
-                      0xc1ee, 0xFFFF, 0b0000,  # NOP
+                      0xc1ee, 0xF000, 0b0000,  # NOP
 
                       0xd0b2, 0x3087, 0b0000,  # RET
                       0xbe5a, 0xb100, 0b0010,  # ZRO

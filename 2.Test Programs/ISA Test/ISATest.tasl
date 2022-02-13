@@ -1,0 +1,156 @@
+/ Large test of the TASL v1 specifications.
+/ Meant to ensure the CPU (and/or assembler) is working properly.
+/ This includes all instructions, a few registers, and a couple ALU ops.
+
+/ It multiplies 8 by 6 in three different ways.
+/ If the number is incorrect, it will also write NULL to the stop line in RAM.
+/ If it works every time, the answer will be written to the stop line.
+
+/ RG0 and 1 contain the two numbers.
+/ RG2 contains the answer of the previous attempt.
+/ RG3 contains a return address (for the function).
+/ RG4 contains the number of successful operations.
+/ RG7 contains the expected result for quick access.
+
+/ And to really make sure that you passed the test, the registers should end as:
+/ 8 6 30 24 3 0 0 30 5 0 0 20 39
+/ Hexadecimal, in the registers & selection circuit.
+
+JIF TRU >Main.Init
+
+/ All variables are in memory, to exercise the memory access circuits.
+#numOne = 0x0008
+#numTwo = 0x0006
+#expectedResult = 0x0030
+#returnBuffer = 0x0000
+
+/ -----------------------------------------------------------------------
+
+#Main.Init
+	/ We're going to load the variables.
+	LOD RG0 RG0 >numOne
+	LOD RG1 RG1 >numTwo
+	LOD RG7 RG7 >expectedResult
+	/ Normally at the start of functions, we write to the stack.
+	/ So we're going to do that here, but with some fancy trickery.
+	/ Our stack will instead be the ReturnBuffer variable.
+	/ We use LDI to get the address and not the actual value.
+	LDI SP >returnBuffer
+	/ We also want to set up the counter to keep track of how far we're getting.
+	ALI AND RG4 0
+
+/ -----------------------------------------------------------------------
+
+#Main
+	/ Now we can do the first of three calculations, by just doing 8*6.
+	MOV RG2 RG0
+	ALU MUL RG2 RG1
+
+	/ Check if multiplication failed.
+	LDI RG3 >Ret0
+	JIF TRU >FailCheck #Ret0
+
+	/ Next use a function call to get the answer.
+	LDI RG3 >Ret1
+	JIF TRU >FunctionCalc #Ret1
+
+	/ Check the result.
+	LDI RG3 >Ret2
+	JIF TRU >FailCheck #Ret2
+
+	/ Finally, we're going to use the exception handler to do the final calculation.
+	LDI EXA >ExceptionCalc
+	SYS
+
+	/ Do the final check.
+	LDI RG3 >Ret3
+	JIF TRU >FailCheck #Ret3
+	
+	/ It must have worked if we get here (unless there's an error),
+	/ So we write the result and jump to the end.
+	STR RG2 RG2 >StopPoint
+	JIF TRU >EndPoint
+
+/ -----------------------------------------------------------------------
+
+/ This function will do RG2 = RG0*RG1 using addition, and return to RG3.
+#FunctionCalc
+	/ We start by pushing the return address onto the stack, just to make sure it works.
+	STR RG3 SP 0
+	
+	/ We then set up RG2 and RG3 to be the current sum and additions left respectively.
+	ALI AND RG2 0
+	MOV RG3 RG1
+	
+	/ Then we make sure that neither value is zero.
+	AIF OR RG0 0
+	JIF EQZ >FunctionCalc.Done
+	AIF OR RG1 0
+	JIF EQZ >FunctionCalc.Done
+	
+	/ Now we do the addition loop.
+	#FunctionCalc.Loop
+		ALU ADD RG2 RG0
+		AIF SUB RG3 1
+		JIF NEZ >FunctionCalc.Loop
+	
+	/ Finally, we return the value.
+	#FunctionCalc.Done
+	LOD RG3 SP 0
+	MOV PC RG3
+
+/ -----------------------------------------------------------------------
+
+/ The exception handler will do RG2 = RG0*RG1 using shifts and multiplication.
+/ This is similar to how you would optimize multiplication on a system without it.
+#ExceptionCalc
+	/ Set up registers 2 and 3
+	STR RG3 SP 0
+	MOV RG2 RG0
+	MOV RG3 RG1
+	
+	/ Check if we can shift at least once (RG3 is even check).
+	AIN AND RG3 1
+	JIF NEZ >ExceptionCalc.Done
+	
+	/ Shift as much as possible.
+	#ExceptionCalc.Loop
+		ALI SLB RG2 1
+		ALI SRB RG3 1
+		/ Check if we can shift again
+		AIN AND RG3 1
+		JIF EQZ >ExceptionCalc.Loop
+		
+	#ExceptionCalc.Done
+	/ Instead of using addition, just skip it and use multiplication
+	/ One could use the FunctionCalc above, instead, to completely avoid MUL
+	ALU MUL RG2 RG3
+	
+	/ Pop register 3 from the stack and return
+	LOD RG3 SP 0
+	RSM
+
+/ -----------------------------------------------------------------------
+
+/ Checks to see if the value in RG2 matches RG7, and fails if it does not.
+/ If it does match, it increments RG4 and returns control.
+#FailCheck
+	/ Do the check, and fail if not equal.
+	AFN SUB RG2 RG7
+	JIF NEZ >FailCheck.Fail
+	
+	/ Increment the counter and return to the previous spot.
+	ALI ADD RG4 1
+	MOV PC RG3
+	
+	/ Write NULL to the stop point
+	#FailCheck.Fail
+	ALI NOT RG2 0
+	STR RG2 RG2 >StopPoint
+
+/ -----------------------------------------------------------------------
+
+/ The stop point is just after halt, because HLT increments the PC before stopping.
+/ This means that the stop point can be used as a message to the end user.
+#EndPoint: HLT
+#StopPoint: 0

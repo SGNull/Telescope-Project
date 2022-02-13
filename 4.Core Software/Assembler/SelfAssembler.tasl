@@ -1,0 +1,772 @@
+JMP >StartPoint
+
+(/ Constants, variables, and tables.
+@INFLG = 0
+@OUTFLG = 0x800
+
+@TABLESTOP = 0xFFFF  / Must stay NULL.
+
+@CALHASH = 0xb023
+
+/ Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
+#InstTable = (0xd9ed, 0x3000, 0b0011,  / MOV
+              0x992a, 0x4000, 0b0100,  / JIF
+              0xa48c, 0x5000, 0b0010,  / LDI
+              0x91ec, 0x6000, 0b0011,  / LOD
+              0xca93, 0x7000, 0b0011,  / STR
+              0x9981, 0x8000, 0b0111,  / ALF
+              0x9921, 0x9000, 0b1111,  / AIF
+              0xd581, 0xA000, 0b0111,  / ALU
+              0xa581, 0xB000, 0b1111,  / ALI
+              0xb8c1, 0xC000, 0b0111,  / AFN
+              0xb921, 0xD000, 0b1111,  / AIN
+			  0xd0b2, 0x3087, 0b0000,  / RET
+              0xbe5a, 0xb100, 0b0010,  / ZRO
+              0xb2ae, 0xb000, 0b0010,  / NUL
+              0xcc30, 0x9200, 0b0010,  / PAS
+              0xa270, 0xbbb0, 0b1001,  / PSH
+              0xc1f0, 0xb9b0, 0b1001,  / POP
+              0xc1a3, 0xcb00, 0b0011,  / CMP
+              0xc1aa, 0x4600, 0b0000,  / JMP
+              0xc4aa, 0x4000, 0b0000,  / JEQ
+              0x95ca, 0x4800, 0b0000,  / JNE
+              0xd18a, 0x4100, 0b0000,  / JLT
+              0x94ea, 0x4900, 0b0000,  / JGE
+			  0xcf33, 0x2000, 0b0000,  / SYS
+			  0xb672, 0x1000, 0b0000,  / RSM
+			  0xd188, 0x0000, 0b0000,  / HLT
+			  0xc1ee, 0xF000, 0b0000,  / NOP
+              >TABLESTOP
+              )
+
+/ Register table entries: (mnemonic_hash, translation)
+#RegTable = (0x40F2, 0x0,  / RG0
+			 0x44F2, 0x1,  / RG1
+			 0x48F2, 0x2,  / RG2
+		     0x4CF2, 0x3,  / RG3
+		     0x50F2, 0x4,  / RG4
+		     0x54F2, 0x5,  / RG5
+		     0x58F2, 0x6,  / RG6
+		     0xD2AF, 0x6,  / OUT
+			 0x5CF2, 0x7,  / RG7
+			 0x0032, 0x7,  / RA
+			 0x0070, 0x8,  / PC
+			 0x01E9, 0x9,  / IO
+			 0x9D86, 0xA,  / FLG
+			 0x0213, 0xB,  / SP
+			 0x8988, 0xC,  / HLB
+			 0x9283, 0xD,  / CTD
+			 0x8E05, 0xE,  / EPC
+			 0x8705, 0xF,  / EXA
+			 >TABLESTOP
+			 )
+
+/ Modifier table entries: (mnemonic_hash, translation)
+#ModTable = (0xD1EE, 0x0,  / NOT
+			 0x91C1, 0x1,  / AND
+			 0x024F, 0x2,  / OR
+			 0xB0B3, 0x6,  / SEL
+			 0x9CAE, 0x8,  / NEG
+			 0x9081, 0x9,  / ADD
+			 0x8AB3, 0xB,  / SUB
+			 0xC9F8, 0x3,  / XOR
+			 0x8993, 0x4,  / SLB
+			 0x8A53, 0x5,  / SRB
+			 0xB2AD, 0xD,  / MUL
+			 0xD924, 0xE,  / DIV
+			 0xEA25, 0x0,  / EQZ
+			 0xEA8c, 0x1,  / LTZ
+			 0xC823, 0x2,  / CAR
+			 0xCACF, 0x3,  / OVR
+			 0x9250, 0x4,  / PRD
+			 0xD2F0, 0x5,  / PWT
+			 0xD654, 0x6,  / TRU
+			 0xE8AE, 0x8,  / NEZ
+			 0xE8A7, 0x9,  / GEZ
+			 0xC86E, 0xA,  / NCR
+			 0xD9EE, 0xB,  / NOV
+			 0xC9D0, 0xC,  / PNR
+			 0xDDD0, 0xD,  / PNW
+			 0x91D2, 0x7,  / RND
+			 0x8C81, 0xA,  / ADC
+			 0x8853, 0xC,  / SBB
+			 0x91ED, 0xF,  / MOD
+			 0x8DC5, 0x7,  / ENC
+			 >TABLESTOP
+			 )
+
+@COMMENT = '/'
+@NEWLINE = '
+'
+@MULTILINE = '%'
+@LABEL = '#'
+@CONST = '@'
+@HEX = 'x'
+@BIN = 'b'
+@REF = '>'
+@CHAR = ''' /' / To make the Notepad++ UDL not do weird things, /' was used here.
+@ARRAY = '~'
+@STOP = 0  / Must stay 0
+
+
+#Buffer = (~128)  / Will hold the next lexeme to be processed.
+#BuffIdx = 0  / Where the end point of the lexeme is in Buffer.
+
+#LblTblIdx = 0  / LblTblIdx is table_heap_pointer
+
+)
+
+/ --------------------------------------- The Assembler -------------------------------------
+/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.
+
+
+(/ Currently unused functions. Should be implemented to easily switch to file system.
+	(#GetInput  / Returns next input value.
+		LDI FLG >INFLG
+		MOV OUT IO
+		MOV PC RA
+	)
+
+	(#ResetInput  / Resets the input to the beginning.
+		LDI FLG >INFLG
+		LDI IO 0
+		MOV PC RA
+	)
+
+	(#WriteOutput  / Writes RG0 to the output.
+		LDI FLG >OUTFLG
+		MOV IO RG0
+		MOV PC RA
+	)
+)
+
+
+(#StartPoint  / The starting point for the assembler.
+	
+	/ Write 0 to the input
+	LDI FLG >INFLG; LDI IO 0
+	
+	/ Set the stack to 0 (in case something went wrong during the last pass)
+	LDI SP 0
+	
+	/ "Clear" the label table
+	STR SP SP >LblTblIdx
+	
+	
+	/ Goto BuildTables
+	JMP >BuildTables
+)
+
+
+(#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex, returns value
+	/ RG1 = index
+	/ RG2 = buffer_index (BuffIdx)
+	/ RG3 = next_char
+	
+	/ Get BuffIdx & setup the output
+	ALI AND RG2 0; LOD RG2 RG2 >BuffIdx
+	ALI AND OUT 0
+	
+	/ If it's empty, just return 0.
+	AFN SUB RG1 RG2; JIF EQZ >GVB.Done
+	
+	#GVB.FLoop  / do{
+		/ Get next character (at Buffer[index])
+		LOD RG3 RG1 >Buffer
+		
+		/ If it's a letter, add 9 to it.
+		AIN SEL RG3 6; JIF EQZ >GVB.Num
+			ALI ADD RG3 9
+		#GVB.Num
+		
+		/ Mask the character to get the value.
+		ALI AND RG3 0xF
+		/ OUT = OUT * multiplier + value.
+		ALU MUL OUT RG0; ALU ADD OUT RG3
+		
+	/ }for(RG1; RG1 != RG2; RG1++)
+	ALI ADD RG1 1; AFN SUB RG1 RG2; JIF NEZ >GVB.FLoop
+	
+	#GVB.Done; MOV PC RA  / Return
+)
+
+
+(#GetNumericValue  / UNSAFE for RG0-3, returns value
+	/ RG0 = second_char & buffer_index
+	/ RG1 = buffer & HEX_CHAR & BIN_CHAR
+	
+	ALI AND RG0 0; LOD RG0 RG0 >BuffIdx
+	
+	/ Check if it is a 1 digit decimal number
+	AIN SUB RG0 1; JIF NEZ >GNV.0
+		ALI AND OUT 0; LOD OUT OUT >Buffer; ALI AND OUT 0xF
+		MOV PC RA
+	#GNV.0
+
+	/ If Buffer[1] is a number, too.
+	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 6; JIF NEZ >GNV.Char
+		LDI RG0 10; ALI AND RG1 0; JMP >GetValueBase
+	#GNV.Char
+	
+	/ if Buffer[1] is HEX
+	LDI RG1 >HEX; AFN SUB RG0 RG1; JIF NEZ >GNV.NH
+		LDI RG0 16; LDI RG1 2; JMP >GetValueBase
+	#GNV.NH
+	
+	/ if Buffer[1] is BIN
+	LDI RG1 >BIN; AFN SUB RG0 RG1; JIF NEZ >GNV.Bad
+		LDI RG0 2; LDI RG1 2; JMP >GetValueBase
+	#GNV.Bad
+	/ We shouldn't get here, because GetNumericValue is always called on a number.
+	
+	HLT; 0xFFF0; JMP >StartPoint  / Stop; error code; restart assembler.
+)
+
+
+(#LabelLookup  / UNSAFE for ALL, returns label value
+	/ RG0 = index *of* (the 0th element of) the current entry in table
+	/ RG1 = table_heap_pointer
+	/ RG2 = size (of whole entry - 1 == size of string + 1 == what the buffer_index should be)
+	/ RG3 = buffer_index
+	/ RG4 = current index *within* the string/entry
+	/ RG5 = temp
+	
+	ALI AND RG0 0
+	ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx
+	ALI AND RG3 0; LOD RG3 RG3 >BuffIdx
+	
+	#LL.TableLoop
+		/ Check if we're out of labels to search through.
+		AFN SUB RG0 RG1; JIF LTZ >LL.OK
+			/ We should never reach here, because every label searched should exist.
+			HLT; 0xFFF1; JMP >StartPoint  / Halt, error code, restart assembler.
+		#LL.OK
+		
+		/ Check if the label is the right size.
+		LOD RG2 RG0 >LabelTable; CMP RG3 RG2; JNE >LL.NotMatch
+			LDI RG4 1
+			
+			/ Loop through both the buffer string and the entry's string at the same time.
+			#LL.EntryLoop
+				/ If we reach the end of the heap, we have a match (cause they're the same size strings)
+				CMP RG4 RG2; JNE >LL.DoLoop
+					ALU ADD RG0 RG2; LOD OUT RG0 >LabelTable; JMP >LL.Done
+				#LL.DoLoop
+				
+				/ If any pair of characters don't match, exit the loop.
+				MOV RG5 RG0; ALU ADD RG5 RG4; LOD RG5 RG5 >LabelTable  / RG5 = LabelTable[RG0 + RG4]
+				LOD OUT RG4 >Buffer; AFN SUB RG5 OUT; JIF NEZ >LL.NotMatch  / exit if RG5 != Buffer[RG4]
+				
+			/ Increment relative/string index and loop.
+			ALI ADD RG4 1; JMP >LL.EntryLoop
+		#LL.NotMatch
+	/ move the table index to the next entry
+	ALU ADD RG0 RG2; ALI ADD RG0 1; JMP >LL.TableLoop  
+	
+	#LL.Done
+	MOV PC RA
+)
+
+
+(#TblLookup  / UNSAFE for RG4&5, RG0:key, RG1:table, RG2:entry_size, returns address of entry, and NULL if not found
+	/ RG4 = next_entry_key
+	/ RG5 = TABLESTOP
+	
+	/ So we can return via jump, store RA in the return address location.
+	STR RA RA >TbL.SMC
+	
+	/ Set up registers
+	MOV OUT RG1
+	LDI RG5 >TABLESTOP
+	
+	#TbL.Loop
+		/ next entry = [table + index]
+		LOD RG4 OUT 0
+		
+		/ Check if there's a match
+		CMP RG4 RG0; JEQ #TbL.SMC 0
+		
+		/ Check if we're at the end of the table.
+		CMP RG4 RG5; JEQ >TbL.End
+		
+		/ Go to the next entry and loop
+		ALU ADD OUT RG2
+	JMP >TbL.Loop
+	
+	#TbL.End
+		MOV OUT RG5; RET
+)
+
+
+(#IsCharImportant  / UNSAFE for RG3, RG0:char, returns NULL if important, 0 if not.
+	/IMPORTANT: Does not check for chars 64-127 in the table, GetNext checks for those already.
+	
+	/ Check for reference
+	LDI RG3 >REF; CMP RG3 RG0; JEQ >ICI.True
+	
+	/ This check includes dash, dot, comment, and numbers
+	LDI RG3 44; CMP RG3 RG0; JGE >ICI.Small
+		LDI RG3 58; CMP RG0 RG3; JLT >ICI.True
+	#ICI.Small
+	
+	/ Now check for label and single quotes individually (too difficult to check using bit patterns)
+	LDI RG3 >LABEL; CMP RG3 RG0; JEQ >ICI.True
+	LDI RG3 >CHAR; CMP RG3 RG0; JEQ >ICI.True
+	
+	/ Finally, do a quick check to see if it's EOM
+	PAS RG0; JIF EQZ >ICI.True
+	
+	/ If it fell through all of the previous checks, it's not important, so return false
+	#ICI.False
+	ZRO OUT; RET
+	
+	/ If it passed any of the checks, return true.
+	#ICI.True
+	NUL OUT; RET
+)
+
+
+(#GotoChar  / UNSAFE for RG5-6, RG0:target, reads input until it reaches the target
+	/ RG5 = char
+	/ RG6 = STOP_CHAR
+	LDI RG6 >STOP
+	
+	#GC.Loop
+		MOV RG5 IO
+		CMP RG5 RG0; JEQ >GC.Done  / If we're at the target, we're done.
+	CMP RG5 RG6; JNE >GC.Loop  / If we hit the end of the file, we're really done.
+	
+	#GC.Done
+	MOV PC RA
+)
+
+
+(#GetNext  / UNSAFE for ALL, stores next lexeme in the Buffer
+	/ RG0 = char
+	/ RG1 = MULTILINE & COMMENT_CHAR
+	/ RG4 = buffer_index (BuffIdx)
+	
+	/ Storing the return address and flags on the stack
+	ALI SUB SP 1; STR RA SP 0
+	
+	/ Set the IO to the input ROM
+	LDI FLG >INFLG
+	
+	/ "Look for the start of a viable sequence"
+	#GN.Loop1
+		MOV RG0 IO
+		
+		/Quick check if we care about the character
+		AIN SEL RG0 6; JIF NEZ >GN.LoopSkip
+		
+		LDI RA >GN.Loop1
+		
+		/ If multiline, goto multiline (already in RG0)
+		LDI RG1 >MULTILINE; AFN SUB RG0 RG1; JIF EQZ >GotoChar  
+
+		/ If comment, goto newline
+		LDI RG1 >COMMENT; AFN SUB RG0 RG1; JIF NEZ >GN.NotCom
+			LDI RG0 >NEWLINE; JMP >GotoChar
+		#GN.NotCom
+		
+	/ Check if the character is important, and if not then loop.
+	CAL >IsCharImportant; PAS OUT; JIF EQZ >GN.Loop1
+	
+	#GN.LoopSkip
+	
+	/ If we hit a stop character, just put that in the buffer
+	LDI RG1 >STOP; AFN SUB RG0 RG1; JIF NEZ >GN.Skip1
+		STR RG0 RG0 >Buffer
+		LDI RG4 1; JMP >GN.Done
+	#GN.Skip1
+	
+	/ Set BuffIdx to 0
+	ALI AND RG4 0
+	
+	/ If char is a character character, just put 3 things in the heap (we're expecting something like 'c')
+	LDI RG1 >CHAR; AFN SUB RG0 RG1; JIF NEZ >GN.Skip2
+		STR RG0 RG4 >Buffer
+		MOV RG0 IO; ALI ADD RG4 1; STR RG0 RG4 >Buffer
+		MOV RG0 IO; ALI ADD RG4 1; STR RG0 RG4 >Buffer
+		JMP >GN.Done
+	#GN.Skip2
+	
+	/ Setting up RA for IsCharImportant
+	LDI RA >GN.LLRet
+	
+	/ Get the rest of the character sequence using another loop.
+	#GN.Loop2
+		/ Store the character in the buffer and get the next one.
+		STR RG0 RG4 >Buffer; ALI ADD RG4 1
+		MOV RG0 IO
+		
+		/ Basic check to see if the char is important
+		AIN SEL RG0 6; JIF NEZ >GN.Loop2
+		
+		/ If this is an unimportant character, break
+		JMP >IsCharImportant; #GN.LLRet
+		AIN OR OUT 0; JIF EQZ >GN.Loop2D
+		
+		/ If MULTILINE, skip the MULTILINE & break
+		LDI RG3 >MULTILINE; AFN SUB RG0 RG3; JIF NEZ >GN.LL1  
+			LDI RA >GN.Loop2D; JMP >GotoChar
+		#GN.LL1
+		
+		/ If comment, skip the comment & break
+		LDI RG3 >COMMENT; AFN SUB RG0 RG3; JIF NEZ >GN.LL2  
+			LDI RG0 >NEWLINE; LDI RA >GN.Loop2D; JMP >GotoChar
+		#GN.LL2
+		
+		/ Finally, if it's not a stop character, loop.
+		LDI RG3 >STOP; AFN SUB RG0 RG3; JIF NEZ >GN.Loop2
+	#GN.Loop2D
+	
+	
+	#GN.Done  / Assumes RG4 has the buffer_index (BuffIdx) in it
+	/ Update buffer index and return.
+	STR RG4 RG4 >BuffIdx
+	LOD RA SP 0; ALI ADD SP 1; RET
+)
+
+
+(#ApdStrLbl  / UNSAFE for RG0-3, appends the buffer's contents to the label table
+	/ RG0 = BuffIdx
+	/ RG1 = LblTblIdx
+	/ RG2 = index
+	/ RG3 = Buffer[index]
+	
+	/ Get the LblTblIdx, and append the size+1 to the table
+	ZRO RG1; LOD RG1 RG1 >LblTblIdx
+	ZRO RG0; LOD RG0 RG0 >BuffIdx; STR RG0 RG1 >LabelTable; ALI ADD RG1 1
+	
+	/ for(index = 1; index != BuffIdx; index++) do LableTable.append(Buffer[index])
+	LDI RG2 1
+	#ASL.FLoop
+		LOD RG3 RG2 >Buffer; STR RG3 RG1 >LabelTable; ALI ADD RG1 1  
+	ALI ADD RG2 1; CMP RG2 RG0; JNE >ASL.FLoop
+	
+	/ Update the label table index and return.
+	STR RG1 RG1 >LblTblIdx
+	RET
+)
+
+
+(#HashBuff  / UNSAFE for RG0-1, returns the hash of the buffer's contents.
+	/ RG0 = temp
+	/ RG1 = 0x1f (bottom 5 bit mask)
+	
+	/ Takes the bottom 5 bits of Buffer[2] Buffer[1] Buffer[0] and appends them in that order.
+	/ Bit 15 is the 5th bit of Buffer[2], which is 0 if it's a number, and 1 if it's a character. 
+	LDI RG1 0x1F
+	ALI AND OUT 0
+	
+	LDI RG0 2; LOD RG0 RG0 >Buffer; MOV OUT RG0
+	ALU AND OUT RG1; ALI SLB OUT 10
+	ALI SEL RG0 6; ALI SLB RG0 15; ALU OR OUT RG0
+	
+	LDI RG0 1; LOD RG0 RG0 >Buffer
+	ALU AND RG0 RG1; ALI SLB RG0 5; ALU OR OUT RG0
+	
+	ZRO RG0; LOD RG0 RG0 >Buffer
+	ALU AND RG0 RG1; ALU OR OUT RG0
+	
+	RET
+)
+
+
+(#AssembleNext  / UNSAFE for ALL, RG0: table, returns mnemonic's value
+	/ Push table(RG0) and RA
+	ALI SUB SP 2; STR RG0 SP 0; STR RA SP 1
+	
+	/ get_next_text()
+	CAL >GetNext
+	
+	/ RG1 = buffer_index
+	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx
+	
+	/ if buffer_index == 2 (if it's a 2 char mnemonic)
+	AIN SUB RG1 2; JIF NEZ >AN.Skip0
+		ALI AND RG2 0; STR RG2 RG1 >Buffer  / buffer[2] = 0
+		ALI ADD RG1 1; STR RG1 RG1 >BuffIdx  / buffer_index++
+	#AN.Skip0
+	
+	/ HashBuff()
+	CAL >HashBuff
+	
+	/ TblLookup(hash, table, 2)
+	MOV RG0 OUT; LOD RG1 SP 0; LDI RG2 2
+	CAL >TblLookup
+	
+	/ If TblLookup returns NULL, then the operand was not found.
+	AIN ADD OUT 1; JIF NCR >AN.OpOK
+		HLT; 0xFFF4; JMP >StartPoint
+	#AN.OpOK
+	
+	ALI ADD OUT 1; LOD OUT OUT 0 / OUT = table[Idx + 1]
+	LOD RA SP 1; ALI ADD SP 2; MOV PC RA / Pop from stack and return
+)
+
+
+(#BuildTables  / First pass through the file, build label table.
+
+	ALI AND RG0 0  / program_counter(RG0) = 0
+	ALI SUB SP 1; STR RG0 SP 0  / Push the program counter onto the stack.
+	
+	#BT.Loop
+		/ GetNext()
+		CAL >GetNext
+		
+		/ RG0 = first character in buffer
+		ALI AND RG0 0; LOD RG0 RG0 >Buffer
+		
+		/ If the first char is STOP, we're done
+		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ >BT.Done
+		
+		/ If first char is LABEL.
+		LDI RG1 >LABEL; AFN SUB RG0 RG1; JIF NEZ >BT.NotLbl
+			/ Add the label to the table
+			CAL >ApdStrLbl
+			
+			/ Add the value to the table.
+			LOD RG0 SP 0; ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx; STR RG0 RG1 >LabelTable
+			ALI ADD RG1 1; STR RG1 RG1 >LblTblIdx
+			
+			/ Loop
+			JMP >BT.Loop
+		#BT.NotLbl
+		
+		/ If first char is CONST
+		LDI RG1 >CONST; CMP RG0 RG1; JNE >BT.NotConst
+			/ Add the label to the table.
+			CAL >ApdStrLbl
+			
+			/ Get the constant's text and check what type of constant it is.
+			CAL >GetNext
+			ALI AND RG0 0; LOD RG0 RG0 >Buffer
+			
+			/ If the first character is CHAR, it's a character, else it's a number.
+			LDI RG1 >CHAR; CMP RG0 RG1; JNE >BT.CnNum
+				LDI OUT 1; LOD OUT OUT >Buffer
+				JMP >BT.CnDone
+			#BT.CnNum
+				CAL >GetNumericValue
+			#BT.CnDone
+			
+			/ Store the value in the LabelTable
+			ZRO RG0; LOD RG0 RG0 >LblTblIdx; STR OUT RG0 >LabelTable
+			ALI ADD RG0 1; STR RG0 RG0 >LblTblIdx
+			
+			/ Loop
+			JMP >BT.Loop
+		#BT.NotConst
+		
+		/ If the first char is CHAR, program counter++
+		LDI RG1 >CHAR; CMP RG0 RG1; JNE >BT.NotChar
+			LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
+			JMP >BT.Loop
+		#BT.NotChar
+		
+		/ If the first char is ARRAY, do program counter += GetValueBase(10,1)
+		LDI RG1 >ARRAY; CMP RG0 RG1; JNE >BT.NotArr
+			LDI RG0 10; LDI RG1 1; CAL >GetValueBase
+			LOD RG0 SP 0; ALU ADD RG0 OUT; STR RG0 SP 0
+			JMP >BT.Loop
+		#BT.NotArr
+		
+		/ If the first char is a number, program counter++
+		AIN SEL RG0 6; JIF NEZ >BT.NotNum  
+			LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
+			JMP >BT.Loop
+		#BT.NotNum
+		
+		/ Now we know that whatever is in the buffer is an instruction
+		
+		/ Hash the instruction
+		CAL >HashBuff
+		
+		/ But check if it's CAL first, and if so add 3 to the program counter
+		LDI RG1 >CALHASH; CMP RG1 OUT; JNE >BT.NotCal
+			LOD RG0 SP 0; ALI ADD RG0 3; STR RG0 SP 0
+			JMP >BT.Loop
+		#BT.NotCal
+		
+		/ Else, program counter++
+		LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
+		
+		/ Call TblLookup(instruction hash, InstTable, 3)
+		MOV RG0 OUT; LDI RG1 >InstTable; LDI RG2 3; CAL >TblLookup
+		
+		/ If we get NULL from TblLookup, the instruction was not found.
+		AIN ADD OUT 1; JIF NCR >BT.InOK
+			HLT; 0xFFF3; JMP >StartPoint
+		#BT.InOK
+		
+		/ Grab the instruction bitmap into RG0, and read input based on that.
+		ALI ADD OUT 2; LOD RG0 OUT 0
+		
+		/ Allocate space for the bitmap on the stack.
+		PSH 1
+		
+		AIN SEL RG0 2; JIF EQZ >BT.NoMod;
+			STR RG0 SP 0; CAL >GetNext; LOD RG0 SP 0	
+		#BT.NoMod
+		
+		AIN SEL RG0 1; JIF EQZ >BT.NoOp0;
+			STR RG0 SP 0; CAL >GetNext; LOD RG0 SP 0			
+		#BT.NoOp0
+		
+		AIN SEL RG0 0; JIF EQZ >BT.NoOp1;
+			STR RG0 SP 0; CAL >GetNext; LOD RG0 SP 0	
+		#BT.NoOp1
+		
+		/ We're done with the bitmap.
+		POP 1
+		
+		/ And finally, loop.
+		JMP >BT.Loop
+	#BT.Done
+	
+	/ Pop the stack, reset input pointer, and go to the next step.
+	LDI IO 0; POP 1; JMP >Assemble
+)
+
+(#Assemble  / Second pass through the file, do the actual assembling.
+	/ GetNext
+	CAL >GetNext
+	
+	/ Get first character.
+	ZRO RG0; LOD RG0 RG0 >Buffer
+	
+	/ Ignore labels this passthrough
+	LDI RG1 >LABEL; CMP RG0 RG1; JEQ >Assemble
+	
+	/ If STOP, we're done.
+	LDI RG1 >STOP; CMP RG0 RG1; JEQ >StopPoint
+	
+	/ If REF, lookup and write the value, then loop
+	LDI RG1 >REF; CMP RG0 RG1; JNE >ASM.NotRef
+		CAL >LabelLookup
+		LDI FLG >OUTFLG; MOV IO OUT; LDI FLG >INFLG
+		JMP >Assemble
+	#ASM.NotRef
+	
+	/ If CONST, skip over the next string and loop (cause constants don't get written)
+	LDI RG1 >CONST; CMP RG0 RG1; JNE >ASM.NotConst
+		LDI RA >Assemble; JMP >GetNext
+	#ASM.NotConst
+	
+	/ If CHAR, write the character directly to the output and loop
+	LDI RG1 >CHAR; CMP RG0 RG1; JNE >ASM.NotChar
+		LDI RG0 1; LOD RG0 RG0 >Buffer  / The character is at Buffer[1]
+		LDI FLG >OUTFLG; MOV IO RG0; LDI FLG >INFLG
+		JMP >Assemble
+	#ASM.NotChar
+	
+	/ If ARRAY, get the value of the number, and write 0's that many times to the output
+	LDI RG1 >ARRAY; CMP RG0 RG1; JNE >ASM.NotArr
+		/ OUT = GetValueBase(10, 1)
+		LDI RG0 10; LDI RG1 1; CAL >GetValueBase
+		
+		/ Check to make sure the value isn't 0
+		PAS OUT; JIF EQZ >Assemble
+		
+		/ Set up the output and a 0 register for writing.
+		LDI FLG >OUTFLG
+		ZRO RG0
+		
+		/ for (num_zeros; num_zeros != value; num_zeros++), write 0 to output.
+		#ASM.ArrLoop
+			MOV IO RG0
+			ALI SUB OUT 1
+		PAS OUT; JIF NEZ >ASM.ArrLoop
+		
+		LDI FLG >INFLG
+		JMP >Assemble
+	#ASM.NotArr
+	
+	/ If it's a number, get the value of the number and write that to the output, then loop.
+	/ This check must happen towards the end, because of how imprecise it is.
+	AIN SEL RG0 6; JIF NEZ >ASM.NotNum
+		LDI RA >ASM.RetNum; JMP >GetNumericValue; #ASM.RetNum
+		LDI FLG >OUTFLG; MOV IO OUT; LDI FLG >INFLG
+		JMP >Assemble
+	#ASM.NotNum
+	
+	/ If the program makes it to this point, the string is assumed to be an instruction.
+	
+	/ First, hash the instruction.
+	CAL >HashBuff
+	
+	/ Check if it's CAL first, and if so just write the CAL code to the output.
+	LDI RG1 >CALHASH; AFN SUB RG1 OUT; JIF NEZ >ASM.NotCal
+		LDI FLG >OUTFLG
+		LDI RG1 0x3078; MOV IO RG1  / MOV RA PC
+		LDI RG1 0xb974; MOV IO RG1  / ALI ADD RA 4
+		LDI RG1 0x4600; MOV IO RG1  / JMP (expecting the user to type a reference after this)
+		LDI FLG >INFLG
+		JMP >Assemble
+	#ASM.NotCal
+	
+	/ Then do TblLookup(HashBuff(), InstTable, 3)
+	MOV RG0 OUT; LDI RG1 >InstTable; LDI RG2 3; CAL >TblLookup
+	
+	/ Then, get the base machine-code and the bitmap for the instruction.
+	/ They're stored on the stack, because AssembleNext is unsafe for ALL registers.
+	ALI ADD OUT 1; LOD RG0 OUT 0  / MC
+	ALI ADD OUT 1; LOD RG1 OUT 0  / BMP
+	ALI SUB SP 2; STR RG0 SP 0; STR RG1 SP 1  / Stack push
+	
+	/ Now gather the operands according to the bitmap.
+	
+	/ If the Mod bit is on, call AssembleNext(ModTable) and OR it with the machine code.
+	AIN SEL RG1 2; JIF EQZ >ASM.NoMod
+		LDI RG0 >ModTable; CAL >AssembleNext
+		LOD RG0 SP 0; ALI SLB OUT 8; ALU OR RG0 OUT; STR RG0 SP 0
+		/ Restore the bitmap for the next check.
+		LOD RG1 SP 1
+	#ASM.NoMod
+	
+	/ If the Op0 bit is on, call AssembleNext(RegTable) and OR it with the machine code
+	AIN SEL RG1 1; JIF EQZ >ASM.NoOp0
+		LDI RG0 >RegTable; CAL >AssembleNext
+		LOD RG0 SP 0; ALI SLB OUT 4; ALU OR RG0 OUT; STR RG0 SP 0
+		/ Restore the bitmap for the next check.
+		LOD RG1 SP 1
+	#ASM.NoOp0
+	
+	/ If Op1 is on, check if the immediate bit is on too.
+	/ If it's an immediate, Op1 is a value, so call GetNext and GetNumericValue
+	/ Else it's a register, so just call AssembleNext(RegTable)
+	AIN SEL RG1 0; JIF EQZ >ASM.NoOp1
+		AIN SEL RG1 3; JIF EQZ >ASM.NotImm
+			CAL >GetNext
+			LDI RA >ASM.Op1Done; JMP >GetNumericValue
+		#ASM.NotImm
+		
+			LDI RG0 >RegTable; CAL >AssembleNext
+		#ASM.Op1Done
+		
+		ALI AND OUT 0xF; LOD RG0 SP 0; ALU OR RG0 OUT
+	#ASM.NoOp1
+	
+	/ At this point, RG0 should contain the final value for the machine code.
+	
+	LDI FLG >OUTFLG; MOV IO RG0; LDI FLG >INFLG
+	JMP >Assemble
+)
+
+(#StopPoint  / Where control is passed to once the file has been assembled.
+	/ If the stack is not empty, something went seriously wrong.
+	ALI OR SP 0; JIF EQZ >StPt.OK
+		HLT; 0xFFF2; JMP >StartPoint
+	#StPt.OK
+	
+	/ We're done.
+	HLT; 0x0001; JMP >StartPoint
+)
+
+#LabelTable
+/ The heap portion of memory (here) is treated as the label table.
+/ Structure: (size+1, l, a, b, e, l, value), (size+1, l, a, ...), ...
+/ Where size+1 is the relative index of the value, 1 short of the next entry.
+/ It also happens to be the value that BuffIdx should be if the buffer contents match the label.
