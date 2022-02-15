@@ -1,0 +1,87 @@
+JMP >Init
+%
+  TSOS is a small-scale operating system for the TelGen Computer.
+  It will intentionally be written with as few "magic numbers" as possible for maximum versatility.
+  It would be very difficult to let empty arrays be defined using labels in TASL, so instead comments are added for clarification.
+%
+
+/ ------------------------------------------------------------Data------------------------------------------------------------
+
+/ Process = [1-bit Active] [5-bit parent] [5-bit nextSib] [5-bit child] | [SemAdd] | [Sem#]
+/ NOTE: For now, we're not using the highest bit of the indices, so we have a max of 16 procs.
+@MAX_PROC = 16
+@PARENT_MASK = 0b111110000000000
+@PARENT_SHIFT = 10
+@SIB_MASK = 0b1111100000
+@SIB_SHIFT = 5
+@CHILD_MASK = 0b11111
+
+/ 16 max proc x 3 words per proc = 48 words
+#ProcList = ~48
+
+/ Number of current active procs
+#ProcCount = 0
+
+/ Number of current procs waiting on I/O
+#SoftBlock = 0
+
+/ Each process needs all registers stored except for PC (cause its PC will be stored in EPC for the OS to RSM into)
+/ 16 max proc x 15 reg per proc = 240
+#StateList = ~240
+
+/ The OS itself needs to be able to store the IO semaphores
+/ 5-bit IOP means 32 IO devices
+#IOWriteSem = ~32
+#IOReadSem = ~32
+
+/ Note that we don't have a BIOS to work with, so MBOS also has to function as that.
+#PrevProcState = ~15
+
+/ We need to know what the current process is.
+#CurrentProc = 0
+
+/ ------------------------------------------------------------Code------------------------------------------------------------
+
+
+
+/ Initializes the OS environment (may have to remove the bootloader too, and zero out some key registers)
+#Init
+
+
+
+/ We need an entry point to return to.
+/ While this may be somewhat confusing, remember we don't have a BIOS to store the previous process somewhere
+/ That's where this function comes in. It sets up the OS after an exception, for the exception handler to take over.
+#Entry
+
+
+
+/ One thing we need is something to dispatch processes
+/ Now, the scheduler happens to be all of phase 1 of PandOS combined, because we only have one list.
+#Scheduler
+
+
+
+/ We also need something to handle exceptions
+#ExHandler
+
+
+
+/ A dedicated syscall handler would be nice
+#SysHandler
+
+
+
+/ Also, a dedicated I/O handler
+#IOHandler
+
+
+
+/ We will need something to terminate processes
+#Terminate
+
+
+
+/ Something has to spawn new processes
+#SpawnProc
+

@@ -1,0 +1,79 @@
+Due to the features that this architecture provides, the operating system is much less about adding brand new and essential features like in PandOS. In that project, trying to write programs without the OS was in some sense pointless, given that you did not have I/O support. Instead, TSOS is primarily about getting multiple processes running at once, and making it easier to manage these processes. With the foundations of the OS setup, then we can focus on things like I/O waiting, multithreading, and support structures. However, there is surprisingly little that we cannot do with the base architecture.
+
+Necessary Foundations:
+======================
+
+Storing process information/metadata (PCB)
+	Process ID = index in lists
+	Process states
+	Process trees
+	1 array contains all states and 1 array contains all PCBs, active and inactive
+
+Storing process memory
+	4 word bitmap divides memory into 1KW chunks
+	Round robin allocation of memory
+	Need to detect if 1 round has gone by without openings, and if so respond with NULL
+
+Running new processes
+	Run processes from HDD
+	IOP points to a specially formatted HDD with one program in it.
+	Very first word is the size of file.
+
+Switching between processes
+	Round robin scheduler.
+	Literally loops through the array of all processes one at a time looking for active ones.
+	Need to store off process state immediately upon exception.
+
+Stopping processes
+	Process termination
+	Freeing memory
+	Terminating child processes
+
+Basic Exception Handling
+	Terminate processes if they have exceptions that are not CTDZ or SYS
+	SYS is either for a process to terminate, or to spawn a new one.
+
+
+
+Later Additions:
+================
+
+Specialized exception handling
+	Basic syscall support (need to think about more)
+	Some user interactivity using interrupt lines
+	
+
+Semaphores
+	SemAdd and SemNo are used to determine wait lists.
+	Important moments: P, V, Terminate, WaitIO, scheduler checks IO.
+	Softblock count to detect system deadlocks.
+	
+
+Spawn Thread
+	Takes address of function to run in RG0.
+	Function must Terminate, not return.
+	
+
+Run New Proc From HDD at specific address
+
+================
+
+Process time (down here because it does not seem very useful for what I want to do with TSOS)
+
+Request more memory space
+
+Support Structures (new process field points to support struct location)
+	Kernel RSM of support struct location.
+	Store support struct in OS.
+	Support struct manually alters the value of the proc state to be correct.
+	Store the proc state upon support struct exception in a new list.
+	
+
+================
+
+(Just an idea right now:)
+VRAM support
+	TLB microcontroller between CPU and RAM
+	Instructable via some I/O device
+	Very similar to uMPS3's TLB
+	

@@ -1,0 +1,32 @@
+JMP >Init
+%
+  Need to be loaded into RAM at address 0 via hardware.
+  Loads the contents of I/O device 31 into RAM at address 0.
+  Waits for I/O write before loading.
+  Will stop loading when I/O stops writing.
+  
+  The loader will still be in memory at the end of RAM.
+  The loader contains no 0's, so if it must be cleared, clear the memory from 0xFFFF until a 0 is encountered.
+%
+
+
+// Due to the need to relocate the loader, labels cannot be used within it.
+#Loader
+#LoaderCap
+
+
+
+#Init
+LDI RG0 >LoaderCap
+LDI RG1 >Loader
+ALU SUB RG0 RG1
+
+// Copy the loader to the end of memory 
+#MoveLoader
+	AIF SUB RG0 1
+	JIF LTZ >DoneLoader
+	LOD RG1 RG0 >Loader
+	ALU NEG RG0 RG0; STR RG1 RG0 0xFFFF; ALU NEG RG0 RG0
+
+#DoneLoader
+>

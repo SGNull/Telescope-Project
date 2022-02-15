@@ -5,3 +5,5 @@ A syntax enforcer for TASL V2+.
 A light compiler with support for simple loops, function calls, variables, and += style operations.
 
 Parallel processing with dual read memory.
+
+VRAM using a TLB microcontroller which can be controlled via some I/O device.
