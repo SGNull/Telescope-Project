@@ -113,7 +113,7 @@
         </entry>
         <entry>
           <string>Bits</string>
-          <int>3</int>
+          <int>4</int>
         </entry>
       </elementAttributes>
       <pos x="1100" y="660"/>
@@ -124,6 +124,10 @@
         <entry>
           <string>Value</string>
           <long>0</long>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>4</int>
         </entry>
       </elementAttributes>
       <pos x="1100" y="680"/>

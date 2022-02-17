@@ -1,5 +1,27 @@
 Due to the features that this architecture provides, the operating system is much less about adding brand new and essential features like in PandOS. In that project, trying to write programs without the OS was in some sense pointless, given that you did not have I/O support. Instead, TSOS is primarily about getting multiple processes running at once, and making it easier to manage these processes. With the foundations of the OS setup, then we can focus on things like I/O waiting, multithreading, and support structures. However, there is surprisingly little that we cannot do with the base architecture.
 
+Fundamentally, operating systems are APIs for programs. Here is the list of functions that it will provide:
+
+Spawn Process from Given I/O Device
+Terminate Process
+Get Accumulated CPU Time
+
+Wait for I/O Read (and perform the read as kernel, if not possible terminate process)
+Wait for I/O Write (and perform the write as kernel, if not possible terminate process)
+P semaphore
+V semaphore
+Spawn Thread
+
+Get Support Struct (will have to be provided relative to the current proc's LOW)
+
+
+
+
+
+
+
+
+
 Necessary Foundations:
 ======================
 
@@ -31,7 +53,7 @@ Stopping processes
 
 Basic Exception Handling
 	Terminate processes if they have exceptions that are not CTDZ or SYS
-	SYS is either for a process to terminate, or to spawn a new one.
+	SYS is only for a process to spawn a new one.
 
 
 
