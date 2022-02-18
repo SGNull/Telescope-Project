@@ -1,0 +1,29 @@
+NOTE: DESPITE THEIR APPEARANCE, RTL FILES CANNOT BE ASSEMBLED
+JMP
+>Main
+'H'
+'e'
+'l'
+'l'
+'o'
+' '
+'W'
+'o'
+'r'
+'l'
+'d'
+'\n'
+0xffff
+LDI FLG
+>TERMFLG
+ZRO RG1
+LOD RG0 RG1
+>MyString
+AIN ADD RG0 1
+JIF CAR
+>StrDone
+MOV IO RG0
+INC RG1
+JMP
+>StrLoop
+HLT

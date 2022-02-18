@@ -1,6 +1,10 @@
 JMP >StartPoint
 
 (/ Constants, variables, and tables.
+
+/SET TO 0 IF ASSEMBLING TO PLAIN MACHINE CODE, SET TO 1 IF ASSEMBLING TO LOADABLE
+@GENLOADABLE = 0
+
 @INFLG = 0
 @OUTFLG = 0x800
 
@@ -24,6 +28,8 @@ JMP >StartPoint
               0xbe5a, 0xb100, 0b0010,  / ZRO
               0xb2ae, 0xb000, 0b0010,  / NUL
               0xcc30, 0x9200, 0b0010,  / PAS
+			  0x8dc9, 0x9901, 0b0010,  / INC (set flags)
+              0x8ca4, 0x9b01, 0b0010,  / DEC (set flags)
               0xa270, 0xbbb0, 0b1001,  / PSH
               0xc1f0, 0xb9b0, 0b1001,  / POP
               0xc1a3, 0xcb00, 0b0011,  / CMP
@@ -106,6 +112,7 @@ JMP >StartPoint
 @REF = '>'
 @CHAR = ''' /' / To make the Notepad++ UDL not do weird things, /' was used here.
 @ARRAY = '~'
+@STRING = '"'
 @STOP = 0  / Must stay 0
 
 
@@ -309,9 +316,10 @@ JMP >StartPoint
 		LDI RG3 58; CMP RG0 RG3; JLT >ICI.True
 	#ICI.Small
 	
-	/ Now check for label and single quotes individually (too difficult to check using bit patterns)
+	/ Now check for chars which are too specific to check using bit patterns
 	LDI RG3 >LABEL; CMP RG3 RG0; JEQ >ICI.True
 	LDI RG3 >CHAR; CMP RG3 RG0; JEQ >ICI.True
+	LDI RG3 >STRING; CMP RG3 RG0; JEQ >ICI.True
 	
 	/ Finally, do a quick check to see if it's EOM
 	PAS RG0; JIF EQZ >ICI.True
@@ -375,21 +383,32 @@ JMP >StartPoint
 	#GN.LoopSkip
 	
 	/ If we hit a stop character, just put that in the buffer
-	LDI RG1 >STOP; AFN SUB RG0 RG1; JIF NEZ >GN.Skip1
+	LDI RG1 >STOP; CMP RG0 RG1; JNE >GN.NotStop
 		STR RG0 RG0 >Buffer
 		LDI RG4 1; JMP >GN.Done
-	#GN.Skip1
+	#GN.NotStop
 	
 	/ Set BuffIdx to 0
-	ALI AND RG4 0
+	ZRO RG4
 	
 	/ If char is a character character, just put 3 things in the heap (we're expecting something like 'c')
-	LDI RG1 >CHAR; AFN SUB RG0 RG1; JIF NEZ >GN.Skip2
+	LDI RG1 >CHAR; CMP RG0 RG1; JNE >GN.NotChar
 		STR RG0 RG4 >Buffer
-		MOV RG0 IO; ALI ADD RG4 1; STR RG0 RG4 >Buffer
-		MOV RG0 IO; ALI ADD RG4 1; STR RG0 RG4 >Buffer
+		MOV RG0 IO; INC RG4; STR RG0 RG4 >Buffer
+		MOV RG0 IO; INC RG4; STR RG0 RG4 >Buffer
 		JMP >GN.Done
-	#GN.Skip2
+	#GN.NotChar
+	
+	/ If char is a string character, put everything up to & including the next string char in the heap.
+	LDI RG1 >STRING; CMP RG0 RG1; JNE >GN.NotString
+		#GN.StringLoop
+			STR RG0 RG4 >Buffer; INC RG4
+			MOV RG0 IO
+		CMP RG0 RG1; JNE >GN.StringLoop
+		
+		STR RG0 RG4 >Buffer; INC RG4
+		JMP >GN.Done
+	#GN.NotString
 	
 	/ Setting up RA for IsCharImportant
 	LDI RA >GN.LLRet
@@ -566,6 +585,13 @@ JMP >StartPoint
 			JMP >BT.Loop
 		#BT.NotChar
 		
+		/ If the first char is STRING, program counter += BuffIdx - 1
+		LDI RG1 >STRING; CMP RG0 RG1; JNE >BT.NotString
+			ZRO RG1; LOD RG1 RG1 >BuffIdx; ALI SUB RG1 1
+			LOD RG0 SP 0; ALU ADD RG0 RG1; STR RG0 SP 0
+			JMP >BT.Loop
+		#BT.NotString
+		
 		/ If the first char is ARRAY, do program counter += GetValueBase(10,1)
 		LDI RG1 >ARRAY; CMP RG0 RG1; JNE >BT.NotArr
 			LDI RG0 10; LDI RG1 1; CAL >GetValueBase
@@ -626,6 +652,12 @@ JMP >StartPoint
 		JMP >BT.Loop
 	#BT.Done
 	
+	/ If we're generating a loadable file, write the program counter to the output before assembling.
+	LDI RG0 >GENLOADABLE; PAS RG0; JIF EQZ >BT.NotLoadable
+		LOD RG0 SP 0
+		LDI FLG >OUTFLG; MOV IO RG0; LDI FLG >INFLG
+	#BT.NotLoadable
+	
 	/ Pop the stack, reset input pointer, and go to the next step.
 	LDI IO 0; POP 1; JMP >Assemble
 )
@@ -661,6 +693,25 @@ JMP >StartPoint
 		LDI FLG >OUTFLG; MOV IO RG0; LDI FLG >INFLG
 		JMP >Assemble
 	#ASM.NotChar
+	
+	/ If STRING, write the contents of the string to the output, and append NULL
+	LDI RG1 >STRING; CMP RG0 RG1; JNE >ASM.NotString
+		ZRO RG0
+		LOD RG1 RG0 >BuffIdx; ALI SUB RG1 1
+		LDI FLG >OUTFLG
+		
+		#ASM.StringLoop
+			INC RG0
+			CMP RG0 RG1; JEQ >ASM.StrLDone
+			LOD RG2 RG0 >Buffer; MOV IO RG2
+			JMP >ASM.StringLoop
+		#ASM.StrLDone
+		
+		NUL RG2; MOV IO RG2
+		LDI FLG >INFLG
+		JMP >Assemble
+		
+	#ASM.NotString
 	
 	/ If ARRAY, get the value of the number, and write 0's that many times to the output
 	LDI RG1 >ARRAY; CMP RG0 RG1; JNE >ASM.NotArr

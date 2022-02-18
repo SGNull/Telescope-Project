@@ -1,0 +1,23 @@
+JMP >Main
+
+%%%%%
+  Quick test to see if strings work or not
+  Main prints out the contents of MyString to I/O
+%%%%%
+
+#MyString = "Hello World
+"
+
+@TERMFLG = 0
+
+#Main
+	LDI FLG >TERMFLG
+	ZRO RG1
+	#StrLoop
+		LOD RG0 RG1 >MyString
+		AIN ADD RG0 1; JIF CAR >StrDone
+		MOV IO RG0
+		INC RG1
+		JMP >StrLoop
+	#StrDone
+	HLT

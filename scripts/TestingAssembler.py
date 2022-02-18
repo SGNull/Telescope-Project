@@ -13,11 +13,13 @@ import sys
 # --------------------------------------Simulation Constants/Globals---------------------------------------
 DEBUG_ARG = "-d"
 COMPRESS_ARG = "-c"
+LOADABLE_ARG = "-l"
 
 OUTPUT_SUFFIX = ".tlo.hex"
 TABLE_FILE_SUFFIX = ".table"
 REDUCED_FILE_SUFFIX = ".rtl"
 COMPRESSED_FILE_SUFFIX = ".tl"
+LOADABLE_FILE_SUFFIX = ".tload.hex"
 
 ACCEPTED_IN_SUFFIX = ["tasl", "tl"]
 
@@ -57,6 +59,8 @@ instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       0xbe5a, 0xb100, 0b0010,  # ZRO
                       0xb2ae, 0xb000, 0b0010,  # NUL
                       0xcc30, 0x9200, 0b0010,  # PAS
+                      0x8dc9, 0x9901, 0b0010,  # INC (set flags)
+                      0x8ca4, 0x9b01, 0b0010,  # DEC (set flags)
                       0xa270, 0xbbb0, 0b1001,  # PSH
                       0xc1f0, 0xb9b0, 0b1001,  # POP
                       0xc1a3, 0xcb00, 0b0011,  # CMP
@@ -135,6 +139,7 @@ BIN_CHAR = ord('b')      # Binary numbers have the same syntax as hexadecimal nu
 REF_CHAR = ord('>')      # References replace the following label with the value of the label.
 CHAR_CHAR = ord("'")     # Character syntax works somewhat similar to how it works in python.
 #                          However, it forces the assembler to take ANY *single* character and write it to the output.
+STRING_CHAR = ord('"')   # Places a series of characters in order in memory.
 ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character *in decimal only*.
 STOP_CHAR = 0
 
@@ -147,6 +152,8 @@ label_table = [0] * LABEL_TABLE_HEAP_SIZE  # Will contain entries like [size+1,l
 #                                            Note: size+1 is the relative index of the value
 label_table_index = 0  # Would be a variable in Logisim.
 
+generate_loadable = False  # Needs to be global because it effects the assembler.
+
 
 # ------------------------------------------The Simulation--------------------------------------------------
 def to_out_format(value):
@@ -156,11 +163,13 @@ def to_out_format(value):
 
 def main():
     """Sets up the simulation, runs the assembler, and runs any extra features requested."""
+    global generate_loadable
+
     # Check that the arguments are correct.
     print("Checking the arguments...")
 
     if len(sys.argv) != 2 and len(sys.argv) != 3:
-        print("Error: Expected 1 or 2 arguments (input file path and debug mode), got " + str(len(sys.argv) - 1) +
+        print("Error: Expected 1 or 2 arguments (input file path and mode), got " + str(len(sys.argv) - 1) +
               " instead.")
         raise ValueError
 
@@ -172,6 +181,8 @@ def main():
             in_debug_mode = True
         elif sys.argv[2] == COMPRESS_ARG:
             compress = True
+        elif sys.argv[2] == LOADABLE_ARG:
+            generate_loadable = True
         else:
             print("Bad second argument: " + sys.argv[2])
             raise ValueError
@@ -187,7 +198,12 @@ def main():
 
     # Get output file location
     input_file_name = input_file_path.split('.')[0]
-    output_file_path = input_file_name + OUTPUT_SUFFIX
+    if generate_loadable:
+        suffix = LOADABLE_FILE_SUFFIX
+    else:
+        suffix = OUTPUT_SUFFIX
+
+    output_file_path = input_file_name + suffix
 
     print("Done getting arguments.")
     print("")
@@ -209,7 +225,7 @@ def main():
 
     # 2 STOP_CHARs are appended to the end of memory, just to make sure that the assembler does not go past them
     # There are some edge cases where this could happen if only 1 was used.
-    # However, since the end of ROM would be all 0's anyways, this "fix" is actually realistic.
+    # However, since the end of ROM would be all 0's anyway, this "fix" is actually realistic.
     input_ROM.append(STOP_CHAR)
     input_ROM.append(STOP_CHAR)
 
@@ -464,6 +480,23 @@ def reduce_input_ROM(to_RTL):
 
             outlines.append(temp_string + "\n")
 
+        elif first_char is STRING_CHAR:
+            chars = buff_string()[1:-1]
+
+            if to_RTL:
+                for char in chars:
+                    if char == '\n':
+                        outlines.append("'\\n'\n")
+                    elif char == "'":
+                        outlines.append("''' \\'\n")
+                    elif char == "\t":
+                        outlines.append("'\\t'\n")
+                    else:
+                        outlines.append("'" + char + "'\n")
+                outlines.append("0xffff\n")
+            else:
+                outlines.append(buff_string() + "\n")
+
         elif first_char is REF_CHAR:
             outlines.append(buff_string() + "\n")
 
@@ -530,8 +563,8 @@ def is_char_important(char_num):
     elif 58 > char_num > 44:
         return True
 
-    # Finally, check if it's a label or a single quote (these are too individualized to check for otherwise)
-    elif char_num == ord("#") or char_num == ord("'"):
+    # Finally, check for characters which are too specific to check for in bulk.
+    elif char_num == ord("#") or char_num == ord("'") or char_num == ord('"'):
         return True
 
     # If it fell through all checks, return false
@@ -675,6 +708,20 @@ def get_next_text():
         buffer_index = 3
         return
 
+    # If we reach a string character, put everything up to & including the next string character in the buffer.
+    if char == STRING_CHAR:
+        index = 0
+        while True:
+            buffer[index] = char
+            index += 1
+            char = read_input()
+
+            if char is STRING_CHAR:
+                buffer[index] = char
+                buffer_index = index + 1
+                break
+        return
+
     buffer_index = 0
 
     # Else, get the rest of the character sequence
@@ -806,6 +853,9 @@ def build_tables():
         elif first_char == CHAR_CHAR:  # It's a character
             program_counter += 1
 
+        elif first_char == STRING_CHAR:  # It's a string
+            program_counter += buffer_index - 1
+
         elif first_char == ARRAY_CHAR:  # It's an empty array
             zeros = get_value_base(10, 1)  # A decimal number of zeros follows this character.
             program_counter += zeros
@@ -838,6 +888,10 @@ def build_tables():
 
     # After we're done, pass control to the actual assembler with the input reset
     write_0_to_input()
+
+    if generate_loadable:
+        write_output(program_counter)
+
     assemble()
 
 
@@ -865,6 +919,16 @@ def assemble():
             elif first_char == CHAR_CHAR:  # It is a character.
                 value = buffer[1]
                 write_output(value)
+
+            elif first_char == STRING_CHAR:  # It's a string.
+                index = 0
+                while True:
+                    index += 1
+                    if index == buffer_index - 1:
+                        write_output(NULL)
+                        break
+                    char = buffer[index]
+                    write_output(char)
 
             elif first_char == ARRAY_CHAR:  # It is an empty array, so we make it.
                 value = get_value_base(10, 1)

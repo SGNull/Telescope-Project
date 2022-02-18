@@ -1,0 +1,5 @@
+0x0002 - MyString
+0x0000 - TERMFLG
+0x000f - Main
+0x0012 - StrLoop
+0x001b - StrDone

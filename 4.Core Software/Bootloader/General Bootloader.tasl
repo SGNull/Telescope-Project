@@ -1,61 +1,80 @@
 JMP >Init
-%
-  Need to be loaded into RAM at address 0 via hardware.
+
+%%%%%
+  Need to be loaded into RAM at address 0 via dedicated hardware.
   Loads the contents of I/O device 31 into RAM at address 0.
-  Waits for I/O write before loading.
-  Will stop loading when I/O stops writing.
+  This requires the loader to be copied to the end of memory before actually loading.
+  Device 31 must be formatted properly (starting with the size of the program, followed by the program itself)
   
-  The loader will still be in memory at the end of RAM.
-  The loader contains no 0's, so if it must be cleared, clear the memory from 0xFFFF until a 0 is encountered.
-%
+  The loader will still be in memory towards the end of RAM once it sends control to the first process.
+  The loader will have also altered the states of FLG and EPC.
+  The loader ends with >ENDLOAD, so if it must be erased, erase from >LOADERLOW until you see that.
+%%%%%
+
+
 
 // Currently set to check device 31.
 @LOADFLG = 0xF800
-@MEMSTART = 0
 
-// Due to the need to relocate the loader, labels cannot be used within it.
+// End markers.
+@ENDLOAD = 0xF33D
+@ENDMARK = 0xFABA
+
+// Loader memory constants
+@HLBLOADER = 0x00FF
+@LOADERBASE = 0xFF02
+@RELMEMSTART = 0x0100
+@EPCLOADER = 2
+
+
+
+// Since the loader will be ran as a child process, labels can be used.
 #Loader
-	
-	// First, delete the bootloader (not this loader)
+	// First, clear out the start of memory just to be safe.
 	ZRO RG0
 	ZRO RG1
 	LDI RG2 >EndOfBootLoader
+	
 	#Loader.DelBoot
-		STR RG0 RG1
+		STR RG0 RG1 >RELMEMSTART
 		ALI ADD RG1 1
-	CMP RG1 RG2; JNE >Loader.DelBoot
+	CMP RG1 RG2; JLT >Loader.DelBoot
 	
-	// Wait for I/O
+	// Then copy the contents from the designated I/O device to the start of memory
 	LDI FLG >LOADFLG
-	#WaitWrite; JIF PNW >WaitWrite
+	ZRO RG1
+	MOV RG2 IO
 	
-	// Now load the start program in memory.
-	ALI NOT RG1 0
-	#Loader.LodStart
+	#Loader.Load
+		MOV RG0 IO; STR RG0 RG1 >RELMEMSTART
 		ALI ADD RG1 1
-		MOV RG0 IO; STR RG0 RG1 >MEMSTART
-	JIF PIW >Loader.LodStart
+	CMP RG1 RG2; JLT >Loader.Load
 	
-	// Stop and wait for the user to unpause before starting the program.
-	HLT; JMP >MEMSTART
-#LoaderCap
+	// Clear as many registers as possible
+	ZRO RG0; ZRO RG1; ZRO RG2; ZRO FLG; ZRO EXA
+	
+	// Finally, goto the process
+	SYS
+>ENDLOAD; #LoaderCap
 
 
 
-// Get the size of the loader and where it starts at the end of memory
+// Get the size of the loader
 #Init
-LDI RG0 >LoaderCap; LDI RG1 >Loader; ALU SUB RG0 RG1
-ZRO RG1; SUB RG1 RG0
-STR RG1 RG1 >StartLoader
+LDI RG1 >Loader; LDI RG0 >LoaderCap; ALU SUB RG0 RG1
+ZRO RG1
 
 // Copy the loader to the end of memory 
 #MoveLoader
-	AIF SUB RG0 1; JIF LTZ >DoneLoader
-	LOD RG1 RG0 >Loader; STR RG1 RG0 #StartLoader 0
-	JMP >MoveLoader
+	LOD RG2 RG1 >Loader; STR RG2 RG1 >LOADERBASE
+	ALI ADD RG1 1
+CMP RG1 RG0; JLT >MoveLoader
 
 // Now jump to the loader
 #DoneLoader
-ZRO RG0; LOD PC RG0 >StartLoader
+LDI HLB >HLBLOADER
+ZRO FLG
+LDI EPC >EPCLOADER
+RSM
 
-#EndOfBootLoader
+>ENDMARK; #EndOfBootLoader
