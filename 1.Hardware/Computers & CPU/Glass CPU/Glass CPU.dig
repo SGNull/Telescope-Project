@@ -52,7 +52,7 @@ Only starts/resumes on rising edge (so if Start is held high the CPU can still h
           <string>Start</string>
         </entry>
       </elementAttributes>
-      <pos x="-900" y="440"/>
+      <pos x="-780" y="440"/>
     </visualElement>
     <visualElement>
       <elementName>In</elementName>
@@ -68,7 +68,7 @@ Only pauses on rising edge.</string>
           <string>Pause</string>
         </entry>
       </elementAttributes>
-      <pos x="-900" y="480"/>
+      <pos x="-780" y="480"/>
     </visualElement>
     <visualElement>
       <elementName>In</elementName>
@@ -85,11 +85,25 @@ Only pauses on rising edge.</string>
       <elementAttributes>
         <entry>
           <string>Description</string>
+          <string>Only on if the CPU is currently executing program memory.</string>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>Running</string>
+        </entry>
+      </elementAttributes>
+      <pos x="1340" y="-140"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
           <string>The current memory address.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>RAM Addr</string>
+          <string>RAM A</string>
         </entry>
         <entry>
           <string>Bits</string>
@@ -97,24 +111,6 @@ Only pauses on rising edge.</string>
         </entry>
       </elementAttributes>
       <pos x="1340" y="320"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Out</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>Data output to RAM</string>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>RAM Output</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>16</int>
-        </entry>
-      </elementAttributes>
-      <pos x="1440" y="740"/>
     </visualElement>
     <visualElement>
       <elementName>Driver</elementName>
@@ -201,7 +197,7 @@ Only pauses on rising edge.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>RAM Input</string>
+          <string>RAM Din</string>
         </entry>
         <entry>
           <string>Bits</string>
@@ -249,14 +245,18 @@ Is a jump condition (PIR/PNR)</string>
       <elementAttributes>
         <entry>
           <string>Description</string>
-          <string>On if writing to RAM.</string>
+          <string>Data output to RAM</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>RAM Write</string>
+          <string>RAM Dout</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>16</int>
         </entry>
       </elementAttributes>
-      <pos x="1440" y="700"/>
+      <pos x="1440" y="740"/>
     </visualElement>
     <visualElement>
       <elementName>In</elementName>
@@ -289,18 +289,14 @@ Is a jump condition (PIW/PNW).</string>
       <elementAttributes>
         <entry>
           <string>Description</string>
-          <string>The current value of the program counter.</string>
+          <string>On if writing to RAM.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>PC</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>16</int>
+          <string>RAM Str</string>
         </entry>
       </elementAttributes>
-      <pos x="1340" y="360"/>
+      <pos x="1440" y="700"/>
     </visualElement>
     <visualElement>
       <elementName>Const</elementName>
@@ -342,38 +338,32 @@ Is a jump condition (PIW/PNW).</string>
       <elementAttributes>
         <entry>
           <string>Description</string>
-          <string>The currently selected I/O device.
-
-Note: I/O must be multiplexed according to this signal *outside* the CPU.</string>
+          <string>The status of the internal clock wire.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>IOP</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>5</int>
+          <string>Clock Out</string>
         </entry>
       </elementAttributes>
-      <pos x="1340" y="20"/>
+      <pos x="1340" y="-100"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
       <elementAttributes>
         <entry>
           <string>Description</string>
-          <string>The contents of the HI/LOW Bounds register.</string>
+          <string>The current value of the program counter.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>HLB</string>
+          <string>PC</string>
         </entry>
         <entry>
           <string>Bits</string>
           <int>16</int>
         </entry>
       </elementAttributes>
-      <pos x="1440" y="540"/>
+      <pos x="1340" y="360"/>
     </visualElement>
     <visualElement>
       <elementName>And</elementName>
@@ -420,14 +410,18 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
       <elementAttributes>
         <entry>
           <string>Description</string>
-          <string>The status of the internal clock wire.</string>
+          <string>The contents of the HI/LOW Bounds register.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>Clock Out</string>
+          <string>HLB</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>16</int>
         </entry>
       </elementAttributes>
-      <pos x="1340" y="-100"/>
+      <pos x="1440" y="540"/>
     </visualElement>
     <visualElement>
       <elementName>Splitter</elementName>
@@ -472,14 +466,16 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
       <elementAttributes>
         <entry>
           <string>Description</string>
-          <string>Only on if the CPU is currently executing program memory.</string>
+          <string>On if the current process is kernel.
+
+I/O devices can choose whether they respond to non-kernel processes.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>Is Running</string>
+          <string>Kernel</string>
         </entry>
       </elementAttributes>
-      <pos x="1340" y="-140"/>
+      <pos x="1340" y="-40"/>
     </visualElement>
     <visualElement>
       <elementName>Driver</elementName>
@@ -510,27 +506,6 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
       <elementAttributes>
         <entry>
           <string>Description</string>
-          <string>On if the current process is kernel.
-
-I/O devices can choose whether they respond to non-kernel processes.</string>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>Is Kernel</string>
-        </entry>
-      </elementAttributes>
-      <pos x="1340" y="-40"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Not</elementName>
-      <elementAttributes/>
-      <pos x="1280" y="-40"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Out</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
           <string>On if the CPU is currently reading from Input.</string>
         </entry>
         <entry>
@@ -541,14 +516,9 @@ I/O devices can choose whether they respond to non-kernel processes.</string>
       <pos x="1440" y="860"/>
     </visualElement>
     <visualElement>
-      <elementName>Probe</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Label</string>
-          <string>Data Bus</string>
-        </entry>
-      </elementAttributes>
-      <pos x="640" y="0"/>
+      <elementName>Not</elementName>
+      <elementAttributes/>
+      <pos x="1280" y="-40"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
@@ -569,6 +539,16 @@ I/O devices can choose whether they respond to non-kernel processes.</string>
       <pos x="1460" y="960"/>
     </visualElement>
     <visualElement>
+      <elementName>Probe</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>Data Bus</string>
+        </entry>
+      </elementAttributes>
+      <pos x="640" y="0"/>
+    </visualElement>
+    <visualElement>
       <elementName>Out</elementName>
       <elementAttributes>
         <entry>
@@ -581,6 +561,26 @@ I/O devices can choose whether they respond to non-kernel processes.</string>
         </entry>
       </elementAttributes>
       <pos x="1440" y="920"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
+          <string>The currently selected I/O device.
+
+Note: I/O must be multiplexed according to this signal *outside* the CPU.</string>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>IOP</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>5</int>
+        </entry>
+      </elementAttributes>
+      <pos x="1340" y="20"/>
     </visualElement>
     <visualElement>
       <elementName>Probe</elementName>
@@ -651,7 +651,7 @@ If the bit is on, then that interrupt is non-maskable.</string>
         </entry>
         <entry>
           <string>Label</string>
-          <string>Interrupt Mask</string>
+          <string>Int Mask</string>
         </entry>
         <entry>
           <string>Bits</string>
@@ -689,58 +689,6 @@ If the bit is on, then that interrupt is non-maskable.</string>
         </entry>
       </elementAttributes>
       <pos x="1240" y="-120"/>
-    </visualElement>
-    <visualElement>
-      <elementName>And</elementName>
-      <elementAttributes>
-        <entry>
-          <string>wideShape</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
-          <string>inverterConfig</string>
-          <inverterConfig>
-            <string>In_1</string>
-          </inverterConfig>
-        </entry>
-      </elementAttributes>
-      <pos x="-720" y="400"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Delay</elementName>
-      <elementAttributes>
-        <entry>
-          <string>delayTime</string>
-          <int>2</int>
-        </entry>
-      </elementAttributes>
-      <pos x="-820" y="400"/>
-    </visualElement>
-    <visualElement>
-      <elementName>And</elementName>
-      <elementAttributes>
-        <entry>
-          <string>wideShape</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
-          <string>inverterConfig</string>
-          <inverterConfig>
-            <string>In_1</string>
-          </inverterConfig>
-        </entry>
-      </elementAttributes>
-      <pos x="-720" y="460"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Delay</elementName>
-      <elementAttributes>
-        <entry>
-          <string>delayTime</string>
-          <int>2</int>
-        </entry>
-      </elementAttributes>
-      <pos x="-820" y="460"/>
     </visualElement>
     <visualElement>
       <elementName>In</elementName>
@@ -890,6 +838,16 @@ It must be held down for at least 2 full clock cycles to work.</string>
       </elementAttributes>
       <pos x="1180" y="980"/>
     </visualElement>
+    <visualElement>
+      <elementName>REMC.dig</elementName>
+      <elementAttributes/>
+      <pos x="-700" y="440"/>
+    </visualElement>
+    <visualElement>
+      <elementName>REMC.dig</elementName>
+      <elementAttributes/>
+      <pos x="-700" y="480"/>
+    </visualElement>
   </visualElements>
   <wires>
     <wire>
@@ -1021,14 +979,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="800" y="400"/>
     </wire>
     <wire>
-      <p1 x="-780" y="400"/>
-      <p2 x="-740" y="400"/>
-    </wire>
-    <wire>
-      <p1 x="-840" y="400"/>
-      <p2 x="-820" y="400"/>
-    </wire>
-    <wire>
       <p1 x="-480" y="400"/>
       <p2 x="540" y="400"/>
     </wire>
@@ -1147,10 +1097,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="580" y="420"/>
       <p2 x="800" y="420"/>
-    </wire>
-    <wire>
-      <p1 x="-640" y="420"/>
-      <p2 x="-600" y="420"/>
     </wire>
     <wire>
       <p1 x="1040" y="1060"/>
@@ -1297,10 +1243,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="1240" y="820"/>
     </wire>
     <wire>
-      <p1 x="-900" y="440"/>
-      <p2 x="-840" y="440"/>
-    </wire>
-    <wire>
       <p1 x="-220" y="440"/>
       <p2 x="-120" y="440"/>
     </wire>
@@ -1309,12 +1251,12 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="800" y="440"/>
     </wire>
     <wire>
-      <p1 x="-600" y="440"/>
-      <p2 x="-460" y="440"/>
+      <p1 x="-780" y="440"/>
+      <p2 x="-700" y="440"/>
     </wire>
     <wire>
-      <p1 x="-840" y="440"/>
-      <p2 x="-720" y="440"/>
+      <p1 x="-640" y="440"/>
+      <p2 x="-460" y="440"/>
     </wire>
     <wire>
       <p1 x="1040" y="1080"/>
@@ -1457,14 +1399,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="800" y="460"/>
     </wire>
     <wire>
-      <p1 x="-780" y="460"/>
-      <p2 x="-740" y="460"/>
-    </wire>
-    <wire>
-      <p1 x="-840" y="460"/>
-      <p2 x="-820" y="460"/>
-    </wire>
-    <wire>
       <p1 x="-600" y="460"/>
       <p2 x="-460" y="460"/>
     </wire>
@@ -1597,12 +1531,12 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="280" y="480"/>
     </wire>
     <wire>
-      <p1 x="-640" y="480"/>
-      <p2 x="-600" y="480"/>
+      <p1 x="-780" y="480"/>
+      <p2 x="-700" y="480"/>
     </wire>
     <wire>
-      <p1 x="-900" y="480"/>
-      <p2 x="-840" y="480"/>
+      <p1 x="-640" y="480"/>
+      <p2 x="-600" y="480"/>
     </wire>
     <wire>
       <p1 x="460" y="-100"/>
@@ -1747,10 +1681,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="120" y="500"/>
       <p2 x="740" y="500"/>
-    </wire>
-    <wire>
-      <p1 x="-840" y="500"/>
-      <p2 x="-720" y="500"/>
     </wire>
     <wire>
       <p1 x="400" y="-120"/>
@@ -2081,18 +2011,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="-200" y="640"/>
     </wire>
     <wire>
-      <p1 x="-840" y="400"/>
-      <p2 x="-840" y="440"/>
-    </wire>
-    <wire>
-      <p1 x="-840" y="460"/>
-      <p2 x="-840" y="480"/>
-    </wire>
-    <wire>
-      <p1 x="-840" y="480"/>
-      <p2 x="-840" y="500"/>
-    </wire>
-    <wire>
       <p1 x="200" y="620"/>
       <p2 x="200" y="1040"/>
     </wire>
@@ -2131,10 +2049,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="-600" y="460"/>
       <p2 x="-600" y="480"/>
-    </wire>
-    <wire>
-      <p1 x="-600" y="420"/>
-      <p2 x="-600" y="440"/>
     </wire>
     <wire>
       <p1 x="1240" y="760"/>

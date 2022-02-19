@@ -4,77 +4,78 @@ JMP >Init
   Need to be loaded into RAM at address 0 via dedicated hardware.
   Loads the contents of I/O device 31 into RAM at address 0.
   This requires the loader to be copied to the end of memory before actually loading.
-  Device 31 must be formatted properly (starting with the size of the program, followed by the program itself)
+  The load drive must be formatted properly (starting with the size of the program, followed by the program itself)
   
   The loader will still be in memory towards the end of RAM once it sends control to the first process.
   The loader will have also altered the states of FLG and EPC.
-  The loader ends with >ENDLOAD, so if it must be erased, erase from >LOADERLOW until you see that.
+  The loader ends with >ENDLOAD, so if it must be erased, erase from >LOADERBASE until you see that.
 %%%%%
 
 
 
-// Currently set to check device 31.
+/ Loader currently set to load I/O device 31
 @LOADFLG = 0xF800
 
-// End markers.
-@ENDLOAD = 0xF33D
+/ If you're implementing the bootloader, this is what you look for.
 @ENDMARK = 0xFABA
 
-// Loader memory constants
-@HLBLOADER = 0x00FF
+/ If you're cleaning the loader from memory, this is what you look for.
+@ENDLOAD = 0xF33D
+
+/ Where the loader starts in memory.
 @LOADERBASE = 0xFF02
+
+/ Other loader constants
+@HLBLOADER = 0x00FF
 @RELMEMSTART = 0x0100
 @EPCLOADER = 2
 
 
 
-// Since the loader will be ran as a child process, labels can be used.
+/ Since the loader will be ran as a child process, labels can be used.
 #Loader
-	// First, clear out the start of memory just to be safe.
+	/ First, clear out the start of memory just to be safe.
 	ZRO RG0
 	ZRO RG1
 	LDI RG2 >EndOfBootLoader
 	
 	#Loader.DelBoot
 		STR RG0 RG1 >RELMEMSTART
-		ALI ADD RG1 1
+		INC RG1
 	CMP RG1 RG2; JLT >Loader.DelBoot
 	
-	// Then copy the contents from the designated I/O device to the start of memory
+	/ Then copy the contents from I/O to the start of memory
 	LDI FLG >LOADFLG
 	ZRO RG1
 	MOV RG2 IO
 	
 	#Loader.Load
 		MOV RG0 IO; STR RG0 RG1 >RELMEMSTART
-		ALI ADD RG1 1
+		INC RG1
 	CMP RG1 RG2; JLT >Loader.Load
 	
-	// Clear as many registers as possible
+	/ Clear as many registers as possible
 	ZRO RG0; ZRO RG1; ZRO RG2; ZRO FLG; ZRO EXA
 	
-	// Finally, goto the process
+	/ Finally, goto the process
 	SYS
 >ENDLOAD; #LoaderCap
 
 
 
-// Get the size of the loader
+/ Get the size of the loader
 #Init
 LDI RG1 >Loader; LDI RG0 >LoaderCap; ALU SUB RG0 RG1
 ZRO RG1
 
-// Copy the loader to the end of memory 
+/ Copy the loader to the end of memory 
 #MoveLoader
 	LOD RG2 RG1 >Loader; STR RG2 RG1 >LOADERBASE
-	ALI ADD RG1 1
+	INC RG1
 CMP RG1 RG0; JLT >MoveLoader
 
-// Now jump to the loader
+/ Now jump to the loader
 #DoneLoader
-LDI HLB >HLBLOADER
-ZRO FLG
-LDI EPC >EPCLOADER
-RSM
+LDI HLB >HLBLOADER; ZRO FLG; LDI EPC >EPCLOADER; RSM
 
 >ENDMARK; #EndOfBootLoader
