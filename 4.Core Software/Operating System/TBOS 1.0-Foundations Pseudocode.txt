@@ -1,0 +1,102 @@
+/ Sets up the environment for the OS
+Init:
+	
+
+
+
+/ Dispatches the next process
+Dispatcher:
+	Get CurrentPID
+	Increment CurrentPID
+	Mod CurrentPID by MAXPROCCOUNT	  <<For now just mask CurrentPID by 0xF? (but no magic numbers!!! do not!)
+						<<This is where semaphore checks will go in the future
+	Get State = StateList[CurrentPID]
+	LoadState(State)
+	RSM
+
+
+
+/ An anti-dispatcher 
+/ run when a process is done with its burst
+ProcDone:
+	Get CurrentPID
+
+	/ NOTE: It may be more efficient to only have one or two registers in TempState, because
+	/       it should be very easy to check if a process is done with its burst using just one/two regs
+	/       This way we don't have to do a ton of memory accesses each time we switch procs
+	Get TempState
+	DeepCopy(TempState -> StateList[CurrentPID])
+
+	/ Total proc time calculating/storing should go somewhere here in the future
+
+	Goto Dispatcher (do not "call" in the high-level sense, we don't want stack overflows)
+
+
+
+/ The entry point back into the OS from a running proc
+/ This is what EXA is always set to
+ExceptionHandler:
+	Copy FLG into TempF
+	Copy RG0 into Temp0
+	Copy RG1 into Temp1
+	Branch according to FLG.EXC
+		=> If SYS, goto SpawnProc
+		=> If CTD, goto ProcDone
+		=> Else, TerminateProc(CurrentProcID), goto ResumeProc
+
+
+
+/ Creates a brand new proc from a program stored in a drive somewhere.
+/ In v1.0, this assumes IOP is the drive and that the drive is load formatted
+SpawnProc:
+	get ProcCount
+	if ProcCount == MaxProcCount:
+		place 0 in OUT, goto ResumeProc
+
+	get ProgSize from IO
+	Chunks = ProgSize/ChunkSize
+		if carry, Chunks++
+
+	find next open space
+		if none, place 0 in OUT, goto ResumeProc
+	mark these spaces as occupied
+
+	TotalProcs++
+	insert NewProc as child into CurrentProc
+	initialize State & PCB
+
+	calculate StartAddress
+	for ProgSize, write I/O to StartAddress+Index
+
+	place 1 in OUT
+	goto ResumeProc
+
+
+
+/ Resumes the current process
+ResumeProc:
+	/ NOTE: Like in ProcDone, this code may not look like this, because it might be inefficient
+	Get TempState
+	LoadState(TempState)
+	RSM
+
+
+
+/ Terminates the current process
+/ >Recursively< terminates all child procs
+TerminateProc:
+	if ChildProcID != 0:
+		TerminateProc(ChildProcID)
+	if SibProcID != 0:
+		TerminateProc(SibProcID)
+
+	get LO and HI
+	mark memory as unused		<< This is not going to work for threads!!! Maybe add an extra PCB boolean for threads
+					^^ This is kinda bad for increasing MaxProc to 32.
+	
+	set CurrentPCB.active = False
+
+	ParentPCB = CurrentPCB.parent
+	set ParentPCB.child = CurrentPCB.sib
+
+	ProcCount--

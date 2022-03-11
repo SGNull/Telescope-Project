@@ -52,7 +52,7 @@ Only starts/resumes on rising edge (so if Start is held high the CPU can still h
           <string>Start</string>
         </entry>
       </elementAttributes>
-      <pos x="-780" y="440"/>
+      <pos x="-860" y="420"/>
     </visualElement>
     <visualElement>
       <elementName>In</elementName>
@@ -68,7 +68,7 @@ Only pauses on rising edge.</string>
           <string>Pause</string>
         </entry>
       </elementAttributes>
-      <pos x="-780" y="480"/>
+      <pos x="-860" y="480"/>
     </visualElement>
     <visualElement>
       <elementName>In</elementName>
@@ -92,7 +92,7 @@ Only pauses on rising edge.</string>
           <string>Running</string>
         </entry>
       </elementAttributes>
-      <pos x="1340" y="-140"/>
+      <pos x="1440" y="1220"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
@@ -332,20 +332,6 @@ Is a jump condition (PIW/PNW).</string>
         </entry>
       </elementAttributes>
       <pos x="-720" y="700"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Out</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>The status of the internal clock wire.</string>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>Clock Out</string>
-        </entry>
-      </elementAttributes>
-      <pos x="1340" y="-100"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
@@ -681,16 +667,6 @@ If the bit is on, then that interrupt is non-maskable.</string>
       <pos x="40" y="980"/>
     </visualElement>
     <visualElement>
-      <elementName>And</elementName>
-      <elementAttributes>
-        <entry>
-          <string>wideShape</string>
-          <boolean>true</boolean>
-        </entry>
-      </elementAttributes>
-      <pos x="1240" y="-120"/>
-    </visualElement>
-    <visualElement>
       <elementName>In</elementName>
       <elementAttributes>
         <entry>
@@ -839,17 +815,53 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <pos x="1180" y="980"/>
     </visualElement>
     <visualElement>
-      <elementName>REMC.dig</elementName>
-      <elementAttributes/>
-      <pos x="-700" y="440"/>
+      <elementName>And</elementName>
+      <elementAttributes>
+        <entry>
+          <string>inverterConfig</string>
+          <inverterConfig>
+            <string>In_2</string>
+          </inverterConfig>
+        </entry>
+        <entry>
+          <string>wideShape</string>
+          <boolean>true</boolean>
+        </entry>
+      </elementAttributes>
+      <pos x="-720" y="400"/>
     </visualElement>
     <visualElement>
-      <elementName>REMC.dig</elementName>
+      <elementName>Delay</elementName>
       <elementAttributes/>
-      <pos x="-700" y="480"/>
+      <pos x="-800" y="440"/>
+    </visualElement>
+    <visualElement>
+      <elementName>And</elementName>
+      <elementAttributes>
+        <entry>
+          <string>inverterConfig</string>
+          <inverterConfig>
+            <string>In_2</string>
+          </inverterConfig>
+        </entry>
+        <entry>
+          <string>wideShape</string>
+          <boolean>true</boolean>
+        </entry>
+      </elementAttributes>
+      <pos x="-720" y="460"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Delay</elementName>
+      <elementAttributes/>
+      <pos x="-800" y="500"/>
     </visualElement>
   </visualElements>
   <wires>
+    <wire>
+      <p1 x="-180" y="1220"/>
+      <p2 x="-200" y="640"/>
+    </wire>
     <wire>
       <p1 x="120" y="640"/>
       <p2 x="180" y="640"/>
@@ -923,10 +935,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="1200" y="-140"/>
     </wire>
     <wire>
-      <p1 x="1220" y="-140"/>
-      <p2 x="1340" y="-140"/>
-    </wire>
-    <wire>
       <p1 x="120" y="780"/>
       <p2 x="360" y="780"/>
     </wire>
@@ -977,6 +985,10 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="780" y="400"/>
       <p2 x="800" y="400"/>
+    </wire>
+    <wire>
+      <p1 x="-820" y="400"/>
+      <p2 x="-720" y="400"/>
     </wire>
     <wire>
       <p1 x="-480" y="400"/>
@@ -1059,10 +1071,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="1440" y="540"/>
     </wire>
     <wire>
-      <p1 x="580" y="-160"/>
-      <p2 x="1240" y="-160"/>
-    </wire>
-    <wire>
       <p1 x="680" y="160"/>
       <p2 x="780" y="160"/>
     </wire>
@@ -1097,6 +1105,14 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="580" y="420"/>
       <p2 x="800" y="420"/>
+    </wire>
+    <wire>
+      <p1 x="-640" y="420"/>
+      <p2 x="-620" y="420"/>
+    </wire>
+    <wire>
+      <p1 x="-860" y="420"/>
+      <p2 x="-820" y="420"/>
     </wire>
     <wire>
       <p1 x="1040" y="1060"/>
@@ -1207,10 +1223,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="-460" y="560"/>
     </wire>
     <wire>
-      <p1 x="-200" y="-180"/>
-      <p2 x="1220" y="-180"/>
-    </wire>
-    <wire>
       <p1 x="-400" y="180"/>
       <p2 x="380" y="180"/>
     </wire>
@@ -1251,12 +1263,16 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="800" y="440"/>
     </wire>
     <wire>
-      <p1 x="-780" y="440"/>
-      <p2 x="-700" y="440"/>
+      <p1 x="-620" y="440"/>
+      <p2 x="-460" y="440"/>
     </wire>
     <wire>
-      <p1 x="-640" y="440"/>
-      <p2 x="-460" y="440"/>
+      <p1 x="-760" y="440"/>
+      <p2 x="-740" y="440"/>
+    </wire>
+    <wire>
+      <p1 x="-820" y="440"/>
+      <p2 x="-800" y="440"/>
     </wire>
     <wire>
       <p1 x="1040" y="1080"/>
@@ -1339,6 +1355,10 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="1200" y="320"/>
     </wire>
     <wire>
+      <p1 x="-180" y="1220"/>
+      <p2 x="1440" y="1220"/>
+    </wire>
+    <wire>
       <p1 x="-220" y="580"/>
       <p2 x="-120" y="580"/>
     </wire>
@@ -1399,16 +1419,16 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="800" y="460"/>
     </wire>
     <wire>
-      <p1 x="-600" y="460"/>
+      <p1 x="-620" y="460"/>
       <p2 x="-460" y="460"/>
+    </wire>
+    <wire>
+      <p1 x="-820" y="460"/>
+      <p2 x="-720" y="460"/>
     </wire>
     <wire>
       <p1 x="480" y="-80"/>
       <p2 x="1100" y="-80"/>
-    </wire>
-    <wire>
-      <p1 x="1220" y="-80"/>
-      <p2 x="1240" y="-80"/>
     </wire>
     <wire>
       <p1 x="240" y="80"/>
@@ -1531,20 +1551,16 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="280" y="480"/>
     </wire>
     <wire>
-      <p1 x="-780" y="480"/>
-      <p2 x="-700" y="480"/>
+      <p1 x="-860" y="480"/>
+      <p2 x="-820" y="480"/>
     </wire>
     <wire>
       <p1 x="-640" y="480"/>
-      <p2 x="-600" y="480"/>
+      <p2 x="-620" y="480"/>
     </wire>
     <wire>
       <p1 x="460" y="-100"/>
       <p2 x="1120" y="-100"/>
-    </wire>
-    <wire>
-      <p1 x="1320" y="-100"/>
-      <p2 x="1340" y="-100"/>
     </wire>
     <wire>
       <p1 x="540" y="740"/>
@@ -1681,6 +1697,14 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="120" y="500"/>
       <p2 x="740" y="500"/>
+    </wire>
+    <wire>
+      <p1 x="-760" y="500"/>
+      <p2 x="-740" y="500"/>
+    </wire>
+    <wire>
+      <p1 x="-820" y="500"/>
+      <p2 x="-800" y="500"/>
     </wire>
     <wire>
       <p1 x="400" y="-120"/>
@@ -1939,6 +1963,22 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="-180" y="620"/>
     </wire>
     <wire>
+      <p1 x="-820" y="400"/>
+      <p2 x="-820" y="420"/>
+    </wire>
+    <wire>
+      <p1 x="-820" y="460"/>
+      <p2 x="-820" y="480"/>
+    </wire>
+    <wire>
+      <p1 x="-820" y="480"/>
+      <p2 x="-820" y="500"/>
+    </wire>
+    <wire>
+      <p1 x="-820" y="420"/>
+      <p2 x="-820" y="440"/>
+    </wire>
+    <wire>
       <p1 x="180" y="640"/>
       <p2 x="180" y="1100"/>
     </wire>
@@ -1979,16 +2019,12 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="-580" y="580"/>
     </wire>
     <wire>
-      <p1 x="580" y="-160"/>
-      <p2 x="580" y="200"/>
+      <p1 x="580" y="200"/>
+      <p2 x="580" y="420"/>
     </wire>
     <wire>
       <p1 x="580" y="720"/>
       <p2 x="580" y="1000"/>
-    </wire>
-    <wire>
-      <p1 x="580" y="200"/>
-      <p2 x="580" y="420"/>
     </wire>
     <wire>
       <p1 x="580" y="420"/>
@@ -1997,18 +2033,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="1220" y="780"/>
       <p2 x="1220" y="800"/>
-    </wire>
-    <wire>
-      <p1 x="1220" y="-180"/>
-      <p2 x="1220" y="-140"/>
-    </wire>
-    <wire>
-      <p1 x="1220" y="-140"/>
-      <p2 x="1220" y="-80"/>
-    </wire>
-    <wire>
-      <p1 x="-200" y="-180"/>
-      <p2 x="-200" y="640"/>
     </wire>
     <wire>
       <p1 x="200" y="620"/>
@@ -2047,16 +2071,8 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="720" y="580"/>
     </wire>
     <wire>
-      <p1 x="-600" y="460"/>
-      <p2 x="-600" y="480"/>
-    </wire>
-    <wire>
       <p1 x="1240" y="760"/>
       <p2 x="1240" y="820"/>
-    </wire>
-    <wire>
-      <p1 x="1240" y="-160"/>
-      <p2 x="1240" y="-120"/>
     </wire>
     <wire>
       <p1 x="220" y="580"/>
@@ -2125,6 +2141,14 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="360" y="80"/>
       <p2 x="360" y="780"/>
+    </wire>
+    <wire>
+      <p1 x="-620" y="460"/>
+      <p2 x="-620" y="480"/>
+    </wire>
+    <wire>
+      <p1 x="-620" y="420"/>
+      <p2 x="-620" y="440"/>
     </wire>
     <wire>
       <p1 x="-620" y="620"/>

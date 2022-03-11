@@ -1,43 +1,50 @@
 JMP >Init
 %
-  TSOS is a small-scale operating system for the TelGen Computer.
+  TBOS v1.0
+  ---------
+  
+  TSOS is a small-scale operating system for the TelGen Computer System.
   It will intentionally be written with as few "magic numbers" as possible for maximum versatility.
   It would be very difficult to let empty arrays be defined using labels in TASL, so instead comments are added for clarification.
+  
+  v1.0 Adds the foundations for the operating system, which includes:
+	Program starting and memory allocation.
+	Process stopping and memory deallocation.
+	Multiprogramming (though not multithreading).
+	Process family tree.
+  
+  With the specs:
+    16 max processes.
+	Round robin process scheduling.
+	Round robin memory allocation.
+	Memory allocation/deallocation via 4-word bitmap.
+    Memory allocation bitmap includes OS occupied chunks (stack + code).
+  
+  v1.0 is especially small-scale, and future versions will modify 1.0 to achieve higher functions.
 %
 
 / ------------------------------------------------------------Data------------------------------------------------------------
 
-/ Process = [1-bit Active] [5-bit parent] [5-bit nextSib] [5-bit child] | [SemAdd] | [Sem#]
-/ NOTE: For now, we're not using the highest bit of the indices, so we have a max of 16 procs.
+/ Process = [1-bit Active] [4-bit parent] [4-bit nextSib] [4-bit child]
+/ NOTE: This could be modified to support 32 procs, but memory issues will start occurring.
 @MAX_PROC = 16
-@PARENT_MASK = 0b111110000000000
-@PARENT_SHIFT = 10
-@SIB_MASK = 0b1111100000
-@SIB_SHIFT = 5
-@CHILD_MASK = 0b11111
+@PARENT_MASK = 0xF00
+@PARENT_SHIFT = 8
+@SIB_MASK = 0xF0
+@SIB_SHIFT = 4
+@CHILD_MASK = 0xF
 
-/ 16 max proc x 3 words per proc = 48 words
-#ProcList = ~48
+/ 16 max proc x 1 word per proc = 16 words
+#ProcList = ~16
 
 / Number of current active procs
 #ProcCount = 0
 
-/ Number of current procs waiting on I/O
-#SoftBlock = 0
+/ Each process needs all registers stored except for PC, IO, EXA, and EPC
+/ 16 max proc x 12 reg per proc = 192
+#StateList = ~192
 
-/ Each process needs all registers stored except for PC (cause its PC will be stored in EPC for the OS to RSM into)
-/ 16 max proc x 15 reg per proc = 240
-#StateList = ~240
-
-/ The OS itself needs to be able to store the IO semaphores
-/ 5-bit IOP means 32 IO devices
-#IOWriteSem = ~32
-#IOReadSem = ~32
-
-/ Note that we don't have a BIOS to work with, so MBOS also has to function as that.
-#PrevProcState = ~15
-
-/ We need to know what the current process is.
+/ We need to know what the current procID is.
 #CurrentProc = 0
 
 / ------------------------------------------------------------Code------------------------------------------------------------
@@ -57,8 +64,7 @@ JMP >Init
 
 
 / One thing we need is something to dispatch processes
-/ Now, the scheduler happens to be all of phase 1 of PandOS combined, because we only have one list.
-#Scheduler
+#Dispatcher
 
 
 
@@ -72,11 +78,6 @@ JMP >Init
 
 
 
-/ Also, a dedicated I/O handler
-#IOHandler
-
-
-
 / We will need something to terminate processes
 #Terminate
 
@@ -84,4 +85,5 @@ JMP >Init
 
 / Something has to spawn new processes
 #SpawnProc
+
 
