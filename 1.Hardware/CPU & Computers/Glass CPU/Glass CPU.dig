@@ -818,14 +818,14 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <elementName>And</elementName>
       <elementAttributes>
         <entry>
+          <string>wideShape</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
           <string>inverterConfig</string>
           <inverterConfig>
             <string>In_2</string>
           </inverterConfig>
-        </entry>
-        <entry>
-          <string>wideShape</string>
-          <boolean>true</boolean>
         </entry>
       </elementAttributes>
       <pos x="-720" y="400"/>
@@ -839,14 +839,14 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <elementName>And</elementName>
       <elementAttributes>
         <entry>
+          <string>wideShape</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
           <string>inverterConfig</string>
           <inverterConfig>
             <string>In_2</string>
           </inverterConfig>
-        </entry>
-        <entry>
-          <string>wideShape</string>
-          <boolean>true</boolean>
         </entry>
       </elementAttributes>
       <pos x="-720" y="460"/>
@@ -858,10 +858,6 @@ It must be held down for at least 2 full clock cycles to work.</string>
     </visualElement>
   </visualElements>
   <wires>
-    <wire>
-      <p1 x="-180" y="1220"/>
-      <p2 x="-200" y="640"/>
-    </wire>
     <wire>
       <p1 x="120" y="640"/>
       <p2 x="180" y="640"/>
@@ -1355,7 +1351,7 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <p2 x="1200" y="320"/>
     </wire>
     <wire>
-      <p1 x="-180" y="1220"/>
+      <p1 x="-200" y="1220"/>
       <p2 x="1440" y="1220"/>
     </wire>
     <wire>
@@ -2033,6 +2029,10 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="1220" y="780"/>
       <p2 x="1220" y="800"/>
+    </wire>
+    <wire>
+      <p1 x="-200" y="640"/>
+      <p2 x="-200" y="1220"/>
     </wire>
     <wire>
       <p1 x="200" y="620"/>

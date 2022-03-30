@@ -87,3 +87,10 @@ JMP >Init
 #SpawnProc
 
 
+/ (Start, Size), Turns off bits Start through Start+Size
+(#ClearMem  
+	LDI RG2 >BMP_WORD_BITMASK; MOV RG3 RG0; ALU AND RG3 RG2
+	ALI SRB RG3 >BMP_WORD_SHIFT
+	LOD RG3 RG3 >AllocBMPs
+	LDI RG2 >BMP_BITS_BITMASK; MOV RG4 RG1; ALU AND RG4 RG2
+)

@@ -556,15 +556,19 @@ def is_char_important(char_num):
         return True
 
     # This includes uppercase, lowercase, and some other symbols that we may care about
-    if char_num > 61:
+    if char_num > 63:
+        return True
+
+    # Check if it's a reference character
+    if char_num == REF_CHAR:
         return True
 
     # Now check if it's a comment char or a number
     elif 58 > char_num > 44:
         return True
 
-    # Finally, check for characters which are too specific to check for in bulk.
-    elif char_num == ord("#") or char_num == ord("'") or char_num == ord('"'):
+    # Finally, check for some special symbols.
+    elif 40 > char_num > 32:
         return True
 
     # If it fell through all checks, return false
