@@ -20,8 +20,8 @@ JMP >Init
 		Terminal will output 1,2,3
 		
 		GPIO will be tested for kernel privleges (just to make sure that device 0 protection works)
-		GPIO should have a register configured to be written to and read from the CPU
-		GPIO will have 4 written to it, and 4 read from it.
+		GPIO should have a register configured to be written to and read from the CPU (with those flags on)
+		GPIO will have 0x23 written to it, and then read from it.
 		
 		TNET should have the accompanying TestServe program running on a seperate computer
 		This computer will write a 1 to TNET, then wait for a 2 from the other
@@ -44,13 +44,16 @@ JMP >Init
 @START_CODE = 1
 @STOP_CODE = 2
 
+/ Error codes:
 @DRIVE_ERROR = 0xF001
 @DRIVE_PTR_ERROR = 0xF002
-@KEY_TERM_ERROR = 0xF003
-@GPIO_ERROR = 0xF004
-@TNET_ERROR = 0xF005
-@CYCLE_COUNT_ERROR = 0xF006
-@RAND_ERROR = 0xF007
+@KEYBOARD_ERROR = 0xF003
+@TERMINAL_ERROR = 0xF004
+@DEV_PRIV_ERROR = 0xF005
+@GPIO_ERROR = 0xF006
+@TNET_ERROR = 0xF007
+@CYCLE_COUNT_ERROR = 0xF008
+@RAND_ERROR = 0xF009
 
 
 @MIN_CYCLE = 20
@@ -65,6 +68,7 @@ JMP >Init
 #KeyboardIn = 'a', 'b', 'c'
 #TerminalOut = "123"
 
+@GPIO_USER_FLG = 0x6002
 @GPIO_FLG = 0x6000
 @GPIO_NUM = 0x23
 
@@ -117,19 +121,67 @@ JMP >Init
 	JMP >Keyboard&Terminal
 	
 #Keyboard&Terminal
+	/ Set IOP
+	LDI FLG >KEY_TERM_FLG
+	
+	/ Setup registers to read the keyboard
+	ZRO RG0; LOD RG1 RG0 >KeyboardIn
+	
+	/ Wait and check 3 times
+	#KT.WaitIn0 JIF PNW >KT.WaitIn0
+	CMP RG1 IO; JNE >KeyboardError
+	
+	INC RG0; LOD RG1 RG0 >KeyboardIn
+	#KT.WaitIn1 JIF PNW >KT.WaitIn1
+	CMP RG1 IO; JNE >KeyboardError
+	
+	INC RG0; LOD RG1 RG0 >KeyboardIn
+	#KT.WaitIn2 JIF PNW >KT.WaitIn2
+	CMP RG1 IO; JNE >KeyboardError
 	
 	
+	/ Write to the terminal 3 times
+	ZRO RG0; LOD IO RG0 >TerminalOut
+	INC RG0; LOD IO RG0 >TerminalOut
+	INC RG0; LOD IO RG0 >TerminalOut
+	
+	/ Goto the next test
+	JMP >GPIOTestUser
+
+#GPIOTestUser
+	ZRO RG0; LDI EXA >GTURet; LDI FLG >GPIO_USER_FLG
+	JIF PIW >GTUBad
+	
+	#GTURet
+	PAS RG0; JIF EQZ >DevicePrivError
+
+#GPIOTest
+	
+
+	LDI FLG >GPIO_FLG
+	LDI IO >GPIO_NUM; 
+
+
+
+#DevicePrivError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >DEV_PRIV_ERROR
+	HLT
+
 #DrivePTRError
 	LDI FLG >RAND_STATUS_FLG
 	LDI IO >DRIVE_PTR_ERROR
 	HLT
-	
+
+#KeyboardError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >KEYBOARD_ERROR
+	HLT
+
 #DriveError
 	LDI FLG >RAND_STATUS_FLG
 	LDI IO >DRIVE_ERROR
 	HLT
-
-
 
 
 
