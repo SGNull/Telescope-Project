@@ -1,14 +1,13 @@
 JMP >Init
-(%
-  This is a preliminary test of the Telescope Computing System
-  It will test:
+(% This is a preliminary test of the Telescope Computing System
+   It will test:
 		Drive 0
 		Terminal/Keyboard 0
 		GPIO 0
 		TNET 0
 		Immutables
 		
-  Here is what the test will do:
+   Here is what the test will do:
 		Computer code 1 will be written immediately
 		The cycles counter will be started
 		
@@ -68,6 +67,7 @@ JMP >Init
 #KeyboardIn = 'a', 'b', 'c'
 #TerminalOut = "123"
 
+@GPIOTEST_HLB = 0x0500  / Arbitrary value bigger than 0x0200
 @GPIO_USER_FLG = 0x6002
 @GPIO_FLG = 0x6000
 @GPIO_NUM = 0x23
@@ -149,18 +149,59 @@ JMP >Init
 	JMP >GPIOTestUser
 
 #GPIOTestUser
-	ZRO RG0; LDI EXA >GTURet; LDI FLG >GPIO_USER_FLG
-	JIF PIW >GTUBad
+	/ Setting up user mode
+	ZRO RG0; LDI HLB >GPIOTEST_HLB; LDI EXA >GTURet; LDI FLG >GPIO_USER_FLG
 	
+	/ Doing checks
+	JIF PWT >GTUBad
+	JIF PRD >GTUBad
+	INC RG0; MOV IO RG0  / Should cause exception
+	DEC RG0
+	
+	#GTUBad
+	HLT
+	
+	/ Exit user mode
 	#GTURet
 	PAS RG0; JIF EQZ >DevicePrivError
-
-#GPIOTest
+	JIF PNW >GPIOError
+	JIF PNR >GPIOError
+	LDI RG0 >GPIO_NUM; MOV IO RG0; MOV RG1 IO
+	CMP RG0 RG1; JNE >GPIOError
 	
+	/ Jump to next test
+	JMP >TNETTest
 
-	LDI FLG >GPIO_FLG
-	LDI IO >GPIO_NUM; 
-
+#TNETTest
+	/ Setting up FLG
+	LDI FLG >TNET_FLG
+	
+	/ Do the I/O write
+	JIF PWT >TNETError
+	JIF PNR >TNETError
+	LDI IO >TNET_SEND
+	JIF PRD >TNET_Error
+	
+	/ Wait for TNET and read
+	#TT.WaitIn JIF PNW >TT.WaitIn
+	MOV RG0 IO
+	JIF PWT >TNETError
+	JIF PNR >TNETError
+	
+	/ Check if read was correct
+	LDI RG1 >TNET_RECEIVE; CMP RG0 RG1; JNE >TNETError
+	
+	/ Jump to the next test
+	JMP >FinalTest
+	
+#FinalTest
+	/ Setting FLG
+	LDI FLG >CYCLE_LOWER_START_FLG
+	MOV RG0 IO
+	NOP; NOP; NOP
+	MOV RG1 IO
+	ALU SUB RG1 RG0; AIN SUB RG1 4; JIF NEZ >CounterError  / Magic number 4 because it's dependent on the NOPs above
+	
 
 
 #DevicePrivError
@@ -182,9 +223,18 @@ JMP >Init
 	LDI FLG >RAND_STATUS_FLG
 	LDI IO >DRIVE_ERROR
 	HLT
+	
+#GPIOError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >GPIO_ERROR
+	HLT
 
+#TNETError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >TNET_ERROR
+	HLT
 
-
+#CounterError
 
 
 
