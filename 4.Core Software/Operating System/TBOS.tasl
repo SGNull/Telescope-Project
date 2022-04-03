@@ -28,11 +28,19 @@ JMP >Init
 / Process = [1-bit Active] [4-bit parent] [4-bit nextSib] [4-bit child]
 / NOTE: This could be modified to support 32 procs, but memory issues will start occurring.
 @MAX_PROC = 16
+
 @PARENT_MASK = 0xF00
 @PARENT_SHIFT = 8
 @SIB_MASK = 0xF0
 @SIB_SHIFT = 4
 @CHILD_MASK = 0xF
+
+@NUM_CHUNKS = 64
+@BMP_WORD_BITMASK = 0b110000
+@BMP_WORD_MOD = 4		/ Cannot be over 15
+@BMP_WORD_SHIFT = 4		/ Should be the same \/
+@BMP_BITS_MAXBIT = 4		/ Should be the same /\
+@BMP_BITS_BITMASK = 0b001111
 
 / 16 max proc x 1 word per proc = 16 words
 #ProcList = ~16
@@ -53,6 +61,7 @@ JMP >Init
 
 / Initializes the OS environment (may have to remove the bootloader too, and zero out some key registers)
 #Init
+	
 
 
 
@@ -73,11 +82,6 @@ JMP >Init
 
 
 
-/ A dedicated syscall handler would be nice
-#SysHandler
-
-
-
 / We will need something to terminate processes
 #Terminate
 
@@ -87,3 +91,28 @@ JMP >Init
 #SpawnProc
 
 
+/ (Start, Size), Turns off bits Start through Start+Size
+(#ClearMem  
+
+	/ RG3 is word num, RG4 is bits, RG5 is the word itself
+	LDI RG2 >BMP_WORD_BITMASK; MOV RG3 RG0; ALU AND RG3 RG2
+	ALI SRB RG3 >BMP_WORD_SHIFT
+	LOD RG5 RG3 >MallocBMPs
+	LDI RG2 >BMP_BITS_BITMASK; MOV RG4 RG1; ALU AND RG4 RG2
+	
+	#ClMm.Loop
+		/ Zero out that bit
+		ZRO RG2; INC RG2; ALU SLB RG2 RG4; ALU NOT RG2 RG2
+		ALU AND RG5 RG2
+		
+		/ Go to the next bit (unless we're done)
+		DEC RG1; JIF EQZ >ClMm.Done
+		INC RG4; AIN SEL RG4 >BMP_BITS_MAXBIT; JIF EQZ >ClMm.Loop
+		
+		/ If we're here, we need to go to the next word in the BMP
+		ZRO RG4; STR RG5 RG3 >MallocBMPs; INC RG3; ALI MOD RG3 >BMP_WORD_MOD
+		
+	
+	#ClMm.Done
+	STR RG5 RG3 >MallocBMPs
+)

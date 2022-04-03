@@ -1,0 +1,287 @@
+JMP >Init
+(% This is a preliminary test of the Telescope Computing System
+   It will test:
+		Drive 0
+		Terminal/Keyboard 0
+		GPIO 0
+		TNET 0
+		Immutables
+		
+   Here is what the test will do:
+		Computer code 1 will be written immediately
+		The cycles counter will be started
+		
+		Drive: Needs to start with the words 0, 1, 2, 3 in order
+		Drive pointer will have 1 written to it, and will then be read to confirm
+		Drive will then be read from sequentially 3 times
+		It will then write then read a 4
+		
+		Keyboard: Type in 'abc'
+		Terminal will output 1,2,3
+		
+		GPIO will be tested for kernel privleges (just to make sure that device 0 protection works)
+		GPIO should have a register configured to be written to and read from the CPU (with those flags on)
+		GPIO will have 0x23 written to it, and then read from it.
+		
+		TNET should have the accompanying TestServe program running on a seperate computer
+		This computer will write a 1 to TNET, then wait for a 2 from the other
+		It will immediately check to see if the read bit is off.
+		The other computer should begin with a status code 1, write the 2, then halt with the code 2
+		
+		Two sequential reads will happen on the lower word to make sure the cycle counter is running.
+		Now the cycles counter will be stopped
+		Two sequential reads will happen on the lower word to make sure it stopped
+		The cycle counter should be rather small, though, so the upper word should be 0
+		Now 2 random numbers will be read to check if they're different
+		
+		Finally, the test will halt with code 2.
+%)
+
+
+
+(/ -------------------------Data Segment----------------------
+@START_CODE = 1
+@STOP_CODE = 2
+
+/ Error codes:
+@DRIVE_PTR_ERROR = 0xF001
+@DRIVE_ERROR = 0xF002
+@KEYBOARD_ERROR = 0xF003
+@TERMINAL_ERROR = 0xF004
+@DEV_PRIV_ERROR = 0xF005
+@GPIO_ERROR = 0xF006
+@TNET_ERROR = 0xF007
+@CYCLE_COUNT_ERROR = 0xF008
+@RAND_ERROR = 0xF009
+
+
+@DRIVE_FLG = 0x0000
+#DriveWords = 1, 2, 3
+@DRIVE_WORDS_SIZE = 3  / Needs to be under 16
+@DRIVE_WRITE_NUM = 4
+
+@DRIVE_PTR_FLG = 0x2000
+@DRIVE_LOC = 1
+@DRIVE_WRITE_LOC = 4
+
+@KEY_TERM_FLG = 0x4000
+#KeyboardIn = 'a', 'b', 'c'
+#TerminalOut = "123"
+
+@GPIOTEST_HLB = 0x0500  / Arbitrary value bigger than 0x0200
+@GPIO_USER_FLG = 0x6002
+@GPIO_FLG = 0x6000
+@GPIO_NUM = 0x23
+
+@TNET_FLG = 0x8000
+@TNET_SEND = 1
+@TNET_RECEIVE = 2
+
+@CYCLE_LOWER_START_FLG = 0xE000
+@CYCLE_UPPER_STOP_FLG = 0xE800
+@RAND_STATUS_FLG = 0xF000
+) 
+
+
+
+/ -------------------------Code Segment----------------------
+#Init
+	/ Set start code
+	LDI FLG >RAND_STATUS_FLG; LDI IO >START_CODE
+	
+	/ Start cycle counter (the data written does not matter)
+	LDI FLG >CYCLE_LOWER_START_FLG; MOV IO RG0
+	
+(#DriveCheck
+	/ Check drive pointer for read/write
+	LDI RG0 >DRIVE_LOC; LDI FLG >DRIVE_PTR_FLG; MOV IO RG0
+	MOV RG1 IO; CMP RG1 RG0; JNE >DrivePTRError
+	
+	/ Grab the data from the drive
+	LDI FLG >DRIVE_FLG
+	MOV RG0 IO; MOV RG1 IO; MOV RG2 IO
+	
+	/ Make sure the pointer worked
+	LDI FLG >DRIVE_PTR_FLG; MOV RG3 IO
+	LDI RG4 >DRIVE_LOC
+	ALU SUB RG3 RG4
+	AIN SUB RG3 >DRIVE_WORDS_SIZE; JNE >DrivePTRError
+	
+	/ Check that the data is correct
+	ZRO RG3; LOD RG4 RG3 >DriveWords
+	CMP RG0 RG4; JNE >DriveError
+	
+	INC RG3; LOD RG4 RG3 >DriveWords
+	CMP RG1 RG4; JNE >DriveError
+	
+	INC RG3; LOD RG4 RG3 >DriveWords
+	CMP RG2 RG4; JNE >DriveError
+	
+	/ Finally, check we can do writes
+	LDI FLG >DRIVE_FLG
+	LDI RG0 >DRIVE_WRITE_NUM; MOV IO RG0
+	MOV RG1 IO; CMP RG0 RG1; JEQ >DriveError
+	
+	LDI FLG >DRIVE_PTR_FLG; LDI IO >DRIVE_WRITE_LOC
+	LDI FLG >DRIVE_FLG
+	MOV RG1 IO; CMP RG0 RG1; JNE >DriveError
+	
+	/ We're done, so jump to the next test
+	JMP >Keyboard&Terminal
+)
+
+(#Keyboard&Terminal
+	/ Set IOP
+	LDI FLG >KEY_TERM_FLG
+	
+	/ Setup registers to read the keyboard
+	ZRO RG0; LOD RG1 RG0 >KeyboardIn
+	
+	/ Wait and check 3 times
+	#KT.WaitIn0 JIF PNW >KT.WaitIn0
+	CMP RG1 IO; JNE >KeyboardError
+	
+	INC RG0; LOD RG1 RG0 >KeyboardIn
+	#KT.WaitIn1 JIF PNW >KT.WaitIn1
+	CMP RG1 IO; JNE >KeyboardError
+	
+	INC RG0; LOD RG1 RG0 >KeyboardIn
+	#KT.WaitIn2 JIF PNW >KT.WaitIn2
+	CMP RG1 IO; JNE >KeyboardError
+	
+	
+	/ Write to the terminal 3 times
+	ZRO RG0; LOD IO RG0 >TerminalOut
+	INC RG0; LOD IO RG0 >TerminalOut
+	INC RG0; LOD IO RG0 >TerminalOut
+	
+	/ Goto the next test
+	JMP >GPIOTest
+)
+
+(#GPIOTest
+	/ Setting up user mode
+	ZRO RG0; LDI HLB >GPIOTEST_HLB; LDI EXA >GTURet; LDI FLG >GPIO_USER_FLG
+	
+	/ Doing checks
+	JIF PWT >GTUBad
+	JIF PRD >GTUBad
+	INC RG0; MOV IO RG0  / Should cause exception
+	DEC RG0
+	
+	#GTUBad
+	HLT  / Force an exception to occur
+	
+	/ Exit user mode
+	#GTURet
+	PAS RG0; JIF EQZ >DevicePrivError
+	JIF PNW >GPIOError
+	JIF PNR >GPIOError
+	LDI RG0 >GPIO_NUM; MOV IO RG0; MOV RG1 IO
+	CMP RG0 RG1; JNE >GPIOError
+	
+	/ Jump to next test
+	JMP >TNETTest
+)
+
+(#TNETTest
+	/ Setting up FLG
+	LDI FLG >TNET_FLG
+	
+	/ Do the I/O write
+	JIF PWT >TNETError
+	JIF PNR >TNETError
+	LDI IO >TNET_SEND
+	JIF PRD >TNETError
+	
+	/ Wait for TNET and read
+	#TT.WaitIn JIF PNW >TT.WaitIn
+	MOV RG0 IO
+	JIF PWT >TNETError
+	JIF PNR >TNETError
+	
+	/ Check if read was correct
+	LDI RG1 >TNET_RECEIVE; CMP RG0 RG1; JNE >TNETError
+	
+	/ Jump to the next test
+	JMP >FinalTest
+)
+
+(#FinalTest
+	/ Setting FLG
+	LDI FLG >CYCLE_LOWER_START_FLG
+	
+	/ Checking if the counter is working properly
+	MOV RG0 IO
+	NOP; NOP; NOP
+	MOV RG1 IO
+	ALU SUB RG1 RG0; AIN SUB RG1 4; JIF NEZ >CounterError  / Magic number 4 because it's dependent on the NOPs above
+	
+	/ Checking if the counter stops properly
+	LDI FLG >CYCLE_UPPER_STOP_FLG; MOV IO RG0
+	LDI FLG >CYCLE_LOWER_START_FLG
+	MOV RG0 IO; NOP; MOV RG1 IO
+	CMP RG0 RG1; JNE >CounterError
+	
+	/ Check the upper bit to make sure it's 0
+	LDI FLG >CYCLE_UPPER_STOP_FLG
+	PAS IO; JIF NEZ >CounterError
+	
+	/ Check the random number generator
+	LDI FLG >RAND_STATUS_FLG
+	MOV RG0 IO; MOV RG1 IO
+	CMP RG0 RG1; JEQ >RNGError
+	
+	/Now go to the next test
+	JMP >Done
+)
+
+#Done
+	/Setting status to STOP_CODE and halting
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >STOP_CODE
+	HLT
+	
+	
+
+/ Error cases
+#DrivePTRError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >DRIVE_PTR_ERROR
+	HLT
+
+#DriveError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >DRIVE_ERROR
+	HLT
+
+#KeyboardError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >KEYBOARD_ERROR
+	HLT
+
+#DevicePrivError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >DEV_PRIV_ERROR
+	HLT
+
+#GPIOError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >GPIO_ERROR
+	HLT
+
+#TNETError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >TNET_ERROR
+	HLT
+
+#CounterError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >CYCLE_COUNT_ERROR
+	HLT
+	
+#RNGError
+	LDI FLG >RAND_STATUS_FLG
+	LDI IO >RAND_ERROR
+	HLT
+	

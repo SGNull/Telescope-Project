@@ -713,6 +713,20 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
       <elementAttributes/>
       <pos x="880" y="100"/>
     </visualElement>
+    <visualElement>
+      <elementName>Probe</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>Decimal RAM Address</string>
+        </entry>
+        <entry>
+          <string>intFormat</string>
+          <intFormat>dec</intFormat>
+        </entry>
+      </elementAttributes>
+      <pos x="1500" y="140"/>
+    </visualElement>
   </visualElements>
   <wires>
     <wire>
@@ -814,6 +828,10 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
     <wire>
       <p1 x="1120" y="780"/>
       <p2 x="1140" y="780"/>
+    </wire>
+    <wire>
+      <p1 x="1380" y="140"/>
+      <p2 x="1500" y="140"/>
     </wire>
     <wire>
       <p1 x="700" y="80"/>
@@ -1302,6 +1320,10 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
     <wire>
       <p1 x="1380" y="300"/>
       <p2 x="1380" y="320"/>
+    </wire>
+    <wire>
+      <p1 x="1380" y="140"/>
+      <p2 x="1380" y="240"/>
     </wire>
     <wire>
       <p1 x="1380" y="240"/>

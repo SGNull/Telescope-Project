@@ -1,6 +1,10 @@
 / Sets up the environment for the OS
 Init:
-	
+	Erase Bootloader from memory
+	Mark OS chunks in memory bitmap
+	Load Root as PID 0 from ROOTPROCDRIVE using SpawnProc
+		If returns 0, something's really wrong.
+	Goto Dispatcher
 
 
 
@@ -8,41 +12,11 @@ Init:
 Dispatcher:
 	Get CurrentPID
 	Increment CurrentPID
-	Mod CurrentPID by MAXPROCCOUNT	  <<For now just mask CurrentPID by 0xF? (but no magic numbers!!! do not!)
+	Mod CurrentPID by MAXPROCCOUNT
 						<<This is where semaphore checks will go in the future
 	Get State = StateList[CurrentPID]
 	LoadState(State)
 	RSM
-
-
-
-/ An anti-dispatcher 
-/ run when a process is done with its burst
-ProcDone:
-	Get CurrentPID
-
-	/ NOTE: It may be more efficient to only have one or two registers in TempState, because
-	/       it should be very easy to check if a process is done with its burst using just one/two regs
-	/       This way we don't have to do a ton of memory accesses each time we switch procs
-	Get TempState
-	DeepCopy(TempState -> StateList[CurrentPID])
-
-	/ Total proc time calculating/storing should go somewhere here in the future
-
-	Goto Dispatcher (do not "call" in the high-level sense, we don't want stack overflows)
-
-
-
-/ The entry point back into the OS from a running proc
-/ This is what EXA is always set to
-ExceptionHandler:
-	Copy FLG into TempF
-	Copy RG0 into Temp0
-	Copy RG1 into Temp1
-	Branch according to FLG.EXC
-		=> If SYS, goto SpawnProc
-		=> If CTD, goto ProcDone
-		=> Else, TerminateProc(CurrentProcID), goto ResumeProc
 
 
 
@@ -51,25 +25,74 @@ ExceptionHandler:
 SpawnProc:
 	get ProcCount
 	if ProcCount == MaxProcCount:
-		place 0 in OUT, goto ResumeProc
+		return 0
 
 	get ProgSize from IO
 	Chunks = ProgSize/ChunkSize
 		if carry, Chunks++
 
-	find next open space
-		if none, place 0 in OUT, goto ResumeProc
-	mark these spaces as occupied
+	start bit = current bit
+	#Check
+	check current bit, if 1: 
+		current++
+		if new current bit is start bit, return 0
+		goto >Check
+		
+	for (i=0; i<Chunks; i++){
+		if bit current+i == 1, goto >Check	<< Some optimizing needs to be done here, while still cmp with start bit
+							^^ Maybe we could just use a counter instead of cmp with start bit
+	}
+
+	for (i=0; i<Chunks; i++){
+		set bit current+i to 1
+	}
+	
+	use current bit to get LO value
 
 	TotalProcs++
 	insert NewProc as child into CurrentProc
 	initialize State & PCB
 
-	calculate StartAddress
-	for ProgSize, write I/O to StartAddress+Index
+	for (ProgSize){write I/O to StartAddress+Index}
 
-	place 1 in OUT
+	return 1
+
+
+
+/ An "anti-dispatcher"
+/ run when a process is done with its burst
+ProcDone:
+	Get CurrentPID
+	Copy TempState (TempF, Temp0, Temp1) into CPU
+	Copy CPU State Registers into States[CurrentPID]
+
+	/ Total proc time calculation & storing should go somewhere here in the future
+
+	Goto Dispatcher
+
+
+
+/ The entry-point back into the OS from a running proc
+/ This is what EXA is always set to
+ExceptionHandler:
+	Copy FLG into TempF
+	Copy RG0 into Temp0
+	Copy RG1 into Temp1
+	Branch according to FLG.EXC
+		=> If CTD, goto ProcDone	<< Not a function call
+		=> If SYS, SpawnProc()
+		=> Else, TerminateProc(CurrentProcID)
 	goto ResumeProc
+
+
+
+ClearMem(Start, Size)
+	Get top 2 bits of Start
+	That is the bmpWord to look at
+	Get rest of bits
+	That is realStart
+	for (i = realStart; i < Size; i++)
+		Turn off bit i in bmpWord
 
 
 

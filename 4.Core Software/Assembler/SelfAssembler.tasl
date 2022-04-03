@@ -198,30 +198,37 @@ JMP >StartPoint
 )
 
 
-(#GetNumericValue  / UNSAFE for RG0-3, returns value
+(#GetNumericValue  / UNSAFE for RG0-3, but ALL if buffer has a reference, returns value
 	/ RG0 = second_char & buffer_index
-	/ RG1 = buffer & HEX_CHAR & BIN_CHAR
+	/ RG1 = buffer & comparison constants
 	
-	ALI AND RG0 0; LOD RG0 RG0 >BuffIdx
+	/ Check if we happen to have a reference
+	ZRO RG0; LOD RG0 RG0 >Buffer
+	LDI RG1 >REF; CMP RG0 RG1; JNE >GNV.NotRef
+		JMP >LabelLookup  / Will return the value of the ref
+	#GNV.NotRef
+	
+	/ Get the BuffIdx
+	ZRO RG0; LOD RG0 RG0 >BuffIdx
 	
 	/ Check if it is a 1 digit decimal number
 	AIN SUB RG0 1; JIF NEZ >GNV.0
 		ALI AND OUT 0; LOD OUT OUT >Buffer; ALI AND OUT 0xF
-		MOV PC RA
+		RET
 	#GNV.0
 
 	/ If Buffer[1] is a number, too.
 	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 6; JIF NEZ >GNV.Char
-		LDI RG0 10; ALI AND RG1 0; JMP >GetValueBase
+		LDI RG0 10; ZRO RG1; JMP >GetValueBase
 	#GNV.Char
 	
 	/ if Buffer[1] is HEX
-	LDI RG1 >HEX; AFN SUB RG0 RG1; JIF NEZ >GNV.NH
+	LDI RG1 >HEX; CMP RG0 RG1; JNE >GNV.NH
 		LDI RG0 16; LDI RG1 2; JMP >GetValueBase
 	#GNV.NH
 	
 	/ if Buffer[1] is BIN
-	LDI RG1 >BIN; AFN SUB RG0 RG1; JIF NEZ >GNV.Bad
+	LDI RG1 >BIN; CMP RG0 RG1; JNE >GNV.Bad
 		LDI RG0 2; LDI RG1 2; JMP >GetValueBase
 	#GNV.Bad
 	/ We shouldn't get here, because GetNumericValue is always called on a number.
@@ -238,9 +245,9 @@ JMP >StartPoint
 	/ RG4 = current index *within* the string/entry
 	/ RG5 = temp
 	
-	ALI AND RG0 0
-	ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx
-	ALI AND RG3 0; LOD RG3 RG3 >BuffIdx
+	ZRO RG0
+	ZRO RG1; LOD RG1 RG1 >LblTblIdx
+	ZRO RG3; LOD RG3 RG3 >BuffIdx
 	
 	#LL.TableLoop
 		/ Check if we're out of labels to search through.
@@ -308,18 +315,18 @@ JMP >StartPoint
 (#IsCharImportant  / UNSAFE for RG3, RG0:char, returns NULL if important, 0 if not.
 	/IMPORTANT: Does not check for chars 64-127 in the table, GetNext checks for those already.
 	
-	/ Check for reference
-	LDI RG3 >REF; CMP RG3 RG0; JEQ >ICI.True
-	
 	/ This check includes dash, dot, comment, and numbers
 	LDI RG3 44; CMP RG3 RG0; JGE >ICI.Small
 		LDI RG3 58; CMP RG0 RG3; JLT >ICI.True
 	#ICI.Small
 	
-	/ Now check for chars which are too specific to check using bit patterns
-	LDI RG3 >LABEL; CMP RG3 RG0; JEQ >ICI.True
-	LDI RG3 >CHAR; CMP RG3 RG0; JEQ >ICI.True
-	LDI RG3 >STRING; CMP RG3 RG0; JEQ >ICI.True
+	/ Check if its a reference
+	LDI RG3 >REF; CMP RG3 RG0; JEQ >ICI.True
+	
+	/ Then check for special symbols, like ", #, and '
+	LDI RG3 32; CMP RG3 RG0; JGE >ICI.Smaller
+		LDI RG3 40; CMP RG0 RG3; JLT >ICI.True
+	#ICI.Smaller
 	
 	/ Finally, do a quick check to see if it's EOM
 	PAS RG0; JIF EQZ >ICI.True
@@ -355,7 +362,7 @@ JMP >StartPoint
 	/ RG4 = buffer_index (BuffIdx)
 	
 	/ Storing the return address and flags on the stack
-	ALI SUB SP 1; STR RA SP 0
+	PSH 1; STR RA SP 0
 	
 	/ Set the IO to the input ROM
 	LDI FLG >INFLG
@@ -370,10 +377,10 @@ JMP >StartPoint
 		LDI RA >GN.Loop1
 		
 		/ If multiline, goto multiline (already in RG0)
-		LDI RG1 >MULTILINE; AFN SUB RG0 RG1; JIF EQZ >GotoChar  
+		LDI RG1 >MULTILINE; CMP RG0 RG1; JEQ >GotoChar  
 
 		/ If comment, goto newline
-		LDI RG1 >COMMENT; AFN SUB RG0 RG1; JIF NEZ >GN.NotCom
+		LDI RG1 >COMMENT; CMP RG0 RG1; JNE >GN.NotCom
 			LDI RG0 >NEWLINE; JMP >GotoChar
 		#GN.NotCom
 		
@@ -416,7 +423,7 @@ JMP >StartPoint
 	/ Get the rest of the character sequence using another loop.
 	#GN.Loop2
 		/ Store the character in the buffer and get the next one.
-		STR RG0 RG4 >Buffer; ALI ADD RG4 1
+		STR RG0 RG4 >Buffer; INC RG4
 		MOV RG0 IO
 		
 		/ Basic check to see if the char is important
@@ -424,27 +431,27 @@ JMP >StartPoint
 		
 		/ If this is an unimportant character, break
 		JMP >IsCharImportant; #GN.LLRet
-		AIN OR OUT 0; JIF EQZ >GN.Loop2D
+		PAS OUT; JIF EQZ >GN.Loop2D
 		
 		/ If MULTILINE, skip the MULTILINE & break
-		LDI RG3 >MULTILINE; AFN SUB RG0 RG3; JIF NEZ >GN.LL1  
+		LDI RG3 >MULTILINE; CMP RG0 RG3; JNE >GN.LL1  
 			LDI RA >GN.Loop2D; JMP >GotoChar
 		#GN.LL1
 		
 		/ If comment, skip the comment & break
-		LDI RG3 >COMMENT; AFN SUB RG0 RG3; JIF NEZ >GN.LL2  
+		LDI RG3 >COMMENT; CMP RG0 RG3; JNE >GN.LL2  
 			LDI RG0 >NEWLINE; LDI RA >GN.Loop2D; JMP >GotoChar
 		#GN.LL2
 		
 		/ Finally, if it's not a stop character, loop.
-		LDI RG3 >STOP; AFN SUB RG0 RG3; JIF NEZ >GN.Loop2
+		LDI RG3 >STOP; CMP RG0 RG3; JNE >GN.Loop2
 	#GN.Loop2D
 	
 	
 	#GN.Done  / Assumes RG4 has the buffer_index (BuffIdx) in it
 	/ Update buffer index and return.
 	STR RG4 RG4 >BuffIdx
-	LOD RA SP 0; ALI ADD SP 1; RET
+	LOD RA SP 0; POP 1; RET
 )
 
 
@@ -662,6 +669,7 @@ JMP >StartPoint
 	LDI IO 0; POP 1; JMP >Assemble
 )
 
+
 (#Assemble  / Second pass through the file, do the actual assembling.
 	/ GetNext
 	CAL >GetNext
@@ -806,6 +814,7 @@ JMP >StartPoint
 	JMP >Assemble
 )
 
+
 (#StopPoint  / Where control is passed to once the file has been assembled.
 	/ If the stack is not empty, something went seriously wrong.
 	ALI OR SP 0; JIF EQZ >StPt.OK
@@ -815,6 +824,7 @@ JMP >StartPoint
 	/ We're done.
 	HLT; 0x0001; JMP >StartPoint
 )
+
 
 #LabelTable
 / The heap portion of memory (here) is treated as the label table.

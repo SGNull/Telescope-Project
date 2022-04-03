@@ -556,15 +556,19 @@ def is_char_important(char_num):
         return True
 
     # This includes uppercase, lowercase, and some other symbols that we may care about
-    if char_num > 61:
+    if char_num > 63:
+        return True
+
+    # Check if it's a reference character
+    if char_num == REF_CHAR:
         return True
 
     # Now check if it's a comment char or a number
     elif 58 > char_num > 44:
         return True
 
-    # Finally, check for characters which are too specific to check for in bulk.
-    elif char_num == ord("#") or char_num == ord("'") or char_num == ord('"'):
+    # Finally, check for some special symbols.
+    elif 40 > char_num > 32:
         return True
 
     # If it fell through all checks, return false
@@ -600,6 +604,10 @@ def get_value_base(multiplier, starting_index):
 
 def get_numeric_value():
     """Interprets the contents of the buffer as a number, returns the value."""
+
+    if buffer[0] == REF_CHAR:  # This might, no, *probably* will cause problems.
+        return label_lookup()  # its effects are pretty cool, though. You can do @MY_CONST = >MY_OTHER_CONST
+
     if buffer_index == 1: # it is a 1 digit decimal number
         char = buffer[0]
         return char & 0xF
@@ -937,7 +945,7 @@ def assemble():
                     write_output(0)
                     num_zeros += 1
 
-            elif SEL(first_char, 6) == 0:  # It is a numeric value.
+            elif SEL(first_char, 6) == 0:  # It is (probably) a numeric value.
                 value = get_numeric_value()
                 write_output(value)
 

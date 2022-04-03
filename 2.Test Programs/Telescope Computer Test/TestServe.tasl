@@ -1,0 +1,53 @@
+JMP >Init
+(% This is a TNET test program to accompany the TelescopeTest program.
+   It uses TNET port 0.
+
+   This program will first set the computer to status code 1.
+   Then it will wait to receive a 1 from the main TelescopeTest system.
+   It will respond with a 2.
+   Then set its status code to 2 before turning off.
+   
+   If an error occurs, it will respond with NULL and set the status to NULL before halting.
+%)
+
+
+
+(
+@TNET_RECEIVE = 1
+@TNET_SEND = 2
+@TNET_SEND_ERROR = 0xFFFF
+
+@START_CODE = 0x0001
+@STOP_CODE = 0x0002
+@ERROR_CODE = 0xFFFF
+
+@TNET_FLG = 0x8000
+@STATUS_FLG = 0xF000
+)
+
+
+
+#Init
+	/ Set status
+	LDI FLG >STATUS_FLG; LDI IO >START_CODE
+
+	/ Wait for input
+	LDI FLG >TNET_FLG
+	#TNETWait JIF PNW >TNETWait
+	
+	/ Make sure input is correct
+	MOV RG0 IO
+	LDI RG1 >TNET_RECEIVE; CMP RG0 RG1; JNE >Error
+	
+	/ Send output
+	LDI IO >TNET_SEND
+	
+	/ Set status and halt
+	LDI FLG >STATUS_FLG; LDI IO >STOP_CODE
+	HLT
+	
+#Error  / Just output errors and halt
+	LDI FLG >TNET_FLG; LDI IO >TNET_SEND_ERROR
+	LDI FLG >STATUS_FLG; LDI IO >ERROR_CODE
+	HLT
+
