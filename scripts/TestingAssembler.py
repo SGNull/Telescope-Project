@@ -604,6 +604,10 @@ def get_value_base(multiplier, starting_index):
 
 def get_numeric_value():
     """Interprets the contents of the buffer as a number, returns the value."""
+
+    if buffer[0] == REF_CHAR:  # This might, no, *probably* will cause problems.
+        return label_lookup()  # its effects are pretty cool, though. You can do @MY_CONST = >MY_OTHER_CONST
+
     if buffer_index == 1: # it is a 1 digit decimal number
         char = buffer[0]
         return char & 0xF
@@ -941,7 +945,7 @@ def assemble():
                     write_output(0)
                     num_zeros += 1
 
-            elif SEL(first_char, 6) == 0:  # It is a numeric value.
+            elif SEL(first_char, 6) == 0:  # It is (probably) a numeric value.
                 value = get_numeric_value()
                 write_output(value)
 
