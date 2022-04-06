@@ -3671,16 +3671,6 @@ CPU is paused or not. Is this bad?</string>
       <elementAttributes/>
       <pos x="-60" y="260"/>
     </visualElement>
-    <visualElement>
-      <elementName>Text</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>This just doesn&apos;t work. Not sure why.</string>
-        </entry>
-      </elementAttributes>
-      <pos x="2260" y="-480"/>
-    </visualElement>
   </visualElements>
   <wires>
     <wire>

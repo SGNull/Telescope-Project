@@ -33,6 +33,7 @@ JMP >StartPoint
               0xa270, 0xbbb0, 0b1001,  / PSH
               0xc1f0, 0xb9b0, 0b1001,  / POP
               0xc1a3, 0xcb00, 0b0011,  / CMP
+			  0xa5a3, 0xdb00, 0b1011,  / CMI
               0xc1aa, 0x4600, 0b0000,  / JMP
               0xc4aa, 0x4000, 0b0000,  / JEQ
               0x95ca, 0x4800, 0b0000,  / JNE

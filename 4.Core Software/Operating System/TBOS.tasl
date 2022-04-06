@@ -16,7 +16,7 @@ JMP >Init
   With the specs:
     16 max processes.
 	Round robin process scheduling.
-	Round robin memory allocation.
+	First open spot is allocated in memory.
 	Memory allocation/deallocation via 4-word bitmap.
     Memory allocation bitmap includes OS occupied chunks (stack + code).
   
@@ -92,7 +92,7 @@ JMP >Init
 
 
 / (Start, Size), Turns off bits Start through Start+Size
-(#ClearMem  
+(#ClearMem
 
 	/ RG3 is word num, RG4 is bits, RG5 is the word itself
 	LDI RG2 >BMP_WORD_BITMASK; MOV RG3 RG0; ALU AND RG3 RG2

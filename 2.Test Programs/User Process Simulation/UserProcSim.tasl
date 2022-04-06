@@ -1,0 +1,71 @@
+JMP >Init
+(% Simulation of a user process with an exception handler
+   
+   Init will set up the environment for the user process and exception handler.
+   The user process will then do numerous things to cause exceptions.
+   The exception handler will keep track of what step in the test the user process is at via a variable.
+   If this order is broken, the exception handler will error, halting on 0xFFFX, where X is the step.
+   
+   Once all steps run properly, the exception handler will halt on 0x0001.
+%)
+
+#TestStep  = 0
+
+#State:
+	#State.RG0 = 0
+	#State.RG1 = 0
+	#State.FLG = 0
+
+@EXC_MASK  = 0x0700
+@EXC_SHIFT = 8
+
+@EXC_CTDZ = 4
+@EXC_SYS = 5
+@EXC_PRIV = 6
+@EXC_OOB = 7
+
+@UNKNOWN_EXC_CODE = 0xDED0
+@BAD_EXC_CODE = 0xFFF0
+
+
+(#ExHandler
+	/ Store used registers in TempState
+	STR RG0 RG0 >State.RG0
+	STR RG1 RG1 >State.RG1
+	STR FLG FLG >State.FLG
+	
+	/ Get EXC and branch according to it
+	MOV RG0 FLG; LDI RG1 >EXC_MASK; ALU AND RG0 RG1; ALI SRB RG0 >EXC_SHIFT
+	CMI RG0 >EXC_CTDZ; JEQ >CTDZEx
+	AIN SUB RG0 >EXC_SYS; JEQ >SYSEx
+	AIN SUB RG0 >EXC_PRIV; JEQ >PRIVEx
+	AIN SUB RG0 >EXC_OOB; JEQ >OOBEx
+	
+	/ Any exception from UserProc should be one of the above 4, so error.
+	ZRO RG0; LOD RG0 RG0 >TestStep
+	LDI RG1 >UNKNOWN_EXC_CODE; ALU OR RG0 RG1
+	STR RG0 RG0 >UnknownEXCStop
+	
+	HLT; #UnknownEXCStop:0
+	
+	
+	#SYSEx  / Step 0
+		ZRO RG0; LOD RG0 RG0 >TestStep
+		AIN SUB 
+	
+	#PRIVEx  / Step 1
+		
+	
+	#CTDZEx  / Step 2
+		
+	
+	#OOBEx  / Step 3
+		
+)
+
+
+
+(#UserProc  / A simulated user process.
+	
+)
+
