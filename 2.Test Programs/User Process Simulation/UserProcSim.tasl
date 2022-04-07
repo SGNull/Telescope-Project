@@ -4,12 +4,17 @@ JMP >Init
    Init will set up the environment for the user process and exception handler.
    The user process will then do numerous things to cause exceptions.
    The exception handler will keep track of what step in the test the user process is at via a variable.
-   If this order is broken, the exception handler will error, halting on 0xFFFX, where X is the step.
+   If this order is broken, the exception handler will error by halting on an error code.
+   Error codes are 0xFFXY, where X is the expected step, and Y is the actual step
    
    Once all steps run properly, the exception handler will halt on 0x0001.
 %)
 
-#TestStep  = 0
+
+
+@PREAMBLE_SIZE = 6  / VERY IMPORTANT: MUST BE THE # OF WORDS BEFORE #UserProc
+
+#TestStep = 0
 
 #State:
 	#State.RG0 = 0
@@ -25,14 +30,92 @@ JMP >Init
 @EXC_OOB = 7
 
 @UNKNOWN_EXC_CODE = 0xDED0
-@BAD_EXC_CODE = 0xFFF0
+@BAD_EXC_CODE = 0xFF00
+
+@INIT_FLG = 0x0008
+@PREV_USER_BIT = 3
+@PREV_EXMSK_BIT = 2
+@HLB_VAL = 0x0202
+@LO_ADDR = 0x0200
+@CTD_VAL = 40
 
 
 @SYS_RETURN_VAL = 123
+@TEST_VAL1 = 0xF3
+@TEST_VAL2 = 'c'
+@OOB_ADDRESS = 0xFFF0
 
 
+
+/ A simulated user process.
+(#UserProc
+	#UP.PreCTD
+		/ First, we need to do a syscall.
+		LDI RG0 >SYS_RETURN_VAL
+		LDI RG1 >TEST_VAL1
+		LDI RG2 >TEST_VAL2
+		SYS
+		
+		/ Make sure nothing happened during the syscall
+		LDI RG3 >TEST_VAL1
+		LDI RG4 >TEST_VAL2
+		CMP RG1 RG3; JNE #UP.Jump0:>UP.Error
+		CMP RG2 RG4; JNE #UP.Jump1:>UP.Error
+		CMP RG0 OUT; JNE #UP.Jump2:>UP.Error
+		
+		/ Next, do something you shouldn't do
+		MOV RG0 EXA
+		
+		/ Now we are going into an infinite loop to test CTD
+		#UP.WhileTrue JMP #UP.Jump3:>UP.WhileTrue
+	
+	#UP.PostCTD
+		/ Now trigger an OOB exception
+		JMP >OOB_ADDRESS
+	
+	
+	#UP.Error  / An error occurred and we need to stop the simulation.
+		NUL RG0; NUL RG1; NUL RG2; NUL RG3; NUL RG4; NUL RG5
+		SYS
+)#UserProc.End
+#UserProc.Jumps = (>UP.Jump0, >UP.Jump1, >UP.Jump2, >UP.Jump3, #UPJEnd)
+
+
+
+/ Initializes the environment that UserProc and ExHandler will run in
+(#Init
+	/ Fix UserProc jumps so that it can be moved.
+	LDI RG0 >UserProc.Jumps
+	LDI RG3 >UPJEnd
+	#I.FixLoop
+		/ Get pointer to location to fix in RG1
+		LOD RG1 RG0 0
+		/ Fix that location with RG2
+		LOD RG2 RG1 0; ALI SUB RG2 >PREAMBLE_SIZE; STR RG2 RG1 0
+		/ Go to the next one
+	INC RG0; CMP RG0 RG3; JNE >I.FixLoop
+	
+	/ Move the UserProc so that it can be jumped to via RSM
+	LDI RG0 >UserProc; LDI RG1 >UserProc.End; ALU SUB RG1 RG0
+	ZRO RG0
+	#I.MoveLoop
+		LOD RG2 RG0 >UserProc
+		STR RG2 RG0 >LO_ADDR
+	INC RG0; CMP RG0 RG1; JNE >I.MoveLoop
+	
+	/ Then set up the values and run UserProc
+	LDI EXA >ExHandler
+	LDI FLG >INIT_FLG
+	ZRO EPC
+	LDI HLB >HLB_VAL
+	RSM
+)
+
+
+
+/ Store used registers in TempState
 (#ExHandler
-	/ Store used registers in TempState
+	/Store the state of the process
 	STR RG0 RG0 >State.RG0
 	STR RG1 RG1 >State.RG1
 	STR FLG FLG >State.FLG
@@ -46,6 +129,7 @@ JMP >Init
 	
 	/ Any exception from UserProc should be one of the above 4, so error if we get here.
 	ZRO RG0; LOD RG0 RG0 >TestStep
+	
 	LDI RG1 >UNKNOWN_EXC_CODE; ALU OR RG0 RG1
 	STR RG0 RG0 >EH.UnknownEXCStop
 	
@@ -55,7 +139,7 @@ JMP >Init
 	#EH.SYSEx   / Step 0
 		/ Check if it's step 0
 		ZRO RG0; LOD RG0 RG0 >TestStep
-		CMI RG0 0; JNE >EH.Error
+		LDI RG1 0; CMI RG0 0; JNE >EH.Error
 		
 		/ Return SYS_RETURN_VAL
 		LDI OUT >SYS_RETURN_VAL; JMP >EH.ReturnProc
@@ -64,36 +148,44 @@ JMP >Init
 	#EH.PRIVEx  / Step 1
 		/ Check if it's step 1
 		ZRO RG0; LOD RG0 RG0 >TestStep
-		CMI RG0 1; JNE >EH.Error
+		LDI RG1 1; CMI RG0 1; JNE >EH.Error
 		
-		/ Set CTD and ExMsk for next part
-		
-		
+		/ Set CTD and ExMsk (in the stored FLG), then return
+		ZRO RG0; LOD RG0 RG0 >State.FLG; ALI SET RG0 >PREV_EXMSK_BIT; STR RG0 RG0 >State.FLG
+		LDI CTD >CTD_VAL
+		JMP >EH.ReturnProc
 		
 	
 	#EH.CTDZEx  / Step 2
 		/ Check if it's step 2
 		ZRO RG0; LOD RG0 RG0 >TestStep
-		CMI RG0 2; JNE >EH.Error
+		LDI RG1 2; CMI RG0 2; JNE >EH.Error
 		
-		/ Unset ExMsk for the next part
+		/ Unset ExMsk, set the new return point then return
+		ALI UST FLG >PREV_EXMSK_BIT
+		LDI EPC >UP.PostCTD; ALI SUB EPC >PREAMBLE_SIZE
+		JMP >EH.ReturnProc
 		
 	
 	#EH.OOBEx   / Step 3
 		/ Check if it's step 3
 		ZRO RG0; LOD RG0 RG0 >TestStep
-		CMI RG0 3; JNE >EH.Error
+		LDI RG1 3; CMI RG0 3; JNE >EH.Error
 		
 		/ This is a non-recoverable exception, so we're done
 		JMP >End
-		
-		
+	
+	
 	#EH.Error  / If a (normal) error occurs, jump here.
-		LDI RG1 >BAD_EXC_CODE; ALU AND RG0 RG1; STR RG0 RG0 >EH.BadEXCStop
+		ALI SLB RG1 4; ALU OR RG0 RG1
+		LDI RG1 >BAD_EXC_CODE; ALU OR RG0 RG1; STR RG0 RG0 >EH.BadEXCStop
 		HLT; #EH.BadEXCStop:0
 	
 	
-	#EH.ReturnProc  / Return to the process.
+	#EH.ReturnProc  / Increment step and return to the process.
+		ZRO RG0; LOD RG0 RG0 >TestStep
+		INC RG0; STR RG0 RG0 >TestStep
+		
 		ZRO RG0
 		LOD FLG RG0 >State.FLG
 		LOD RG1 RG0 >State.RG1
@@ -103,7 +195,8 @@ JMP >Init
 
 
 
-(#UserProc  / A simulated user process.
-	
+/ The end of the test
+(#End
+	HLT; 0x0001
 )
 

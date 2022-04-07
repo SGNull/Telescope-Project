@@ -893,6 +893,16 @@
       </elementAttributes>
       <pos x="660" y="340"/>
     </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>PROR Override</string>
+        </entry>
+      </elementAttributes>
+      <pos x="2680" y="860"/>
+    </visualElement>
   </visualElements>
   <wires>
     <wire>
@@ -1508,6 +1518,10 @@
       <p2 x="1780" y="220"/>
     </wire>
     <wire>
+      <p1 x="1360" y="860"/>
+      <p2 x="2680" y="860"/>
+    </wire>
+    <wire>
       <p1 x="1620" y="-100"/>
       <p2 x="1960" y="-100"/>
     </wire>
@@ -1902,6 +1916,10 @@
     <wire>
       <p1 x="1360" y="460"/>
       <p2 x="1360" y="580"/>
+    </wire>
+    <wire>
+      <p1 x="1360" y="580"/>
+      <p2 x="1360" y="860"/>
     </wire>
     <wire>
       <p1 x="2260" y="-140"/>
