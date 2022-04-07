@@ -88,7 +88,9 @@ The bootloader idea came about back when I was working in Logisim, because the c
 
 ## Documentation
 
-A complete description of the project is currently in the works over on [Overleaf](https://www.overleaf.com/read/gyrcwfqhfsrf), though I'm not sure when exactly it will be complete. There's a lot to talk about, and I want to make sure that as much of it is in the writeup as necessary.
+Most of the documentation can be found on [Overleaf](https://www.overleaf.com/read/gyrcwfqhfsrf), and that is where all of the major documents will be. There's also some miscellaneous documents scattered around the directories which are more technical. What I consider to be the most important document, the Need-To-Know, is in this directory along with the readme.
+
+Getting back to the major documents, a complete CPU description is available on the Overleaf project: CPU Principles of Operation. There's also a "main" file which was the initial project-proposal document, and I've edited it a bit since then. I also started working on a complete description for TASL, but that's still in the works.
 
 ## Github Workflow
 
