@@ -102,8 +102,8 @@ modifier_table = [0xD1EE, 0x0,  # NOT
                   0xC9F8, 0x3,  # XOR
                   0x8993, 0x4,  # SLB
                   0x8A53, 0x5,  # SRB
-                  0xB0B3, 0x6,  # SEL
-                  0x8DC5, 0x7,  # ENC
+                  0xd0b3, 0x6,  # SET
+                  0xd275, 0x7,  # UST
                   0x9CAE, 0x8,  # NEG
                   0x9081, 0x9,  # ADD
                   0x8C81, 0xA,  # ADC
@@ -301,6 +301,7 @@ def write_output(value):
     output_ROM.append(value)
 
 
+# VERY IMPORTANT: SEL is now the carry output of SET and UST
 def SEL(value, bit):
     """
     The SEL function in TASL:

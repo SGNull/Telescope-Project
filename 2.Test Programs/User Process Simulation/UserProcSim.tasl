@@ -28,6 +28,9 @@ JMP >Init
 @BAD_EXC_CODE = 0xFFF0
 
 
+@SYS_RETURN_VAL = 123
+
+
 (#ExHandler
 	/ Store used registers in TempState
 	STR RG0 RG0 >State.RG0
@@ -36,31 +39,66 @@ JMP >Init
 	
 	/ Get EXC and branch according to it
 	MOV RG0 FLG; LDI RG1 >EXC_MASK; ALU AND RG0 RG1; ALI SRB RG0 >EXC_SHIFT
-	CMI RG0 >EXC_CTDZ; JEQ >CTDZEx
-	AIN SUB RG0 >EXC_SYS; JEQ >SYSEx
-	AIN SUB RG0 >EXC_PRIV; JEQ >PRIVEx
-	AIN SUB RG0 >EXC_OOB; JEQ >OOBEx
+	CMI RG0 >EXC_CTDZ; JEQ >EH.CTDZEx
+	CMI RG0 >EXC_SYS; JEQ >EH.SYSEx
+	CMI RG0 >EXC_PRIV; JEQ >EH.PRIVEx
+	CMI RG0 >EXC_OOB; JEQ >EH.OOBEx
 	
-	/ Any exception from UserProc should be one of the above 4, so error.
+	/ Any exception from UserProc should be one of the above 4, so error if we get here.
 	ZRO RG0; LOD RG0 RG0 >TestStep
 	LDI RG1 >UNKNOWN_EXC_CODE; ALU OR RG0 RG1
-	STR RG0 RG0 >UnknownEXCStop
+	STR RG0 RG0 >EH.UnknownEXCStop
 	
-	HLT; #UnknownEXCStop:0
+	HLT; #EH.UnknownEXCStop:0
 	
 	
-	#SYSEx  / Step 0
+	#EH.SYSEx   / Step 0
+		/ Check if it's step 0
 		ZRO RG0; LOD RG0 RG0 >TestStep
-		AIN SUB 
+		CMI RG0 0; JNE >EH.Error
+		
+		/ Return SYS_RETURN_VAL
+		LDI OUT >SYS_RETURN_VAL; JMP >EH.ReturnProc
 	
-	#PRIVEx  / Step 1
+	
+	#EH.PRIVEx  / Step 1
+		/ Check if it's step 1
+		ZRO RG0; LOD RG0 RG0 >TestStep
+		CMI RG0 1; JNE >EH.Error
+		
+		/ Set CTD and ExMsk for next part
+		
+		
 		
 	
-	#CTDZEx  / Step 2
+	#EH.CTDZEx  / Step 2
+		/ Check if it's step 2
+		ZRO RG0; LOD RG0 RG0 >TestStep
+		CMI RG0 2; JNE >EH.Error
+		
+		/ Unset ExMsk for the next part
 		
 	
-	#OOBEx  / Step 3
+	#EH.OOBEx   / Step 3
+		/ Check if it's step 3
+		ZRO RG0; LOD RG0 RG0 >TestStep
+		CMI RG0 3; JNE >EH.Error
 		
+		/ This is a non-recoverable exception, so we're done
+		JMP >End
+		
+		
+	#EH.Error  / If a (normal) error occurs, jump here.
+		LDI RG1 >BAD_EXC_CODE; ALU AND RG0 RG1; STR RG0 RG0 >EH.BadEXCStop
+		HLT; #EH.BadEXCStop:0
+	
+	
+	#EH.ReturnProc  / Return to the process.
+		ZRO RG0
+		LOD FLG RG0 >State.FLG
+		LOD RG1 RG0 >State.RG1
+		LOD RG0 RG0 >State.RG0
+		RSM
 )
 
 
