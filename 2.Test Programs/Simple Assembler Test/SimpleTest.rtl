@@ -19,3 +19,8 @@ ALU ADD RG0 RG1
 LDI RA
 >MyReturn
 MOV PC RA
+'a'
+'b'
+'c'
+'d'
+0xffff

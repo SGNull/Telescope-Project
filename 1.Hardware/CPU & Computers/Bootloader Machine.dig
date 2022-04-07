@@ -718,11 +718,11 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
       <elementAttributes>
         <entry>
           <string>Label</string>
-          <string>Decimal RAM Address</string>
+          <string>RAM Address</string>
         </entry>
         <entry>
           <string>intFormat</string>
-          <intFormat>dec</intFormat>
+          <intFormat>hex</intFormat>
         </entry>
       </elementAttributes>
       <pos x="1500" y="140"/>

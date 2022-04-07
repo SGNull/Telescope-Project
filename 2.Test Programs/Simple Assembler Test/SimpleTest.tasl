@@ -51,4 +51,7 @@ ALU ADD RG0 RG1
 / Test sameline instructions
 LDI RA >MyReturn; MOV PC RA; #MyReturn
 
+/ Test string
+"abcd"
+
 / Test stop assembler without newline at end of file.

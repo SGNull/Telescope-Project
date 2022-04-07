@@ -72,13 +72,13 @@ JMP >StartPoint
 #ModTable = (0xD1EE, 0x0,  / NOT
 			 0x91C1, 0x1,  / AND
 			 0x024F, 0x2,  / OR
-			 0xB0B3, 0x6,  / SEL
-			 0x9CAE, 0x8,  / NEG
-			 0x9081, 0x9,  / ADD
-			 0x8AB3, 0xB,  / SUB
-			 0xC9F8, 0x3,  / XOR
 			 0x8993, 0x4,  / SLB
 			 0x8A53, 0x5,  / SRB
+			 0x9081, 0x9,  / ADD
+			 0x8AB3, 0xB,  / SUB
+			 0xd0b3, 0x6,  / SET
+			 0x9CAE, 0x8,  / NEG
+			 0xC9F8, 0x3,  / XOR
 			 0xB2AD, 0xD,  / MUL
 			 0xD924, 0xE,  / DIV
 			 0xEA25, 0x0,  / EQZ
@@ -87,6 +87,7 @@ JMP >StartPoint
 			 0xCACF, 0x3,  / OVR
 			 0x9250, 0x4,  / PRD
 			 0xD2F0, 0x5,  / PWT
+			 0xd275, 0x7,  / UST
 			 0xD654, 0x6,  / TRU
 			 0xE8AE, 0x8,  / NEZ
 			 0xE8A7, 0x9,  / GEZ
@@ -98,7 +99,6 @@ JMP >StartPoint
 			 0x8C81, 0xA,  / ADC
 			 0x8853, 0xC,  / SBB
 			 0x91ED, 0xF,  / MOD
-			 0x8DC5, 0x7,  / ENC
 			 >TABLESTOP
 			 )
 
@@ -183,7 +183,7 @@ JMP >StartPoint
 		LOD RG3 RG1 >Buffer
 		
 		/ If it's a letter, add 9 to it.
-		AIN SEL RG3 6; JIF EQZ >GVB.Num
+		AIN SET RG3 6; JIF NCR >GVB.Num
 			ALI ADD RG3 9
 		#GVB.Num
 		
@@ -219,7 +219,7 @@ JMP >StartPoint
 	#GNV.0
 
 	/ If Buffer[1] is a number, too.
-	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SEL RG0 6; JIF NEZ >GNV.Char
+	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SET RG0 6; JIF CAR >GNV.Char
 		LDI RG0 10; ZRO RG1; JMP >GetValueBase
 	#GNV.Char
 	
@@ -373,7 +373,7 @@ JMP >StartPoint
 		MOV RG0 IO
 		
 		/Quick check if we care about the character
-		AIN SEL RG0 6; JIF NEZ >GN.LoopSkip
+		AIN SET RG0 6; JIF CAR >GN.LoopSkip
 		
 		LDI RA >GN.Loop1
 		
@@ -428,7 +428,7 @@ JMP >StartPoint
 		MOV RG0 IO
 		
 		/ Basic check to see if the char is important
-		AIN SEL RG0 6; JIF NEZ >GN.Loop2
+		AIN SET RG0 6; JIF CAR >GN.Loop2
 		
 		/ If this is an unimportant character, break
 		JMP >IsCharImportant; #GN.LLRet
@@ -487,13 +487,19 @@ JMP >StartPoint
 	LDI RG1 0x1F
 	ALI AND OUT 0
 	
+	/ Bits 14-10
 	LDI RG0 2; LOD RG0 RG0 >Buffer; MOV OUT RG0
 	ALU AND OUT RG1; ALI SLB OUT 10
-	ALI SEL RG0 6; ALI SLB RG0 15; ALU OR OUT RG0
 	
+	/ Bit 15
+	AIN SET RG0 6; ZRO RG0; ALU ADC RG0 RG0
+	ALI SLB RG0 15; ALU OR OUT RG0
+	
+	/ Bits 9-5
 	LDI RG0 1; LOD RG0 RG0 >Buffer
 	ALU AND RG0 RG1; ALI SLB RG0 5; ALU OR OUT RG0
 	
+	/bits 4-0
 	ZRO RG0; LOD RG0 RG0 >Buffer
 	ALU AND RG0 RG1; ALU OR OUT RG0
 	
@@ -608,7 +614,7 @@ JMP >StartPoint
 		#BT.NotArr
 		
 		/ If the first char is a number, program counter++
-		AIN SEL RG0 6; JIF NEZ >BT.NotNum  
+		AIN SET RG0 6; JIF CAR >BT.NotNum  
 			LOD RG0 SP 0; ALI ADD RG0 1; STR RG0 SP 0
 			JMP >BT.Loop
 		#BT.NotNum
@@ -641,15 +647,15 @@ JMP >StartPoint
 		/ Allocate space for the bitmap on the stack.
 		PSH 1
 		
-		AIN SEL RG0 2; JIF EQZ >BT.NoMod;
+		AIN SET RG0 2; JIF NCR >BT.NoMod;
 			STR RG0 SP 0; CAL >GetNext; LOD RG0 SP 0	
 		#BT.NoMod
 		
-		AIN SEL RG0 1; JIF EQZ >BT.NoOp0;
+		AIN SET RG0 1; JIF NCR >BT.NoOp0;
 			STR RG0 SP 0; CAL >GetNext; LOD RG0 SP 0			
 		#BT.NoOp0
 		
-		AIN SEL RG0 0; JIF EQZ >BT.NoOp1;
+		AIN SET RG0 0; JIF NCR >BT.NoOp1;
 			STR RG0 SP 0; CAL >GetNext; LOD RG0 SP 0	
 		#BT.NoOp1
 		
@@ -746,7 +752,7 @@ JMP >StartPoint
 	
 	/ If it's a number, get the value of the number and write that to the output, then loop.
 	/ This check must happen towards the end, because of how imprecise it is.
-	AIN SEL RG0 6; JIF NEZ >ASM.NotNum
+	AIN SET RG0 6; JIF CAR >ASM.NotNum
 		LDI RA >ASM.RetNum; JMP >GetNumericValue; #ASM.RetNum
 		LDI FLG >OUTFLG; MOV IO OUT; LDI FLG >INFLG
 		JMP >Assemble
@@ -779,7 +785,7 @@ JMP >StartPoint
 	/ Now gather the operands according to the bitmap.
 	
 	/ If the Mod bit is on, call AssembleNext(ModTable) and OR it with the machine code.
-	AIN SEL RG1 2; JIF EQZ >ASM.NoMod
+	AIN SET RG1 2; JIF NCR >ASM.NoMod
 		LDI RG0 >ModTable; CAL >AssembleNext
 		LOD RG0 SP 0; ALI SLB OUT 8; ALU OR RG0 OUT; STR RG0 SP 0
 		/ Restore the bitmap for the next check.
@@ -787,7 +793,7 @@ JMP >StartPoint
 	#ASM.NoMod
 	
 	/ If the Op0 bit is on, call AssembleNext(RegTable) and OR it with the machine code
-	AIN SEL RG1 1; JIF EQZ >ASM.NoOp0
+	AIN SET RG1 1; JIF NCR >ASM.NoOp0
 		LDI RG0 >RegTable; CAL >AssembleNext
 		LOD RG0 SP 0; ALI SLB OUT 4; ALU OR RG0 OUT; STR RG0 SP 0
 		/ Restore the bitmap for the next check.
@@ -797,8 +803,8 @@ JMP >StartPoint
 	/ If Op1 is on, check if the immediate bit is on too.
 	/ If it's an immediate, Op1 is a value, so call GetNext and GetNumericValue
 	/ Else it's a register, so just call AssembleNext(RegTable)
-	AIN SEL RG1 0; JIF EQZ >ASM.NoOp1
-		AIN SEL RG1 3; JIF EQZ >ASM.NotImm
+	AIN SET RG1 0; JIF NCR >ASM.NoOp1
+		AIN SET RG1 3; JIF NCR >ASM.NotImm
 			CAL >GetNext
 			LDI RA >ASM.Op1Done; JMP >GetNumericValue
 		#ASM.NotImm
