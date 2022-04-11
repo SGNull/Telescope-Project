@@ -812,7 +812,7 @@ It must be held down for at least 2 full clock cycles to work.</string>
           <string>I/O Signal Corrections</string>
         </entry>
       </elementAttributes>
-      <pos x="1640" y="900"/>
+      <pos x="1200" y="980"/>
     </visualElement>
     <visualElement>
       <elementName>And</elementName>

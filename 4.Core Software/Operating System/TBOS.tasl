@@ -1,5 +1,5 @@
 JMP >Init
-%
+(%
   TBOS v1.0
   ---------
   
@@ -21,26 +21,34 @@ JMP >Init
     Memory allocation bitmap includes OS occupied chunks (stack + code).
   
   v1.0 is especially small-scale, and future versions will modify 1.0 to achieve higher functions.
-%
+%)
 
-/ ------------------------------------------------------------Data------------------------------------------------------------
+(/ ------------------------------------------------------------Data------------------------------------------------------------
+
+@WORD_SIZE = 16  / Word size in bits (always must be 16)
+@NUM_IMPORTANT_REGS = 12  / Number of registers which should be stored (always 12)
 
 / Process = [1-bit Active] [4-bit parent] [4-bit nextSib] [4-bit child]
-/ NOTE: This could be modified to support 32 procs, but memory issues will start occurring.
-@MAX_PROC = 16
+/ NOTE: This could be modified to support 32 procs, but memory conflicts will start occurring.
+@MAX_PROC_COUNT = 16
+@PROC_WORDS = 1
 
+@PROC_ACTIVE_BIT = 15
 @PARENT_MASK = 0xF00
 @PARENT_SHIFT = 8
 @SIB_MASK = 0xF0
 @SIB_SHIFT = 4
 @CHILD_MASK = 0xF
 
+@DRIVE_IOP_GROUP = 0
+@DRIVE_PTR_IOP_GROUP = 1
+@IOP_GROUP_MASK = 0xE000
+@IOP_GROUP_SHIFT = 13
+
+@CHUNK_SIZE = 0x0400
 @NUM_CHUNKS = 64
-@BMP_WORD_BITMASK = 0b110000
-@BMP_WORD_MOD = 4		/ Cannot be over 15
-@BMP_WORD_SHIFT = 4		/ Should be the same \/
-@BMP_BITS_MAXBIT = 4		/ Should be the same /\
-@BMP_BITS_BITMASK = 0b001111
+@BMP_WORDS = 4  / Must be NUM_CHUNKS/16, and under 16
+#MallocBMPs = (~4)  / Must have size of BMP_WORDS
 
 / 16 max proc x 1 word per proc = 16 words
 #ProcList = ~16
@@ -53,7 +61,15 @@ JMP >Init
 #StateList = ~192
 
 / We need to know what the current procID is.
-#CurrentProc = 0
+#CurrentProcID = 0
+
+/ Where the state of the CPU is immediately stored at.
+#TempState:
+	#TempState.FLG = 0
+
+#MarkInst: ALU SET RG5 RG4
+#UnmarkInst: ALU UST RG5 RG4
+)
 
 / ------------------------------------------------------------Code------------------------------------------------------------
 
@@ -61,7 +77,6 @@ JMP >Init
 
 / Initializes the OS environment (may have to remove the bootloader too, and zero out some key registers)
 #Init
-	
 
 
 
@@ -87,32 +102,169 @@ JMP >Init
 
 
 
-/ Something has to spawn new processes
-#SpawnProc
-
-
-/ (Start, Size), Turns off bits Start through Start+Size
-(#ClearMem
-
-	/ RG3 is word num, RG4 is bits, RG5 is the word itself
-	LDI RG2 >BMP_WORD_BITMASK; MOV RG3 RG0; ALU AND RG3 RG2
-	ALI SRB RG3 >BMP_WORD_SHIFT
-	LOD RG5 RG3 >MallocBMPs
-	LDI RG2 >BMP_BITS_BITMASK; MOV RG4 RG1; ALU AND RG4 RG2
+/ Spawns a process (find & allocate memory, setup PCB, copy in, clear unused space up to HI+LO)
+(#SpawnProc
+	/ Step 1: make sure IOP is configured properly
+	ZRO RG0; LOD RG0 RG0 >TempState.FLG; MOV FLG RG0
+	LDI RG1 >IOP_GROUP_MASK; ALU AND RG0 RG1; ALI SRB RG0 >IOP_GROUP_SHIFT
+	CMI RG0 >DRIVE_IOP_GROUP; JNE >SpP.Error
 	
-	#ClMm.Loop
-		/ Zero out that bit
-		ZRO RG2; INC RG2; ALU SLB RG2 RG4; ALU NOT RG2 RG2
-		ALU AND RG5 RG2
-		
-		/ Go to the next bit (unless we're done)
-		DEC RG1; JIF EQZ >ClMm.Done
-		INC RG4; AIN SEL RG4 >BMP_BITS_MAXBIT; JIF EQZ >ClMm.Loop
-		
-		/ If we're here, we need to go to the next word in the BMP
-		ZRO RG4; STR RG5 RG3 >MallocBMPs; INC RG3; ALI MOD RG3 >BMP_WORD_MOD
-		
+	/ Step 2: make sure that we aren't running the max number of procs
+	ZRO RG0; LOD RG0 RG0 >ProcCount
+	LDI RG1 >MAX_PROC_COUNT; CMP RG1 RG0; JEQ >SpP.Error
 	
-	#ClMm.Done
-	STR RG5 RG3 >MallocBMPs
+	/ Step 3: calculate the size of the program (in chunks)
+	MOV RG0 IO
+	LDI RG1 >CHUNK_SIZE; ALF DIV RG0 RG1; JIF NCR >SpP.NoRound
+		INC RG0
+	#SpP.NoRound
+	
+	/ Step 4: check memory to see if it will fit
+	CAL >FindOpenMemory
+	AIN ADD OUT 1; JIF CAR >SpP.Error
+	
+	/ Step 5: mark memory spots
+	MOV RG1 RG0; MOV RG0 OUT; CAL >MarkBits
+	
+	/ Step 6: call MakeChildProc (configure current PCB and make new one)
+	
 )
+
+
+
+/ (HLB value) Creates a new process as a child of CurrentProc
+(#MakeChildProc
+	/ Step 1: Get a new PCB for the new proc
+	/ RG1: PCB Main Word
+	/ RG2: ProcNum
+	/ RG3: Temp
+	
+	/ Find next available PCB
+	ZRO RG2
+	#MCP.Loop
+		INC RG2
+		MOV RG3 RG2; ALI MUL RG3 >PROC_WORDS
+		LOD RG1 RG3 >ProcList
+	AIN SET RG1 >PROC_ACTIVE_BIT; JIF CAR >MCP.Loop
+	
+	/ Step 2: Set up all the values for the PCB
+	ZRO RG1; AIN SET RG1 >PROC_ACTIVE_BIT
+	ZRO RG3; LOD RG3 RG3 >CurrentProcID
+	ALI SLB RG3 >PARENT_SHIFT; ALU OR RG1 RG3
+	MOV RG3 RG2; ALI MUL RG3 >PROC_WORDS
+	STR RG1 RG3 >ProcList
+	
+	/ Step 3: Set up the state values
+	
+	
+	/ Step 4: Handle the 2 cases for making current proc child
+)
+
+
+
+/ (Size), returns the number of the first 0 bit
+/ Modifies RG1-6, and FLG
+(#FindOpenMemory
+	/ RG1: Current bitwise index
+	/ RG2: Relative bitwise index to RG1
+	/ RG3: Current word
+	/ RG4: WORD_SIZE
+	/ RG5: Temp register
+	/ RG6: Temp register
+	ZRO RG1; LOD RG3 RG1 >MallocBMPs; LDI RG4 >WORD_SIZE
+	
+	#FOM.Loop
+		/ If current bit (calculate in RG5) is 0, start the inner loop
+		MOV RG5 RG1; ALU MOD RG5 RG4
+		AFN SET RG3 RG5; JIF CAR >FOM.Not0
+			
+			/ Set up RG2 as relative index, and
+			/ RG5: current actual index
+			LDI RG2 1
+			MOV RG5 RG1; ALU ADD RG5 RG2
+			#FOM.InLoop
+				/ If RG0 number of 0's were found, we're done
+				CMP RG2 RG0; JEQ >FOM.Success
+				
+				/ If not, check if we need to go to the next word for the next bit
+				AFN MOD RG5 RG4; JIF EQZ >FOM.SameWord
+					/ Not the same word, so grab the new one.
+					MOV RG6 RG5; ALU DIV RG6 RG4; ALI MOD RG6 >BMP_WORDS
+					LOD RG3 RG6 >MallocBMPs
+				#FOM.SameWord
+				
+				/ Now check the next bit
+				MOV RG6 RG5; ALU MOD RG6 RG4
+				AFN SET RG3 RG6; JIF CAR >FOM.Hit1
+				
+			/ If it's 0, increment RG5 and RG2
+			INC RG5; INC RG2; JMP >FOM.InLoop
+				
+			/ Else, if it's 1, exit the loop
+			#FOM.Hit1
+			MOV RG1 RG5  / Update RG1 to be accurate (it will then increment past the 1)
+			
+		#FOM.Not0
+		
+		/ Increment the current index, and check if it's over the total bits
+		INC RG1; LDI RG5 >NUM_CHUNKS; CMP RG5 RG1; JLT >FOM.NoSpace
+		
+		/ If not, get the next word if needed and loop
+		AFN MOD RG1 RG4; JIF NEZ >FOM.Loop
+		MOV RG5 RG1; ALU DIV RG5 RG2; LOD RG3 RG5 >MallocBMPs  / Get next word
+	JMP >FOM.Loop
+	
+	#FOM.Success
+	MOV OUT RG1; RET
+		
+	#FOM.NoSpace
+	NUL OUT; RET
+)
+
+
+
+/ (Start, Size), turns on bits Start through Start+Size-1 inclusive
+/ Modifies RG1-5, and FLG
+(#MarkBits
+	/ Setup and jump to ModifyBits
+	ZRO RG2; LOD RG2 RG2 >MarkInst; STR RG2 RG2 >MoB.ModBit
+	JMP >ModifyBits
+)
+
+/ (Start, Size), turns off bits Start through Start+Size
+/ Modifies RG1-5, and FLG
+(#UnmarkBits
+	/ Setup and jump to ModifyBits
+	ZRO RG2; LOD RG2 RG2 >UnmarkInst; STR RG2 RG2 >MoB.ModBit
+	JMP >ModifyBits
+)
+
+/ Shell function for UnmarkBits and MarkBits DO NOT CALL
+(#ModifyBits
+	/ RG2 is WORD_SIZE, RG3 is word num, RG4 is bits, RG5 is the word itself
+	LDI RG2 >WORD_SIZE
+	MOV RG3 RG0; ALU DIV RG3 RG2
+	LOD RG5 RG3 >MallocBMPs
+	MOV RG4 RG0; ALU MOD RG4 RG2
+	
+	/ Now loop through the bitmap and unset bits
+	#MoB.Loop
+		/ Modify the bit
+		#MoB.ModBit:NOP
+		
+		/ Goto the next bit (unless we're at the end, or end of word)
+		INC RG4; DEC RG1; JIF EQZ >MoB.Done
+		ALF MOD RG4 RG2; JIF NEZ >MoB.Loop
+		
+		/ If at the end of word, store the word and get the next one
+		STR RG5 RG3 >MallocBMPs; INC RG3; ALI MOD RG3 >BMP_WORDS
+		LOD RG5 RG3 >MallocBMPs
+		JMP >MoB.Loop
+	#MoB.Done
+	
+	/ Now that we're done, update the last word and return
+	STR RG5 RG3 >MallocBMPs
+	RET
+)
+
+
