@@ -26,7 +26,7 @@ JMP >Init
 (/ ------------------------------------------------------------Data------------------------------------------------------------
 
 @WORD_SIZE = 16  / Word size in bits (always must be 16)
-@NUM_IMPORTANT_REGS = 12  / Number of registers which should be stored (always 12)
+@STATE_REG_COUNT = 12  / Number of registers which should be stored (always 12)
 
 / Process = [1-bit Active] [4-bit parent] [4-bit nextSib] [4-bit child]
 / NOTE: This could be modified to support 32 procs, but memory conflicts will start occurring.
@@ -53,6 +53,9 @@ JMP >Init
 / 16 max proc x 1 word per proc = 16 words
 #ProcList = ~16
 
+@ROOT_PROC_ID = 0
+@NULL_PROC_ID = >ROOT_PROC_ID
+
 / Number of current active procs
 #ProcCount = 0
 
@@ -63,9 +66,9 @@ JMP >Init
 / We need to know what the current procID is.
 #CurrentProcID = 0
 
-/ Where the state of the CPU is immediately stored at.
-#TempState:
-	#TempState.FLG = 0
+/ Where (some of) the state of the CPU is immediately stored at.
+/ RG0-7, then FLG
+#TState = ~9
 
 #MarkInst: ALU SET RG5 RG4
 #UnmarkInst: ALU UST RG5 RG4
@@ -83,7 +86,20 @@ JMP >Init
 / We need an entry point to return to.
 / While this may be somewhat confusing, remember we don't have a BIOS to store the previous process somewhere
 / That's where this function comes in. It sets up the OS after an exception, for the exception handler to take over.
-#Entry
+(#Entry
+	/ Store off the modified registers in TState
+	STR RG0 RG0 >TState
+	LDI RG0 1; STR RG1 RG0 >TState
+	ALI ADD RG0 1; STR RG2 RG0 >TState
+	ALI ADD RG0 1; STR RG3 RG0 >TState
+	ALI ADD RG0 1; STR RG4 RG0 >TState
+	ALI ADD RG0 1; STR RG5 RG0 >TState
+	ALI ADD RG0 1; STR RG6 RG0 >TState
+	ALI ADD RG0 1; STR RG7 RG0 >TState
+	ALI ADD RG0 1; STR FLG RG0 >TState
+	
+	JMP >ExHandler
+)
 
 
 
@@ -132,32 +148,67 @@ JMP >Init
 
 
 
-/ (HLB value) Creates a new process as a child of CurrentProc
+/ (HLB value, FLG value) Creates a new process as a child of CurrentProc
+/ Modifies RG0-4, and FLG
 (#MakeChildProc
 	/ Step 1: Get a new PCB for the new proc
-	/ RG1: PCB Main Word
-	/ RG2: ProcNum
-	/ RG3: Temp
+	/ RG2: PCB Main Word
+	/ RG3: ProcNum
+	/ RG4: Temp
 	
 	/ Find next available PCB
-	ZRO RG2
-	#MCP.Loop
-		INC RG2
-		MOV RG3 RG2; ALI MUL RG3 >PROC_WORDS
-		LOD RG1 RG3 >ProcList
-	AIN SET RG1 >PROC_ACTIVE_BIT; JIF CAR >MCP.Loop
+	ZRO RG3
+	#MCP.FindLoop
+		INC RG3
+		MOV RG4 RG3; ALI MUL RG4 >PROC_WORDS
+		LOD RG2 RG4 >ProcList
+	AIN SET RG2 >PROC_ACTIVE_BIT; JIF CAR >MCP.FindLoop
 	
 	/ Step 2: Set up all the values for the PCB
-	ZRO RG1; AIN SET RG1 >PROC_ACTIVE_BIT
-	ZRO RG3; LOD RG3 RG3 >CurrentProcID
-	ALI SLB RG3 >PARENT_SHIFT; ALU OR RG1 RG3
-	MOV RG3 RG2; ALI MUL RG3 >PROC_WORDS
-	STR RG1 RG3 >ProcList
+	/ Set all the values in the PCB
+	ZRO RG2; AIN SET RG2 >PROC_ACTIVE_BIT
+	ZRO RG4; LOD RG4 RG4 >CurrentProcID
+	ALI SLB RG4 >PARENT_SHIFT; ALU OR RG2 RG4
+	
+	/ Store the values in the PCB
+	MOV RG4 RG3; ALI MUL RG4 >PROC_WORDS
+	STR RG2 RG4 >ProcList
 	
 	/ Step 3: Set up the state values
+	/ RG2: True index in States array
+	/ RG3: Index in the state
+	MOV RG2 RG3; LDI RG4 >STATE_REG_COUNT; ALU MUL RG2 RG4
 	
+	/ State order: RG0, RG1, ..., SP, FLG, HLB, EPC
+	/ Zero everything out
+	ZRO RG3; ZRO RG4
+	#MCP.StateLoop
+		STR RG4 RG2 >StateList
+		INC RG2; INC RG3
+	CMI RG3 >STATE_REG_COUNT; JNE >MCP.StateLoop
+	
+	/ Set FLG and HLB
+	ALI SUB RG2 >STATE_REG_COUNT; ALI ADD RG2 >STATE_FLG_INDEX
+	STR RG1 RG2 >StateList
+	ALI SUB RG2 >STATE_FLG_INDEX; ALI ADD RG2 >STATE_HLB_INDEX
+	STR RG0 RG2 >StateList
 	
 	/ Step 4: Handle the 2 cases for making current proc child
+	/ Get the current proc's PCB in RG0
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID
+	LDI RG1 >PROC_WORDS; ALU MUL RG0 RG1
+	LOD RG0 RG0 >ProcList
+	
+	/ Get current proc's child proc in RG1
+	LDI RG2 >PARENT_MASK; MOV RG1 RG0; ALU AND RG1 RG2
+	ALI SRB RG1 >PARENT_SHIFT
+	
+	/ Check cases
+	CMI RG1 >NULL_PROC_ID; JNE >MCP.HasChild
+		/ Case 1: it does not have a child
+	#MCP.HasChild
+	/ Case 2: it has a child already
+	
 )
 
 
