@@ -31,7 +31,11 @@ JMP >Init
 / Process = [1-bit Active] [4-bit parent] [4-bit nextSib] [4-bit child]
 / NOTE: This could be modified to support 32 procs, but memory conflicts will start occurring.
 @MAX_PROC_COUNT = 16
-@PROC_WORDS = 1
+@PROC_WORDS = 1  / must be under 16
+
+@HI_SHIFT = 8
+
+@USER_PROC_FLG = 0x000C
 
 @PROC_ACTIVE_BIT = 15
 @PARENT_MASK = 0xF00
@@ -54,12 +58,12 @@ JMP >Init
 #ProcList = ~16
 
 @ROOT_PROC_ID = 0
-@NULL_PROC_ID = >ROOT_PROC_ID
+@NULL_PROC_ID = >ROOT_PROC_ID  / Must be under 16
 
 / Number of current active procs
 #ProcCount = 0
 
-/ Each process needs all registers stored except for PC, IO, EXA, and EPC
+/ Each process needs all registers stored except for PC, IO, EXA, and CTD
 / 16 max proc x 12 reg per proc = 192
 #StateList = ~192
 
@@ -68,7 +72,13 @@ JMP >Init
 
 / Where (some of) the state of the CPU is immediately stored at.
 / RG0-7, then FLG
-#TState = ~9
+@TSTATE_SIZE = 10
+#TState:
+	#TState.RG0 = 0
+	#TState.RG1 = 0
+	#TState.RG2-7 = ~6
+	#TState.FLG = 0
+	#TState.SP = 0
 
 #MarkInst: ALU SET RG5 RG4
 #UnmarkInst: ALU UST RG5 RG4
@@ -97,6 +107,8 @@ JMP >Init
 	ALI ADD RG0 1; STR RG6 RG0 >TState
 	ALI ADD RG0 1; STR RG7 RG0 >TState
 	ALI ADD RG0 1; STR FLG RG0 >TState
+	ALI ADD RG0 1; STR SP RG0 >TState
+	ZRO SP
 	
 	JMP >ExHandler
 )
@@ -108,13 +120,44 @@ JMP >Init
 
 
 
+/ Resume the current process
+(#ResumeProc
+	/ Restore the temp state
+	LDI RG0 >TSTATE_SIZE
+	ALI SUB RG0 1; LOD SP RG0 >TState
+	ALI SUB RG0 1; LOD FLG RG0 >TState
+	ALI SUB RG0 1; LOD RG7 RG0 >TState
+	ALI SUB RG0 1; LOD RG6 RG0 >TState
+	ALI SUB RG0 1; LOD RG5 RG0 >TState
+	ALI SUB RG0 1; LOD RG4 RG0 >TState
+	ALI SUB RG0 1; LOD RG3 RG0 >TState
+	ALI SUB RG0 1; LOD RG2 RG0 >TState
+	ALI SUB RG0 1; LOD RG1 RG0 >TState
+	ALI SUB RG0 1; LOD RG0 RG0 >TState
+	
+	/ Resume the process
+	RSM
+)
+
+
+
 / We also need something to handle exceptions
 #ExHandler
 
 
 
-/ We will need something to terminate processes
-#Terminate
+/ (ProcID) Terminates the process and all of its child procs
+/ Modifies RG0-
+(#Terminate
+	/ Step 1: Get the process's main word
+	ALI MUL RG0 >PROC_WORDS; LOD RG0 RG0 >ProcList
+	
+	/ Step 2: Call Terminate on child procs (if they exist)
+	
+	/ Step 3: Call Terminate on sibling procs (if they exist)
+	
+	/ Step 4: Deactivate the proc and deallocate its memory
+)
 
 
 
@@ -139,17 +182,33 @@ JMP >Init
 	CAL >FindOpenMemory
 	AIN ADD OUT 1; JIF CAR >SpP.Error
 	
+	/ Step 4.1: Calculate HLB for step 6 while we have the values
+	MOV RG1 RG0; ALI SLB RG1 >HI_SHIFT
+	MOV RG2 OUT; LDI RG3 >CHUNK_SIZE; ALU MUL RG2 RG3
+	ALU OR RG1 RG2
+	
+	/ Put HLB on the stack
+	PSH 1; STR RG1 SP 0
+	
 	/ Step 5: mark memory spots
-	MOV RG1 RG0; MOV RG0 OUT; CAL >MarkBits
+	MOV RG1 RG0
+	MOV RG0 OUT
+	CAL >MarkBits
 	
 	/ Step 6: call MakeChildProc (configure current PCB and make new one)
+	LOD RG0 SP 0; POP 1
+	LDI RG1 >USER_PROC_FLG
+	CAL >MakeChildProc
 	
+	/ Step 7: Resume current process (and set its OUT to 1)
+	LDI RG0 1; STR RG0 RG0 >TState.OUT;
+	JMP >ResumeProc
 )
 
 
 
 / (HLB value, FLG value) Creates a new process as a child of CurrentProc
-/ Modifies RG0-4, and FLG
+/ Modifies RG0-5, and FLG
 (#MakeChildProc
 	/ Step 1: Get a new PCB for the new proc
 	/ RG2: PCB Main Word
@@ -177,7 +236,9 @@ JMP >Init
 	/ Step 3: Set up the state values
 	/ RG2: True index in States array
 	/ RG3: Index in the state
+	/ RG5: Procnum moved here
 	MOV RG2 RG3; LDI RG4 >STATE_REG_COUNT; ALU MUL RG2 RG4
+	MOV RG5 RG3
 	
 	/ State order: RG0, RG1, ..., SP, FLG, HLB, EPC
 	/ Zero everything out
@@ -194,9 +255,9 @@ JMP >Init
 	STR RG0 RG2 >StateList
 	
 	/ Step 4: Handle the 2 cases for making current proc child
-	/ Get the current proc's PCB in RG0
+	/ Get the current proc's PCB main word in RG0
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID
-	LDI RG1 >PROC_WORDS; ALU MUL RG0 RG1
+	ALI MUL RG0 >PROC_WORDS
 	LOD RG0 RG0 >ProcList
 	
 	/ Get current proc's child proc in RG1
@@ -206,15 +267,29 @@ JMP >Init
 	/ Check cases
 	CMI RG1 >NULL_PROC_ID; JNE >MCP.HasChild
 		/ Case 1: it does not have a child
+		/ Set the new proc as the child & return
+		ALU OR RG0 RG5
+		RET
 	#MCP.HasChild
-	/ Case 2: it has a child already
 	
+	/ Case 2: it has a child already
+	/ Get the child/sib proc's pcb main word and check its sib
+	#MCP.InsertLoop
+		ALI MUL RG1 >PROC_WORDS; LOD RG0 RG1 >ProcList
+		MOV RG1 RG0; ALI AND RG1 >SIB_MASK; ALI SRB RG1 >SIB_SHIFT
+		
+		/ If it has a sib, loop
+	CMI RG1 >NULL_PROC_ID; JNE >MCP.InsertLoop
+	
+	/ Now insert the new proc as a sibling
+	ALI SLB RG5 >SIB_SHIFT; ALU OR RG0 RG1
+	RET
 )
 
 
 
 / (Size), returns the number of the first 0 bit
-/ Modifies RG1-6, and FLG
+/ Modifies RG1-5, and FLG
 (#FindOpenMemory
 	/ RG1: Current bitwise index
 	/ RG2: Relative bitwise index to RG1
