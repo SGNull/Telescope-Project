@@ -1,9 +1,13 @@
-Libraries for commonly used things.
+Libraries for commonly used things (strings, tables, objects).
 
-A syntax enforcer for TASL V2+.
+A syntax enforcer & better error checker for TASL V3+.
 
-A light compiler with support for simple loops, function calls, variables, and += style operations.
+A light compiler with support for simple loops, function calls, variables, and +=, -=, etc. style operations.
 
 Parallel processing with dual read memory.
 
 VRAM using a TLB microcontroller which can be controlled via some I/O device.
+
+With networking: simple, traditionally programmed AI which moves data over the network using networking software that receives updates, and they randomly decide to install that update or not.
+
+Computer defect simulation by randomly deleting a line from a random hardware file it's dependent on (and hoping it still loads properly)

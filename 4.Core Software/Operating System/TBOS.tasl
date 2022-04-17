@@ -3,7 +3,7 @@ JMP >Init
   TBOS v1.0
   ---------
   
-  TSOS is a small-scale operating system for the TelGen Computer System.
+  TSOS is a small-scale operating system for the Telescope Computer System.
   It will intentionally be written with as few "magic numbers" as possible for maximum versatility.
   It would be very difficult to let empty arrays be defined using labels in TASL, so instead comments are added for clarification.
   
@@ -28,12 +28,21 @@ JMP >Init
 @WORD_SIZE = 16  / Word size in bits (always must be 16)
 @STATE_REG_COUNT = 12  / Number of registers which should be stored (always 12)
 
+@DRIVE_IOP_GROUP = 0
+@DRIVE_PTR_IOP_GROUP = 1
+@IOP_GROUP_MASK = 0xE000
+@IOP_GROUP_SHIFT = 13
+
+@HI_SHIFT = 8
+@LO_MASK = 0x00FF
+
+@EXC_MASK = 0x0700
+@EXC_SHIFT = 8
+
 / Process = [1-bit Active] [4-bit parent] [4-bit nextSib] [4-bit child]
 / NOTE: This could be modified to support 32 procs, but memory conflicts will start occurring.
 @MAX_PROC_COUNT = 16
 @PROC_WORDS = 1  / must be under 16
-
-@HI_SHIFT = 8
 
 @USER_PROC_FLG = 0x000C
 
@@ -44,21 +53,18 @@ JMP >Init
 @SIB_SHIFT = 4
 @CHILD_MASK = 0xF
 
-@DRIVE_IOP_GROUP = 0
-@DRIVE_PTR_IOP_GROUP = 1
-@IOP_GROUP_MASK = 0xE000
-@IOP_GROUP_SHIFT = 13
 
-@CHUNK_SIZE = 0x0400
-@NUM_CHUNKS = 64
+@CHUNK_SIZE = 0x0400  / cannot be over 0x1600
+@HLB_REL_CHUNK_SIZE = 4  / must be CHUNK_SIZE/0x0100
+@NUM_CHUNKS = 64  / Must be (2^16)/CHUNK_SIZE
 @BMP_WORDS = 4  / Must be NUM_CHUNKS/16, and under 16
 #MallocBMPs = (~4)  / Must have size of BMP_WORDS
 
 / 16 max proc x 1 word per proc = 16 words
 #ProcList = ~16
 
-@ROOT_PROC_ID = 0
-@NULL_PROC_ID = >ROOT_PROC_ID  / Must be under 16
+@ROOT_PROC_ID = 0  / Must be 0
+@NULL_PROC_ID = >ROOT_PROC_ID  / Must be ROOT_PROC_ID
 
 / Number of current active procs
 #ProcCount = 0
@@ -89,13 +95,20 @@ JMP >Init
 
 
 / Initializes the OS environment (may have to remove the bootloader too, and zero out some key registers)
-#Init
+(#Init
+	
+)
 
 
 
-/ We need an entry point to return to.
-/ While this may be somewhat confusing, remember we don't have a BIOS to store the previous process somewhere
-/ That's where this function comes in. It sets up the OS after an exception, for the exception handler to take over.
+/ The OS has ran successfully and the machine should be stopped.
+(#FinishLine
+	
+)
+
+
+
+/ Entry sets up the OS after an exception for the exception handler to take over.
 (#Entry
 	/ Store off the modified registers in TState
 	STR RG0 RG0 >TState
@@ -115,12 +128,21 @@ JMP >Init
 
 
 
-/ One thing we need is something to dispatch processes
-#Dispatcher
+/ The scheduler/dispatcher runs the next process (and checks for done/deadlock/etc.)
+(#Dispatcher
+	
+)
 
 
 
-/ Resume the current process
+/ Retires the previous process, then jumps to Dispatcher
+(#Undispatcher
+	
+)
+
+
+
+/ Resume the current process *NOT A FUNCTION*
 (#ResumeProc
 	/ Restore the temp state
 	LDI RG0 >TSTATE_SIZE
@@ -141,27 +163,119 @@ JMP >Init
 
 
 
-/ We also need something to handle exceptions
-#ExHandler
-
-
-
-/ (ProcID) Terminates the process and all of its child procs
-/ Modifies RG0-
-(#Terminate
-	/ Step 1: Get the process's main word
-	ALI MUL RG0 >PROC_WORDS; LOD RG0 RG0 >ProcList
+/ Handles any exceptions that occur
+(#ExHandler
+	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
 	
-	/ Step 2: Call Terminate on child procs (if they exist)
+	CMI RG0 >EXC_CTDZ; JEQ >Undispatcher  / If process' time is up
 	
-	/ Step 3: Call Terminate on sibling procs (if they exist)
+	CMI RG0 >EXC_SYS; JEQ >SpawnProc  / If the process wants to do something
 	
-	/ Step 4: Deactivate the proc and deallocate its memory
+	/ Else, in v1, we terminate it and run the next proc
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
+	CAL >Terminate
+	CAL >Dispatcher
 )
 
 
 
-/ Spawns a process (find & allocate memory, setup PCB, copy in, clear unused space up to HI+LO)
+/ (ProcID, IsStart? NULL/0 Y/N) 
+/ Terminates the process and all of its child procs, and removes from family tree if IsStart
+/ Modifies RG0-5 and FLG
+/ When threads are added, assuming there is a parent, if parent HLB is equal, don't deallocate
+(#Terminate
+	/ This function calls a few others, so push the RA to the stack
+	PSH 1; STR RA SP 0
+	
+	/ Step 1: Get the actual index
+	ALI MUL RG0 >PROC_WORDS
+	PSH 1; STR RG0 SP 0  / Storing it on the stack
+	
+	/ Step 2: Get the process' main word in RG0
+	LOD RG0 RG0 >ProcList
+	
+	/ Step 3: Remove process from family tree (cases: is root, is only child, has siblings)
+	/ Check if IsStart
+	(PAS RG1; JIF EQZ >Ter.SkipTree
+	
+	/ Check if root (root is 0 so we don't need to div)
+	LOD RG1 SP 0; CMI RG1 >ROOT_PROC_ID; JEQ >Ter.SkipTree
+	
+		/ Get parent word in RG2, and actual index in RG1
+		MOV RG1 RG0
+		LDI RG2 >PARENT_MASK; ALU AND RG1 RG2; ALI SRB RG1 >PARENT_SHIFT
+		ALI MUL RG1 >PROC_WORDS; LOD RG2 RG1 >ProcList
+		
+		/ Check if only child
+		LDI RG3 >CHILD_MASK; ALU AND RG3 RG2
+		LOD RG4 SP 0; ALI DIV RG4 >PROC_WORDS
+		CMP RG3 RG4; JEQ >Ter.OnlyChild
+		
+			/ Not only child, so find proc as sibling
+			/ RG2: Current process word
+			/ RG3: Actual index of current process
+			/ RG4: Key
+			/ RG5: Next ProcNum
+			MOV RG5 RG3
+			
+			#Ter.FindLoop
+				MOV RG3 RG5
+				ALI MUL RG3 >PROC_WORDS; LOD RG2 RG3 >ProcList
+				LDI RG5 >SIB_MASK; ALU AND RG5 RG2; ALI SRB RG5 >SIB_SHIFT
+			CMP RG5 RG4; JNE >Ter.FindLoop
+			
+			/ Found, so remove by bridging
+			LDI RG5 >SIB_MASK; ALU NOT RG4 RG5; ALU AND RG5 RG0
+			ALU AND RG2 RG4; ALU OR RG2 RG5; STR RG2 RG3 >ProcList
+			JMP >Ter.SkipTree
+		
+		#Ter.OnlyChild
+		LDI RG3 >CHILD_MASK; ALU NOT RG3 RG3
+		ALU AND RG2 RG3; STR RG2 RG1 >ProcList
+			
+	)#Ter.SkipTree
+	
+	/ Step 4: Call Terminate on child procs (if they exist)
+	LDI RG1 >CHILD_MASK; ALU AND RG1 RG0
+	CMI RG1 >NULL_PROC_ID; JEQ >Ter.NoChild
+		PSH 1; STR RG0 SP 0
+		MOV RG0 RG1; NUL RG1; CAL >Terminate
+		LOD RG0 SP 0; POP 1
+	#Ter.NoChild
+	
+	/ Step 5: Call Terminate on sibling procs (if they exist)
+	LDI RG1 >SIB_MASK; ALU AND RG1 RG0; ALI SRB RG1 >SIB_SHIFT
+	CMI RG1 >NULL_PROC_ID; JEQ >Ter.NoSib
+		PSH 1; STR RG0 SP 0
+		MOV RG0 RG1; NUL RG1; CAL >Terminate
+		LOD RG0 SP 0; POP 1
+	#Ter.NoSib
+	
+	/ Step 6: Deactivate the proc
+	LOD RG1 SP 0; POP 1
+	ALI UST RG0 >PROC_ACTIVE_BIT; STR RG0 RG1 >ProcList
+	
+	/ Step 7: Deallocate its memory
+	/ Get HLB
+	ALI DIV RG1 >PROC_WORDS
+	ALI MUL RG1 >STATE_REG_COUNT; ALI ADD RG1 >STATE_HLB_INDEX
+	LOD RG0 RG1 >StateList
+	
+	/ Get size & start bit in the BMP
+	MOV RG1 RG0; ALI SRB RG1 >HI_SHIFT; ALI DIV RG1 >HLB_REL_CHUNK_SIZE
+	LDI RG2 >LO_MASK; ALU AND RG0 RG2; ALI DIV RG0 >HLB_REL_CHUNK_SIZE
+	
+	/ Call UnmarkBits(Start, Size)
+	CAL >UnmarkBits
+	
+	/ Step 8: Return
+	LOD RA SP 0; POP 1
+	RET
+)
+
+
+
+/ Spawns a process (find & allocate memory, setup PCB, copy in, clear unused space up to HI+LO) *NOT A FUNCTION*
 (#SpawnProc
 	/ Step 1: make sure IOP is configured properly
 	ZRO RG0; LOD RG0 RG0 >TempState.FLG; MOV FLG RG0
@@ -195,7 +309,7 @@ JMP >Init
 	MOV RG0 OUT
 	CAL >MarkBits
 	
-	/ Step 6: call MakeChildProc (configure current PCB and make new one)
+	/ Step 6: call MakeChildProc(HLB,USER_PROC_FLG) (configure current PCB and make new one)
 	LOD RG0 SP 0; POP 1
 	LDI RG1 >USER_PROC_FLG
 	CAL >MakeChildProc
@@ -207,7 +321,7 @@ JMP >Init
 
 
 
-/ (HLB value, FLG value) Creates a new process as a child of CurrentProc
+/ (HLB value, FLG value) Creates a new process as a child of CurrentProcID
 / Modifies RG0-5, and FLG
 (#MakeChildProc
 	/ Step 1: Get a new PCB for the new proc
@@ -255,10 +369,10 @@ JMP >Init
 	STR RG0 RG2 >StateList
 	
 	/ Step 4: Handle the 2 cases for making current proc child
-	/ Get the current proc's PCB main word in RG0
-	ZRO RG0; LOD RG0 RG0 >CurrentProcID
-	ALI MUL RG0 >PROC_WORDS
-	LOD RG0 RG0 >ProcList
+	/ Get the current proc's PCB main word in RG0 (RG4 has actual index)
+	ZRO RG4; LOD RG4 RG4 >CurrentProcID
+	ALI MUL RG4 >PROC_WORDS
+	LOD RG0 RG4 >ProcList
 	
 	/ Get current proc's child proc in RG1
 	LDI RG2 >PARENT_MASK; MOV RG1 RG0; ALU AND RG1 RG2
@@ -268,21 +382,20 @@ JMP >Init
 	CMI RG1 >NULL_PROC_ID; JNE >MCP.HasChild
 		/ Case 1: it does not have a child
 		/ Set the new proc as the child & return
-		ALU OR RG0 RG5
+		ALU OR RG0 RG5; STR RG0 RG4 >ProcList
 		RET
 	#MCP.HasChild
 	
 	/ Case 2: it has a child already
-	/ Get the child/sib proc's pcb main word and check its sib
+	/ Get the child/sib proc's pcb main word and check its sib (RG1 has actual index)
 	#MCP.InsertLoop
 		ALI MUL RG1 >PROC_WORDS; LOD RG0 RG1 >ProcList
-		MOV RG1 RG0; ALI AND RG1 >SIB_MASK; ALI SRB RG1 >SIB_SHIFT
-		
+		MOV RG2 RG0; ALI AND RG2 >SIB_MASK; ALI SRB RG2 >SIB_SHIFT
 		/ If it has a sib, loop
-	CMI RG1 >NULL_PROC_ID; JNE >MCP.InsertLoop
+	CMI RG2 >NULL_PROC_ID; JNE >MCP.InsertLoop
 	
 	/ Now insert the new proc as a sibling
-	ALI SLB RG5 >SIB_SHIFT; ALU OR RG0 RG1
+	ALI SLB RG5 >SIB_SHIFT; ALU OR RG0 RG2; STR RG0 RG1 >ProcList
 	RET
 )
 
@@ -394,3 +507,6 @@ JMP >Init
 )
 
 
+
+/ The end of the OS's code segment in memory
+#OSEndPoint
