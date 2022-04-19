@@ -19,12 +19,19 @@ JMP >Init
 	First open spot is allocated in memory.
 	Memory allocation/deallocation via 4-word bitmap.
     Memory allocation bitmap includes OS occupied chunks (stack + code).
+
+  Here is how exceptions are handled:
+	Interrupts: Not supported (OS will error)
+    CTDZ: Pauses the current process and runs the next one.
+    SYS: Tries to spawn a process as a child of the current one. If successful, returns 1, else it returns NULL.
+	PRIV: Terminates the current process and all of its children.
+	OOB: Terminates the current process and all of its children.
   
   v1.0 is especially small-scale, and future versions will modify 1.0 to achieve higher functions.
 %)
 
 (/ ------------------------------------------------------------Data------------------------------------------------------------
-
+(/ ------- Hardware constants -------
 @WORD_SIZE = 16  / Word size in bits (always must be 16)
 @STATE_REG_COUNT = 12  / Number of registers which should be stored (always 12)
 
@@ -32,13 +39,23 @@ JMP >Init
 @DRIVE_PTR_IOP_GROUP = 1
 @IOP_GROUP_MASK = 0xE000
 @IOP_GROUP_SHIFT = 13
+@DRIVE_PTR_BIT = 0x2000
 
 @HI_SHIFT = 8
+@LO_SHIFT = >HI_SHIFT
 @LO_MASK = 0x00FF
 
 @EXC_MASK = 0x0700
 @EXC_SHIFT = 8
 
+@PC_STATUS_IOP = 0xF000
+@RANDOM_IOP = >PC_STATUS_IOP
+
+@ENDLOAD = 0xF33D
+)
+
+
+(/ ------- OS Properties & Data -------
 / Process = [1-bit Active] [4-bit parent] [4-bit nextSib] [4-bit child]
 / NOTE: This could be modified to support 32 procs, but memory conflicts will start occurring.
 @MAX_PROC_COUNT = 16
@@ -53,7 +70,6 @@ JMP >Init
 @SIB_SHIFT = 4
 @CHILD_MASK = 0xF
 
-
 @CHUNK_SIZE = 0x0400  / cannot be over 0x1600
 @HLB_REL_CHUNK_SIZE = 4  / must be CHUNK_SIZE/0x0100
 @NUM_CHUNKS = 64  / Must be (2^16)/CHUNK_SIZE
@@ -66,28 +82,40 @@ JMP >Init
 @ROOT_PROC_ID = 0  / Must be 0
 @NULL_PROC_ID = >ROOT_PROC_ID  / Must be ROOT_PROC_ID
 
+@ROOT_DRIVE_IOP = 0x0000
+
 / Number of current active procs
 #ProcCount = 0
-
-/ Each process needs all registers stored except for PC, IO, EXA, and CTD
-/ 16 max proc x 12 reg per proc = 192
-#StateList = ~192
 
 / We need to know what the current procID is.
 #CurrentProcID = 0
 
+/ Each process needs all registers stored except for PC, IO, EXA, and CTD
+/ 16 max proc x 12 reg per proc = 192
+/ Each state has the following format: RG0-7, FLG, SP, EPC, HLB
+#StateList = ~192
+@FLG_OFFSET = 8
+@SP_OFFSET = 9
+@EPC_OFFSET = 10
+@HLB_OFFSET = 11
+
 / Where (some of) the state of the CPU is immediately stored at.
-/ RG0-7, then FLG
-@TSTATE_SIZE = 10
-#TState:
-	#TState.RG0 = 0
-	#TState.RG1 = 0
-	#TState.RG2-7 = ~6
-	#TState.FLG = 0
-	#TState.SP = 0
+/ EPC and HLB are not stored
+#TState = (~10)
 
 #MarkInst: ALU SET RG5 RG4
 #UnmarkInst: ALU UST RG5 RG4
+)
+
+
+(/ ------- Status Codes -------
+@START_CODE 			= 1
+@RUN_CODE 			= 2
+@END_CODE 			= 0x600D
+
+@BAD_START_ERROR 		= 0xFF00
+@UNKNOWN_EXC_ERROR 	= 0xFF01
+)
 )
 
 / ------------------------------------------------------------Code------------------------------------------------------------
@@ -96,7 +124,32 @@ JMP >Init
 
 / Initializes the OS environment (may have to remove the bootloader too, and zero out some key registers)
 (#Init
+	/ Set the status
+	LDI RG0 >START_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
 	
+	/ Remove the bootloader
+	ZRO RG0; ZRO RG1; LDI RG2 >ENDLOAD
+	#Ini.CleanLoop
+		DEC RG1; LOD RG3 RG1 0
+		STR RG0 RG1 0
+	CMP RG3 RG2; JNE >Ini.CleanLoop
+	
+	/ Calculate the OS size in chunks in RG1
+	LDI RG1 >OSEndPoint; LDI RG0 >CHUNK_SIZE; ALU DIV RG1 RG0
+	ALI ADD RG1 1  / Add the stack chunk
+	
+	/ Put the start chunk in RG0 and call MarkBits
+	LDI RG0 >NUM_CHUNKS; ALI SUB RG0 1  / Adjust for stack (will be at end of mem)
+	CAL >MarkBits
+	
+	/ Spawn the root process (by hand)
+	
+	
+	/ Set the new status
+	LDI RG0 >RUN_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
+	
+	/ Send control off to the dispatcher
+	JMP >Dispatcher
 )
 
 
@@ -104,6 +157,15 @@ JMP >Init
 / The OS has ran successfully and the machine should be stopped.
 (#FinishLine
 	
+)
+
+
+
+/ Sets the status to RG0 and halts
+(#Error
+	LDI FLG >PC_STATUS_IOP
+	MOV IO RG0
+	HLT
 )
 
 
@@ -117,28 +179,32 @@ JMP >Init
 
 / Retires the previous process, then jumps to Dispatcher
 / RG0-2 and FLG are already stored
-(#Undispatcher	
-	/ Get current proc's actual state index in RG0
+(#BurstOver	
+	/ Get current proc's actual state address in RG0
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; ALI MUL RG0 >STATE_REG_COUNT
+	LDI RG1 >StateList; ALU ADD RG0 RG1
 	
-	/ Loop through TState and copy into State
-	ZRO RG1
-	LOD RG2 RG1 >TState; STR RG2 RG0 >StateList
-	INC RG0; INC RG1
-	LOD RG2 RG1 >TState; STR RG2 RG0 >StateList
-	INC RG0; INC RG1
-	LOD RG2 RG1 >TState; STR RG2 RG0 >StateList
+	/ Put TState's address in RG1
+	LDI RG1 >TState
 	
-	/ Now copy the rest of the registers into State (and FLG from TState)
-	INC RG0; STR RG3 RG0 >StateList
-	INC RG0; STR RG4 RG0 >StateList
-	INC RG0; STR RG5 RG0 >StateList
-	INC RG0; STR RG6 RG0 >StateList
-	INC RG0; STR RG7 RG0 >StateList
-	INC RG0; STR SP RG0 >StateList
-	INC RG0; ZRO RG1; LOD RG2 RG1 >TState.FLG; STR RG2 RG0 >StateList
-	INC RG0; STR RG4 RG0 >StateList
-	INC RG0; STR RG5 RG0 >StateList
+	/ Copy (what's currently in) TState to the current state
+	LOD RG2 RG1 0; STR RG2 RG0 0
+	LOD RG2 RG1 1; STR RG2 RG0 1
+	LOD RG2 RG1 2; STR RG2 RG0 2
+	LOD RG2 RG1 >FLG_OFFSET; STR RG2 RG0 >FLG_OFFSET
+	
+	/ Now copy the rest of the registers to the current state
+	/ Note: HLB is constant
+	STR RG3 RG0 3
+	STR RG4 RG0 4
+	STR RG5 RG0 5
+	STR RG6 RG0 6
+	STR RG7 RG0 7
+	STR SP RG0 >SP_OFFSET
+	STR EPC RG0 >EPC_OFFSET
+	
+	/ Now return control to the dispatcher
+	JMP >Dispatcher
 )
 
 
@@ -146,17 +212,17 @@ JMP >Init
 / Resume the current process *NOT A FUNCTION*
 (#ResumeProc
 	/ Restore the temp state
-	LDI RG0 >TSTATE_SIZE
-	ALI SUB RG0 1; LOD SP RG0 >TState
-	ALI SUB RG0 1; LOD FLG RG0 >TState
-	ALI SUB RG0 1; LOD RG7 RG0 >TState
-	ALI SUB RG0 1; LOD RG6 RG0 >TState
-	ALI SUB RG0 1; LOD RG5 RG0 >TState
-	ALI SUB RG0 1; LOD RG4 RG0 >TState
-	ALI SUB RG0 1; LOD RG3 RG0 >TState
-	ALI SUB RG0 1; LOD RG2 RG0 >TState
-	ALI SUB RG0 1; LOD RG1 RG0 >TState
-	ALI SUB RG0 1; LOD RG0 RG0 >TState
+	LDI RG0 >TState
+	LOD SP RG0 >SP_OFFSET
+	LOD FLG RG0 >FLG_OFFSET
+	LOD RG7 RG0 7
+	LOD RG6 RG0 6
+	LOD RG5 RG0 5
+	LOD RG4 RG0 4
+	LOD RG3 RG0 3
+	LOD RG2 RG0 2
+	LOD RG1 RG0 1
+	LOD RG0 RG0 0
 	
 	/ Resume the process
 	RSM
@@ -168,22 +234,28 @@ JMP >Init
 (#ExHandler
 	/ Store off RG0-2 and FLG for CTDZ
 	STR RG0 RG0 >TState
-	LDI RG0 1; STR RG1 RG0 >TState
-	ALI ADD RG0 1; STR RG2 RG0 >TState
-	STR FLG FLG >TState.FLG
+	LDI RG0 >TState
+	STR RG1 RG0 1
+	STR RG2 RG0 2
+	STR FLG RG0 >FLG_OFFSET
 	
 	/ Check if it's CTDZ
 	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
-	CMI RG0 >EXC_CTDZ; JEQ >Undispatcher
+	CMI RG0 >EXC_CTDZ; JEQ >BurstOver
+	
+	/ Check if it's unrecoverable
+	CMI RG0 >EXC_PRIV; JEQ >EndProc
+	CMI RG0 >EXC_OOB; JEQ >EndProc
 	
 	/Store off the rest of the registers
-	LDI RG0 3; STR RG3 RG0 >TState
-	ALI ADD RG0 1; STR RG4 RG0 >TState
-	ALI ADD RG0 1; STR RG5 RG0 >TState
-	ALI ADD RG0 1; STR RG6 RG0 >TState
-	ALI ADD RG0 1; STR RG7 RG0 >TState
+	LDI RG0 >TState
+	STR RG3 RG0 3
+	STR RG4 RG0 4
+	STR RG5 RG0 5
+	STR RG6 RG0 6
+	STR RG7 RG0 7
 	/ FLG is already stored
-	ALI ADD RG0 2; STR SP RG0 >TState
+	STR SP RG0 >SP_OFFSET
 	ZRO SP
 	
 	/ Get EXC again
@@ -192,10 +264,18 @@ JMP >Init
 	/ Check for Syscall
 	CMI RG0 >EXC_SYS; JEQ >SpawnProc
 	
-	/ Else, in v1, we terminate it and run the next proc
+	/ Else, error
+	LDI RG0 >UNKNOWN_EXC_ERROR
+	JMP >Error
+)
+
+
+
+/ Calls terminate on the current process then jumps to the dispatcher
+(#EndProc
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
 	CAL >Terminate
-	CAL >Dispatcher
+	JMP >Dispatcher
 )
 
 
@@ -296,10 +376,10 @@ JMP >Init
 
 
 
-/ Spawns a process (find & allocate memory, setup PCB, copy in, clear unused space up to HI+LO) *NOT A FUNCTION*
+/ Ensures we can spawn a process, allocates resources, calls MakeChildProc, then resumes the current one.
 (#SpawnProc
 	/ Step 1: make sure IOP is configured properly
-	ZRO RG0; LOD RG0 RG0 >TempState.FLG; MOV FLG RG0
+	LDI RG0 >TState; LOD RG0 RG0 >FLG_OFFSET; MOV FLG RG0
 	LDI RG1 >IOP_GROUP_MASK; ALU AND RG0 RG1; ALI SRB RG0 >IOP_GROUP_SHIFT
 	CMI RG0 >DRIVE_IOP_GROUP; JNE >SpP.Error
 	
@@ -309,11 +389,9 @@ JMP >Init
 	
 	/ Step 3: calculate the size of the program (in chunks)
 	MOV RG0 IO
-	LDI RG1 >CHUNK_SIZE; ALF DIV RG0 RG1; JIF NCR >SpP.NoRound
-		INC RG0
-	#SpP.NoRound
+	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; INC RG0
 	
-	/ Step 4: check memory to see if it will fit
+	/ Step 4: check memory to see where it will fit
 	CAL >FindOpenMemory
 	AIN ADD OUT 1; JIF CAR >SpP.Error
 	
@@ -330,13 +408,21 @@ JMP >Init
 	MOV RG0 OUT
 	CAL >MarkBits
 	
-	/ Step 6: call MakeChildProc(HLB,USER_PROC_FLG) (configure current PCB and make new one)
+	/ Step 6: Move into memory
 	LOD RG0 SP 0; POP 1
+	CAL >LoadProgram
+	
+	/ Step 7: call MakeChildProc(HLB,USER_PROC_FLG) (configure current PCB and make new one)
 	LDI RG1 >USER_PROC_FLG
 	CAL >MakeChildProc
 	
-	/ Step 7: Resume current process (and set its OUT to 1)
-	LDI RG0 1; STR RG0 RG0 >TState.OUT;
+	/ Step 8: Resume current process (and set its OUT to 1)
+	LDI RG0 1; LDI RG1 >TState; STR RG0 RG1 >TState.OUT;
+	JMP >ResumeProc
+	
+	/ Something went wrong, so put NULL in output and resume
+	#SpP.Error
+	NUL RG0; LDI RG1 >TState; STR RG0 RG1 >TState.OUT;
 	JMP >ResumeProc
 )
 
@@ -351,7 +437,7 @@ JMP >Init
 	/ RG4: Temp
 	
 	/ Find next available PCB
-	ZRO RG3
+	NUL RG3  / Set RG3 to -1
 	#MCP.FindLoop
 		INC RG3
 		MOV RG4 RG3; ALI MUL RG4 >PROC_WORDS
@@ -417,6 +503,23 @@ JMP >Init
 	
 	/ Now insert the new proc as a sibling
 	ALI SLB RG5 >SIB_SHIFT; ALU OR RG0 RG2; STR RG0 RG1 >ProcList
+	RET
+)
+
+
+
+/ (HLB), loads the program from FLG's IOP
+/ Modifies RG1-2 and FLG
+(#LoadProgram
+	/ RG1 - Start
+	/ RG2 - Size
+	LDI RG1 >LO_MASK; ALU AND RG1 RG0; ALI SLB RG1 >LO_SHIFT
+	ZRO RG2; ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2
+	ALI UST FLG >DRIVE_PTR_BIT; MOV RG2 IO
+	#LoP.LoadLoop 
+		STR IO RG1 0
+		INC RG1
+	DEC RG2; JIF NEZ >LoP.LoadLoop
 	RET
 )
 
