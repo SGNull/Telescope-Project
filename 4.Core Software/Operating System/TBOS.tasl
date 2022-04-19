@@ -108,26 +108,6 @@ JMP >Init
 
 
 
-/ Entry sets up the OS after an exception for the exception handler to take over.
-(#Entry
-	/ Store off the modified registers in TState
-	STR RG0 RG0 >TState
-	LDI RG0 1; STR RG1 RG0 >TState
-	ALI ADD RG0 1; STR RG2 RG0 >TState
-	ALI ADD RG0 1; STR RG3 RG0 >TState
-	ALI ADD RG0 1; STR RG4 RG0 >TState
-	ALI ADD RG0 1; STR RG5 RG0 >TState
-	ALI ADD RG0 1; STR RG6 RG0 >TState
-	ALI ADD RG0 1; STR RG7 RG0 >TState
-	ALI ADD RG0 1; STR FLG RG0 >TState
-	ALI ADD RG0 1; STR SP RG0 >TState
-	ZRO SP
-	
-	JMP >ExHandler
-)
-
-
-
 / The scheduler/dispatcher runs the next process (and checks for done/deadlock/etc.)
 (#Dispatcher
 	
@@ -136,8 +116,29 @@ JMP >Init
 
 
 / Retires the previous process, then jumps to Dispatcher
-(#Undispatcher
+/ RG0-2 and FLG are already stored
+(#Undispatcher	
+	/ Get current proc's actual state index in RG0
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID; ALI MUL RG0 >STATE_REG_COUNT
 	
+	/ Loop through TState and copy into State
+	ZRO RG1
+	LOD RG2 RG1 >TState; STR RG2 RG0 >StateList
+	INC RG0; INC RG1
+	LOD RG2 RG1 >TState; STR RG2 RG0 >StateList
+	INC RG0; INC RG1
+	LOD RG2 RG1 >TState; STR RG2 RG0 >StateList
+	
+	/ Now copy the rest of the registers into State (and FLG from TState)
+	INC RG0; STR RG3 RG0 >StateList
+	INC RG0; STR RG4 RG0 >StateList
+	INC RG0; STR RG5 RG0 >StateList
+	INC RG0; STR RG6 RG0 >StateList
+	INC RG0; STR RG7 RG0 >StateList
+	INC RG0; STR SP RG0 >StateList
+	INC RG0; ZRO RG1; LOD RG2 RG1 >TState.FLG; STR RG2 RG0 >StateList
+	INC RG0; STR RG4 RG0 >StateList
+	INC RG0; STR RG5 RG0 >StateList
 )
 
 
@@ -165,11 +166,31 @@ JMP >Init
 
 / Handles any exceptions that occur
 (#ExHandler
+	/ Store off RG0-2 and FLG for CTDZ
+	STR RG0 RG0 >TState
+	LDI RG0 1; STR RG1 RG0 >TState
+	ALI ADD RG0 1; STR RG2 RG0 >TState
+	STR FLG FLG >TState.FLG
+	
+	/ Check if it's CTDZ
+	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
+	CMI RG0 >EXC_CTDZ; JEQ >Undispatcher
+	
+	/Store off the rest of the registers
+	LDI RG0 3; STR RG3 RG0 >TState
+	ALI ADD RG0 1; STR RG4 RG0 >TState
+	ALI ADD RG0 1; STR RG5 RG0 >TState
+	ALI ADD RG0 1; STR RG6 RG0 >TState
+	ALI ADD RG0 1; STR RG7 RG0 >TState
+	/ FLG is already stored
+	ALI ADD RG0 2; STR SP RG0 >TState
+	ZRO SP
+	
+	/ Get EXC again
 	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
 	
-	CMI RG0 >EXC_CTDZ; JEQ >Undispatcher  / If process' time is up
-	
-	CMI RG0 >EXC_SYS; JEQ >SpawnProc  / If the process wants to do something
+	/ Check for Syscall
+	CMI RG0 >EXC_SYS; JEQ >SpawnProc
 	
 	/ Else, in v1, we terminate it and run the next proc
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
