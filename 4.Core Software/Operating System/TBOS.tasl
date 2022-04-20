@@ -122,6 +122,7 @@ JMP >Init
 
 
 
+/ Rating: 2/3 (Close)
 / Initializes the OS environment (may have to remove the bootloader too, and zero out some key registers)
 (#Init
 	/ Set the status
@@ -142,7 +143,7 @@ JMP >Init
 	LDI RG0 >NUM_CHUNKS; ALI SUB RG0 1  / Adjust for stack (will be at end of mem)
 	CAL >MarkBits
 	
-	/ Spawn the root process (by hand)
+	/ Spawn the root process
 	
 	
 	/ Set the new status
@@ -154,6 +155,7 @@ JMP >Init
 
 
 
+/ Rating: N/A (not started)
 / The OS has ran successfully and the machine should be stopped.
 (#FinishLine
 	
@@ -161,6 +163,7 @@ JMP >Init
 
 
 
+/ Rating: 3/3 (can't mess this up)
 / Sets the status to RG0 and halts
 (#Error
 	LDI FLG >PC_STATUS_IOP
@@ -169,7 +172,7 @@ JMP >Init
 )
 
 
-
+/ Rating: N/A (not started)
 / The scheduler/dispatcher runs the next process (and checks for done/deadlock/etc.)
 (#Dispatcher
 	
@@ -177,6 +180,7 @@ JMP >Init
 
 
 
+/ Rating: 2/3 (not convinced)
 / Retires the previous process, then jumps to Dispatcher
 / RG0-2 and FLG are already stored
 (#BurstOver	
@@ -209,6 +213,7 @@ JMP >Init
 
 
 
+/ Rating: 2/3 (not convinced)
 / Resume the current process *NOT A FUNCTION*
 (#ResumeProc
 	/ Restore the temp state
@@ -230,6 +235,7 @@ JMP >Init
 
 
 
+/ Rating: 3/3 (good)
 / Handles any exceptions that occur
 (#ExHandler
 	/ Store off RG0-2 and FLG for CTDZ
@@ -271,15 +277,16 @@ JMP >Init
 
 
 
-/ Calls terminate on the current process then jumps to the dispatcher
+/ Rating: 3/3 (good)
+/ Calls terminate on the current process then returns to the dispatcher
 (#EndProc
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
-	CAL >Terminate
-	JMP >Dispatcher
+	LDI RA >Dispatcher; JMP >Terminate
 )
 
 
 
+/ Rating: 1/3 (needs work)
 / (ProcID, IsStart? NULL/0 Y/N) 
 / Terminates the process and all of its child procs, and removes from family tree if IsStart
 / Modifies RG0-5 and FLG
@@ -376,16 +383,44 @@ JMP >Init
 
 
 
+/ Rating: 0/3 (what are we even doing here???)
 / Ensures we can spawn a process, allocates resources, calls MakeChildProc, then resumes the current one.
-(#SpawnProc
-	/ Step 1: make sure IOP is configured properly
+(#SysSpawnProg
+	/ Step 1: Load the program into memory
 	LDI RG0 >TState; LOD RG0 RG0 >FLG_OFFSET; MOV FLG RG0
+	CAL >LoadProgram
+	
+	/ Step 2: Check to see if we loaded it correctly
+	AIN ADD OUT 1; JIF NCR >SSP.OK
+		/ If not OK, return null
+		LDI RG1 >TState; STR OUT RG1 6
+		JMP >ResumeProc
+	#SSP.OK
+	
+	/ Step 3: Build a process for the program
+	LDI RG1 >USER_PROC_FLG
+	CAL >MakeChildProc
+	
+	/ Step 4: Resume current process (and set its OUT to 1)
+	LDI RG0 1; LDI RG1 >TState; STR RG0 RG1 >TState.OUT;
+	JMP >ResumeProc
+)
+
+
+
+/ Rating: 1/3 (needs work)
+/ Loads the program at IOP into memory, returns HLB.
+(#LoadProgram
+	PSH 1; STR RA SP 0
+
+	/ Step 1: make sure IOP is configured properly
+	MOV RG0 FLG
 	LDI RG1 >IOP_GROUP_MASK; ALU AND RG0 RG1; ALI SRB RG0 >IOP_GROUP_SHIFT
-	CMI RG0 >DRIVE_IOP_GROUP; JNE >SpP.Error
+	CMI RG0 >DRIVE_IOP_GROUP; JNE >LoP.Error
 	
 	/ Step 2: make sure that we aren't running the max number of procs
 	ZRO RG0; LOD RG0 RG0 >ProcCount
-	LDI RG1 >MAX_PROC_COUNT; CMP RG1 RG0; JEQ >SpP.Error
+	LDI RG1 >MAX_PROC_COUNT; CMP RG1 RG0; JEQ >LoP.Error
 	
 	/ Step 3: calculate the size of the program (in chunks)
 	MOV RG0 IO
@@ -393,15 +428,7 @@ JMP >Init
 	
 	/ Step 4: check memory to see where it will fit
 	CAL >FindOpenMemory
-	AIN ADD OUT 1; JIF CAR >SpP.Error
-	
-	/ Step 4.1: Calculate HLB for step 6 while we have the values
-	MOV RG1 RG0; ALI SLB RG1 >HI_SHIFT
-	MOV RG2 OUT; LDI RG3 >CHUNK_SIZE; ALU MUL RG2 RG3
-	ALU OR RG1 RG2
-	
-	/ Put HLB on the stack
-	PSH 1; STR RG1 SP 0
+	AIN ADD OUT 1; JIF CAR >LoP.Error
 	
 	/ Step 5: mark memory spots
 	MOV RG1 RG0
@@ -409,123 +436,147 @@ JMP >Init
 	CAL >MarkBits
 	
 	/ Step 6: Move into memory
-	LOD RG0 SP 0; POP 1
-	CAL >LoadProgram
+	LOD RA SP 1; POP 1
+	JMP >LoadMemory
 	
-	/ Step 7: call MakeChildProc(HLB,USER_PROC_FLG) (configure current PCB and make new one)
-	LDI RG1 >USER_PROC_FLG
-	CAL >MakeChildProc
-	
-	/ Step 8: Resume current process (and set its OUT to 1)
-	LDI RG0 1; LDI RG1 >TState; STR RG0 RG1 >TState.OUT;
-	JMP >ResumeProc
-	
-	/ Something went wrong, so put NULL in output and resume
-	#SpP.Error
-	NUL RG0; LDI RG1 >TState; STR RG0 RG1 >TState.OUT;
-	JMP >ResumeProc
+	#LoP.Error
+	NUL OUT; LOD RA SP 0; POP 1; RET
 )
 
 
 
-/ (HLB value, FLG value) Creates a new process as a child of CurrentProcID
-/ Modifies RG0-5, and FLG
-(#MakeChildProc
-	/ Step 1: Get a new PCB for the new proc
-	/ RG2: PCB Main Word
-	/ RG3: ProcNum
-	/ RG4: Temp
+/ Rating: 0/3 (not even close)
+/ (HLB) Creates child thread for current proc with current FLG, returns proc num or NULL if failed
+(#MakeChildThread
+	/ Step 1: Find inactive thread
 	
-	/ Find next available PCB
-	NUL RG3  / Set RG3 to -1
-	#MCP.FindLoop
-		INC RG3
-		MOV RG4 RG3; ALI MUL RG4 >PROC_WORDS
-		LOD RG2 RG4 >ProcList
-	AIN SET RG2 >PROC_ACTIVE_BIT; JIF CAR >MCP.FindLoop
+	/ Step 2: Zero out thread
 	
-	/ Step 2: Set up all the values for the PCB
-	/ Set all the values in the PCB
-	ZRO RG2; AIN SET RG2 >PROC_ACTIVE_BIT
-	ZRO RG4; LOD RG4 RG4 >CurrentProcID
-	ALI SLB RG4 >PARENT_SHIFT; ALU OR RG2 RG4
+	/ Step 3: Zero out state except HLB and FLG
 	
-	/ Store the values in the PCB
-	MOV RG4 RG3; ALI MUL RG4 >PROC_WORDS
-	STR RG2 RG4 >ProcList
+	/ Step 4: Insert thread as child of current proc
 	
-	/ Step 3: Set up the state values
-	/ RG2: True index in States array
-	/ RG3: Index in the state
-	/ RG5: Procnum moved here
-	MOV RG2 RG3; LDI RG4 >STATE_REG_COUNT; ALU MUL RG2 RG4
-	MOV RG5 RG3
-	
-	/ State order: RG0, RG1, ..., SP, FLG, HLB, EPC
-	/ Zero everything out
-	ZRO RG3; ZRO RG4
-	#MCP.StateLoop
-		STR RG4 RG2 >StateList
-		INC RG2; INC RG3
-	CMI RG3 >STATE_REG_COUNT; JNE >MCP.StateLoop
-	
-	/ Set FLG and HLB
-	ALI SUB RG2 >STATE_REG_COUNT; ALI ADD RG2 >STATE_FLG_INDEX
-	STR RG1 RG2 >StateList
-	ALI SUB RG2 >STATE_FLG_INDEX; ALI ADD RG2 >STATE_HLB_INDEX
-	STR RG0 RG2 >StateList
-	
-	/ Step 4: Handle the 2 cases for making current proc child
-	/ Get the current proc's PCB main word in RG0 (RG4 has actual index)
-	ZRO RG4; LOD RG4 RG4 >CurrentProcID
-	ALI MUL RG4 >PROC_WORDS
-	LOD RG0 RG4 >ProcList
-	
-	/ Get current proc's child proc in RG1
-	LDI RG2 >PARENT_MASK; MOV RG1 RG0; ALU AND RG1 RG2
-	ALI SRB RG1 >PARENT_SHIFT
-	
-	/ Check cases
-	CMI RG1 >NULL_PROC_ID; JNE >MCP.HasChild
-		/ Case 1: it does not have a child
-		/ Set the new proc as the child & return
-		ALU OR RG0 RG5; STR RG0 RG4 >ProcList
-		RET
-	#MCP.HasChild
-	
-	/ Case 2: it has a child already
-	/ Get the child/sib proc's pcb main word and check its sib (RG1 has actual index)
-	#MCP.InsertLoop
-		ALI MUL RG1 >PROC_WORDS; LOD RG0 RG1 >ProcList
-		MOV RG2 RG0; ALI AND RG2 >SIB_MASK; ALI SRB RG2 >SIB_SHIFT
-		/ If it has a sib, loop
-	CMI RG2 >NULL_PROC_ID; JNE >MCP.InsertLoop
-	
-	/ Now insert the new proc as a sibling
-	ALI SLB RG5 >SIB_SHIFT; ALU OR RG0 RG2; STR RG0 RG1 >ProcList
 	RET
 )
 
 
 
-/ (HLB), loads the program from FLG's IOP
-/ Modifies RG1-2 and FLG
-(#LoadProgram
-	/ RG1 - Start
-	/ RG2 - Size
-	LDI RG1 >LO_MASK; ALU AND RG1 RG0; ALI SLB RG1 >LO_SHIFT
-	ZRO RG2; ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2
-	ALI UST FLG >DRIVE_PTR_BIT; MOV RG2 IO
-	#LoP.LoadLoop 
+/ (ProcNum) adds the given process as a child to the current process
+/ Does not modify proc's children
+/ Modifies RG1-4, and FLG
+(#InsertChild
+	/ Get the main word of ProcNum in RG2 (and actual index in RG1)
+	MOV RG1 RG0; ALI MUL RG1 >PROC_WORDS; LOD RG2 RG1 >ProcList
+	
+	/ Zero out the parent and sib
+	LDI RG3 >SIB_MASK; ALU NOT RG3 RG3; ALU AND RG2 RG3
+	LDI RG3 >PARENT_MASK; ALU NOT RG3 RG3; ALU AND RG2 RG3
+	
+	/ Set parent to CurrentProcID and store the main word
+	ZRO RG3; LOD RG3 RG3 >CurrentProcID
+	MOV RG4 RG3; ALI SLB RG4 >PARENT_SHIFT
+	ALU OR RG2 RG4; STR RG2 RG1 >ProcList
+	
+	/ Get the current proc's main word in RG2 (and actual index in RG3) (RG1&4 are not set)
+	ALI MUL RG3 >PROC_WORDS; LOD RG2 RG3 >ProcList
+	
+	/ Check if current proc has children
+	LDI RG1 >CHILD_MASK; ALF AND RG1 RG2; JIF NEZ >InC.FindLastSib
+		/ Case 1: current proc has no children
+		ALU OR RG2 RG0; STR RG2 RG3 >ProcList
+		RET
+		
+	/ Case 2: current proc has children
+	/ Loop through siblings to find the endpoint
+	#InC.FindLastSib
+		/ Actual index in RG1, main word in RG2
+		ALI MUL RG1 >PROC_WORDS; LOD RG2 RG1 >ProcList
+		LDI RG3 >SIB_MASK; ALF AND RG3 RG2; JIF EQZ >InC.FoundLast
+		ALI SRB RG3 >SIB_SHIFT; MOV RG1 RG3; JMP >InC.FindLastSib
+	#InC.FoundLast
+	
+	/ Set proc as sibling of last sib and we're done
+	ALU OR RG2 RG0; STR RG2 RG1 >ProcList
+	RET
+)
+
+
+
+/ (ProcNum) removes the given process as a child from the process tree
+/ Does not alter the proc's main word
+/ Modifies RG1-4 and FLG
+(#RemoveChild
+	/ Case 1 - Proc is root, nothing to do
+	PAS RG0; JIF EQZ >ReC.Done
+	
+	/ Get the process word in RG1
+	MOV RG1 RG0; ALI MUL RG1 >PROC_WORDS; LOD RG1 RG1 >ProcList
+	
+	/ Get the parent's main word in RG3 (and actual index in RG2)
+	LDI RG2 >PARENT_MASK; ALU AND RG2 RG1; ALI SRB RG2 >PARENT_SHIFT
+	ALI MUL RG2 >PROC_WORDS; LOD RG3 RG2 >ProcList
+	
+	/ Check if the process is the first child
+	LDI RG4 >CHILD_MASK; ALU AND RG4 RG3
+	CMP RG4 RG0; JNE >ReC.IsSibling
+		
+		/ Case 2 - Proc is the first child, set parent's child id to proc's sib id
+		LDI RG4 >CHILD_MASK; ALU NOT RG4 RG4; ALU AND RG3 RG4
+		LDI RG4 >SIB_MASK; ALU AND RG4 RG1; ALI SRB RG4 >SIB_SHIFT  / Get child in RG4
+		ALU OR RG3 RG4; STR RG3 RG2 >ProcList
+		RET
+		
+	#ReC.IsSibling
+	/ Case 3 - Proc is a sibling, "bridge" over the process
+	
+	/ Get the main word of the sibling in RG3 (and actual index in RG2)
+	LDI RG2 >CHILD_MASK
+	
+	#ReC.SibLoop
+		ALU AND RG2 RG3
+		ALI MUL RG2 >PROC_WORDS; LOD RG3 RG2 >ProcList
+		LDI RG4 >SIB_MASK; ALU AND RG4 RG3; ALI SRB RG4 >SIB_SHIFT
+		CMP RG4 RG0; JEQ >ReC.FoundSib
+		MOV RG2 RG4; JMP >ReC.SibLoop
+	#ReC.FoundSib
+	
+	/ Found the sibling, bridge over the process
+	LDI RG4 >SIB_MASK; ALU AND RG1 RG4; ALI SRB RG1 >SIB_SHIFT
+	ALU NOT RG4 RG4; ALU AND RG3 RG4
+	ALU OR RG3 RG1; STR RG3 RG2 >ProcList
+	
+	#ReC.Done
+	RET
+)
+
+
+
+/ (Loadable Start, Memory Start) Loads a file at IOP into memory
+/ Modifies Rg0 Rg1 and FLG
+(#LoadFile
+	/ Switch to the drive pointer and write to it
+	ALI SET FLG >DRIVE_PTR_BIT
+	MOV IO RG0
+	
+	/ Now load the size of the file into RG0
+	ALI UST FLG >DRIVE_PTR_BIT
+	MOV RG0 IO
+	
+	/ Then write the file to memory
+	PAS RG0; JIF EQZ >LoF.Done
+	#LoF.LoadLoop
 		STR IO RG1 0
 		INC RG1
-	DEC RG2; JIF NEZ >LoP.LoadLoop
+	DEC RG0; JIF NEZ >LoF.LoadLoop
+	
+	/ Finally, return
+	#LoF.Done
 	RET
 )
 
 
 
-/ (Size), returns the number of the first 0 bit
+/ (Size), returns the number of the first 0 bit, or NULL if none are found
 / Modifies RG1-5, and FLG
 (#FindOpenMemory
 	/ RG1: Current bitwise index
