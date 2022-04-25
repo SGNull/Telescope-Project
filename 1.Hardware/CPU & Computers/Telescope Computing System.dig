@@ -125,11 +125,6 @@
       <pos x="0" y="160"/>
     </visualElement>
     <visualElement>
-      <elementName>RS_FF_AS</elementName>
-      <elementAttributes/>
-      <pos x="2340" y="-380"/>
-    </visualElement>
-    <visualElement>
       <elementName>Const</elementName>
       <elementAttributes>
         <entry>
@@ -137,7 +132,7 @@
           <long>0</long>
         </entry>
       </elementAttributes>
-      <pos x="2320" y="-360"/>
+      <pos x="2340" y="-360"/>
     </visualElement>
     <visualElement>
       <elementName>Break</elementName>
@@ -151,7 +146,7 @@
           <string>OS Alive</string>
         </entry>
       </elementAttributes>
-      <pos x="2440" y="-440"/>
+      <pos x="2460" y="-440"/>
     </visualElement>
     <visualElement>
       <elementName>And</elementName>
@@ -161,7 +156,7 @@
           <boolean>true</boolean>
         </entry>
       </elementAttributes>
-      <pos x="2440" y="-380"/>
+      <pos x="2460" y="-380"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
@@ -2492,7 +2487,7 @@
     <visualElement>
       <elementName>TNET.dig</elementName>
       <elementAttributes/>
-      <pos x="2680" y="3680"/>
+      <pos x="2680" y="3660"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
@@ -2507,7 +2502,9 @@
 
 17: Write
 
-18: Constant 1</string>
+18: Clock
+
+19: Constant 1</string>
         </entry>
         <entry>
           <string>Label</string>
@@ -2515,7 +2512,7 @@
         </entry>
         <entry>
           <string>Bits</string>
-          <int>19</int>
+          <int>20</int>
         </entry>
       </elementAttributes>
       <pos x="3040" y="3680"/>
@@ -2533,7 +2530,9 @@
 
 17: Write
 
-18: Override inbound</string>
+18: Clock In
+
+19: Override inbound</string>
         </entry>
         <entry>
           <string>rotation</string>
@@ -2545,51 +2544,10 @@
         </entry>
         <entry>
           <string>Bits</string>
-          <int>19</int>
+          <int>20</int>
         </entry>
       </elementAttributes>
-      <pos x="3040" y="3760"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Input Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>19</string>
-        </entry>
-      </elementAttributes>
-      <pos x="2980" y="3680"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>mirror</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
-          <string>rotation</string>
-          <rotation rotation="2"/>
-        </entry>
-        <entry>
-          <string>Input Splitting</string>
-          <string>19</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-      </elementAttributes>
-      <pos x="3000" y="3760"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Const</elementName>
-      <elementAttributes/>
-      <pos x="2960" y="3740"/>
+      <pos x="3040" y="3780"/>
     </visualElement>
     <visualElement>
       <elementName>Splitter</elementName>
@@ -2614,144 +2572,6 @@
       <pos x="2620" y="3760"/>
     </visualElement>
     <visualElement>
-      <elementName>TNET.dig</elementName>
-      <elementAttributes/>
-      <pos x="2680" y="3880"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Input Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>19</string>
-        </entry>
-      </elementAttributes>
-      <pos x="2980" y="3880"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>mirror</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
-          <string>rotation</string>
-          <rotation rotation="2"/>
-        </entry>
-        <entry>
-          <string>Input Splitting</string>
-          <string>19</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-      </elementAttributes>
-      <pos x="3000" y="3960"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Const</elementName>
-      <elementAttributes/>
-      <pos x="2960" y="3940"/>
-    </visualElement>
-    <visualElement>
-      <elementName>TNET.dig</elementName>
-      <elementAttributes/>
-      <pos x="2680" y="4080"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Input Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>19</string>
-        </entry>
-      </elementAttributes>
-      <pos x="2980" y="4080"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>mirror</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
-          <string>rotation</string>
-          <rotation rotation="2"/>
-        </entry>
-        <entry>
-          <string>Input Splitting</string>
-          <string>19</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-      </elementAttributes>
-      <pos x="3000" y="4160"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Const</elementName>
-      <elementAttributes/>
-      <pos x="2960" y="4140"/>
-    </visualElement>
-    <visualElement>
-      <elementName>TNET.dig</elementName>
-      <elementAttributes/>
-      <pos x="2680" y="4280"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Input Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>19</string>
-        </entry>
-      </elementAttributes>
-      <pos x="2980" y="4280"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>mirror</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
-          <string>rotation</string>
-          <rotation rotation="2"/>
-        </entry>
-        <entry>
-          <string>Input Splitting</string>
-          <string>19</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>16,1,1,1</string>
-        </entry>
-      </elementAttributes>
-      <pos x="3000" y="4360"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Const</elementName>
-      <elementAttributes/>
-      <pos x="2960" y="4340"/>
-    </visualElement>
-    <visualElement>
       <elementName>Bootloader Machine.dig</elementName>
       <elementAttributes/>
       <pos x="780" y="300"/>
@@ -2768,7 +2588,7 @@
           <string>TNET I/O</string>
         </entry>
       </elementAttributes>
-      <pos x="2700" y="3620"/>
+      <pos x="2700" y="3600"/>
     </visualElement>
     <visualElement>
       <elementName>Counter</elementName>
@@ -3035,7 +2855,7 @@
           <string>18</string>
         </entry>
       </elementAttributes>
-      <pos x="2620" y="3960"/>
+      <pos x="2620" y="4000"/>
     </visualElement>
     <visualElement>
       <elementName>Splitter</elementName>
@@ -3057,7 +2877,7 @@
           <string>18</string>
         </entry>
       </elementAttributes>
-      <pos x="2620" y="4160"/>
+      <pos x="2620" y="4240"/>
     </visualElement>
     <visualElement>
       <elementName>Splitter</elementName>
@@ -3079,7 +2899,7 @@
           <string>18</string>
         </entry>
       </elementAttributes>
-      <pos x="2620" y="4360"/>
+      <pos x="2620" y="4480"/>
     </visualElement>
     <visualElement>
       <elementName>Splitter</elementName>
@@ -3107,7 +2927,7 @@
           <string>1,1</string>
         </entry>
       </elementAttributes>
-      <pos x="2600" y="3920"/>
+      <pos x="2600" y="3960"/>
     </visualElement>
     <visualElement>
       <elementName>Splitter</elementName>
@@ -3121,7 +2941,7 @@
           <string>1,1</string>
         </entry>
       </elementAttributes>
-      <pos x="2600" y="4120"/>
+      <pos x="2600" y="4200"/>
     </visualElement>
     <visualElement>
       <elementName>Splitter</elementName>
@@ -3135,7 +2955,7 @@
           <string>1,1</string>
         </entry>
       </elementAttributes>
-      <pos x="2600" y="4320"/>
+      <pos x="2600" y="4440"/>
     </visualElement>
     <visualElement>
       <elementName>RS_FF_AS</elementName>
@@ -3470,174 +3290,6 @@
       <pos x="2840" y="2260"/>
     </visualElement>
     <visualElement>
-      <elementName>Out</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>TNET output
-
-0-15: Data
-
-16: Read
-
-17: Write
-
-18: Constant 1</string>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>TNET-O 1</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>19</int>
-        </entry>
-      </elementAttributes>
-      <pos x="3040" y="3880"/>
-    </visualElement>
-    <visualElement>
-      <elementName>In</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>TNET input
-
-0-15: Data
-
-16: Read
-
-17: Write
-
-18: Override inbound</string>
-        </entry>
-        <entry>
-          <string>rotation</string>
-          <rotation rotation="2"/>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>TNET-I 1</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>19</int>
-        </entry>
-      </elementAttributes>
-      <pos x="3040" y="3960"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Out</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>TNET output
-
-0-15: Data
-
-16: Read
-
-17: Write
-
-18: Constant 1</string>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>TNET-O 2</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>19</int>
-        </entry>
-      </elementAttributes>
-      <pos x="3040" y="4080"/>
-    </visualElement>
-    <visualElement>
-      <elementName>In</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>TNET input
-
-0-15: Data
-
-16: Read
-
-17: Write
-
-18: Override inbound</string>
-        </entry>
-        <entry>
-          <string>rotation</string>
-          <rotation rotation="2"/>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>TNET-I 2</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>19</int>
-        </entry>
-      </elementAttributes>
-      <pos x="3040" y="4160"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Out</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>TNET output
-
-0-15: Data
-
-16: Read
-
-17: Write
-
-18: Constant 1</string>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>TNET-O 3</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>19</int>
-        </entry>
-      </elementAttributes>
-      <pos x="3040" y="4280"/>
-    </visualElement>
-    <visualElement>
-      <elementName>In</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Description</string>
-          <string>TNET input
-
-0-15: Data
-
-16: Read
-
-17: Write
-
-18: Override inbound</string>
-        </entry>
-        <entry>
-          <string>rotation</string>
-          <rotation rotation="2"/>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>TNET-I 3</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>19</int>
-        </entry>
-      </elementAttributes>
-      <pos x="3040" y="4360"/>
-    </visualElement>
-    <visualElement>
       <elementName>Text</elementName>
       <elementAttributes>
         <entry>
@@ -3670,6 +3322,389 @@ CPU is paused or not. Is this bad?</string>
       <elementName>Demultiplexer</elementName>
       <elementAttributes/>
       <pos x="-60" y="260"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Input Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>20</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3000" y="3680"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Const</elementName>
+      <elementAttributes/>
+      <pos x="2980" y="3760"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>mirror</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>Input Splitting</string>
+          <string>20</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3020" y="3780"/>
+    </visualElement>
+    <visualElement>
+      <elementName>TNET.dig</elementName>
+      <elementAttributes/>
+      <pos x="2680" y="3900"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
+          <string>TNET output
+
+0-15: Data
+
+16: Read
+
+17: Write
+
+18: Clock
+
+19: Constant 1</string>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>TNET-O 1</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>20</int>
+        </entry>
+      </elementAttributes>
+      <pos x="3040" y="3920"/>
+    </visualElement>
+    <visualElement>
+      <elementName>In</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
+          <string>TNET input
+
+0-15: Data
+
+16: Read
+
+17: Write
+
+18: Clock In
+
+19: Override inbound</string>
+        </entry>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>TNET-I 1</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>20</int>
+        </entry>
+      </elementAttributes>
+      <pos x="3040" y="4020"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Input Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>20</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3000" y="3920"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Const</elementName>
+      <elementAttributes/>
+      <pos x="2980" y="4000"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>mirror</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>Input Splitting</string>
+          <string>20</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3020" y="4020"/>
+    </visualElement>
+    <visualElement>
+      <elementName>TNET.dig</elementName>
+      <elementAttributes/>
+      <pos x="2680" y="4140"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
+          <string>TNET output
+
+0-15: Data
+
+16: Read
+
+17: Write
+
+18: Clock
+
+19: Constant 1</string>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>TNET-O 2</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>20</int>
+        </entry>
+      </elementAttributes>
+      <pos x="3040" y="4160"/>
+    </visualElement>
+    <visualElement>
+      <elementName>In</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
+          <string>TNET input
+
+0-15: Data
+
+16: Read
+
+17: Write
+
+18: Clock In
+
+19: Override inbound</string>
+        </entry>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>TNET-I 2</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>20</int>
+        </entry>
+      </elementAttributes>
+      <pos x="3040" y="4260"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Input Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>20</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3000" y="4160"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Const</elementName>
+      <elementAttributes/>
+      <pos x="2980" y="4240"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>mirror</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>Input Splitting</string>
+          <string>20</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3020" y="4260"/>
+    </visualElement>
+    <visualElement>
+      <elementName>TNET.dig</elementName>
+      <elementAttributes/>
+      <pos x="2680" y="4380"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
+          <string>TNET output
+
+0-15: Data
+
+16: Read
+
+17: Write
+
+18: Clock
+
+19: Constant 1</string>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>TNET-O 3</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>20</int>
+        </entry>
+      </elementAttributes>
+      <pos x="3040" y="4400"/>
+    </visualElement>
+    <visualElement>
+      <elementName>In</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Description</string>
+          <string>TNET input
+
+0-15: Data
+
+16: Read
+
+17: Write
+
+18: Clock In
+
+19: Override inbound</string>
+        </entry>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>TNET-I 3</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>20</int>
+        </entry>
+      </elementAttributes>
+      <pos x="3040" y="4500"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Input Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>20</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3000" y="4400"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Const</elementName>
+      <elementAttributes/>
+      <pos x="2980" y="4480"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Splitter</elementName>
+      <elementAttributes>
+        <entry>
+          <string>mirror</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>rotation</string>
+          <rotation rotation="2"/>
+        </entry>
+        <entry>
+          <string>Input Splitting</string>
+          <string>20</string>
+        </entry>
+        <entry>
+          <string>Output Splitting</string>
+          <string>16, 1, 1, 1, 1</string>
+        </entry>
+      </elementAttributes>
+      <pos x="3020" y="4500"/>
+    </visualElement>
+    <visualElement>
+      <elementName>RS_FF</elementName>
+      <elementAttributes/>
+      <pos x="2360" y="-400"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Break</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Cycles</string>
+          <int>10000</int>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>OS Stopped</string>
+        </entry>
+      </elementAttributes>
+      <pos x="2640" y="-360"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Not</elementName>
+      <elementAttributes/>
+      <pos x="2580" y="-360"/>
     </visualElement>
   </visualElements>
   <wires>
@@ -3706,16 +3741,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1540"/>
     </wire>
     <wire>
-      <p1 x="2920" y="4100"/>
-      <p2 x="2980" y="4100"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4100"/>
-      <p2 x="2900" y="4100"/>
-    </wire>
-    <wire>
-      <p1 x="2560" y="4100"/>
-      <p2 x="2680" y="4100"/>
+      <p1 x="2780" y="4100"/>
+      <p2 x="3000" y="4100"/>
     </wire>
     <wire>
       <p1 x="1340" y="520"/>
@@ -3786,20 +3813,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2600" y="20"/>
     </wire>
     <wire>
-      <p1 x="1920" y="4120"/>
-      <p2 x="2600" y="4120"/>
-    </wire>
-    <wire>
-      <p1 x="2940" y="4120"/>
+      <p1 x="2660" y="4120"/>
       <p2 x="2980" y="4120"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4120"/>
-      <p2 x="2920" y="4120"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4120"/>
-      <p2 x="2680" y="4120"/>
     </wire>
     <wire>
       <p1 x="120" y="1560"/>
@@ -3902,18 +3917,6 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1580"/>
     </wire>
     <wire>
-      <p1 x="2960" y="4140"/>
-      <p2 x="2980" y="4140"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4140"/>
-      <p2 x="2940" y="4140"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4140"/>
-      <p2 x="2680" y="4140"/>
-    </wire>
-    <wire>
       <p1 x="1360" y="560"/>
       <p2 x="1380" y="560"/>
     </wire>
@@ -3954,6 +3957,14 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="620" y="1080"/>
     </wire>
     <wire>
+      <p1 x="2660" y="3640"/>
+      <p2 x="2860" y="3640"/>
+    </wire>
+    <wire>
+      <p1 x="2860" y="3640"/>
+      <p2 x="2980" y="3640"/>
+    </wire>
+    <wire>
       <p1 x="1820" y="-60"/>
       <p2 x="2180" y="-60"/>
     </wire>
@@ -3982,19 +3993,15 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1600"/>
     </wire>
     <wire>
-      <p1 x="1020" y="4160"/>
-      <p2 x="2600" y="4160"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4160"/>
-      <p2 x="2980" y="4160"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4160"/>
+      <p1 x="2660" y="4160"/>
       <p2 x="2680" y="4160"/>
     </wire>
     <wire>
-      <p1 x="3000" y="4160"/>
+      <p1 x="2880" y="4160"/>
+      <p2 x="3000" y="4160"/>
+    </wire>
+    <wire>
+      <p1 x="3020" y="4160"/>
       <p2 x="3040" y="4160"/>
     </wire>
     <wire>
@@ -4038,14 +4045,6 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="620" y="1100"/>
     </wire>
     <wire>
-      <p1 x="2660" y="3660"/>
-      <p2 x="2780" y="3660"/>
-    </wire>
-    <wire>
-      <p1 x="2780" y="3660"/>
-      <p2 x="2860" y="3660"/>
-    </wire>
-    <wire>
       <p1 x="1780" y="-80"/>
       <p2 x="2280" y="-80"/>
     </wire>
@@ -4086,6 +4085,14 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="2640"/>
     </wire>
     <wire>
+      <p1 x="2880" y="4180"/>
+      <p2 x="3000" y="4180"/>
+    </wire>
+    <wire>
+      <p1 x="2560" y="4180"/>
+      <p2 x="2680" y="4180"/>
+    </wire>
+    <wire>
       <p1 x="60" y="1620"/>
       <p2 x="1160" y="1620"/>
     </wire>
@@ -4104,14 +4111,6 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="3080" y="1620"/>
       <p2 x="3120" y="1620"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4180"/>
-      <p2 x="2980" y="4180"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4180"/>
-      <p2 x="2680" y="4180"/>
     </wire>
     <wire>
       <p1 x="1120" y="600"/>
@@ -4154,12 +4153,16 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="3060" y="1120"/>
     </wire>
     <wire>
-      <p1 x="3000" y="3680"/>
-      <p2 x="3040" y="3680"/>
+      <p1 x="2660" y="3680"/>
+      <p2 x="2680" y="3680"/>
     </wire>
     <wire>
-      <p1 x="2900" y="3680"/>
-      <p2 x="2980" y="3680"/>
+      <p1 x="2880" y="3680"/>
+      <p2 x="3000" y="3680"/>
+    </wire>
+    <wire>
+      <p1 x="3020" y="3680"/>
+      <p2 x="3040" y="3680"/>
     </wire>
     <wire>
       <p1 x="720" y="-100"/>
@@ -4198,6 +4201,18 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2840" y="2660"/>
     </wire>
     <wire>
+      <p1 x="1920" y="4200"/>
+      <p2 x="2600" y="4200"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4200"/>
+      <p2 x="3000" y="4200"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4200"/>
+      <p2 x="2680" y="4200"/>
+    </wire>
+    <wire>
       <p1 x="40" y="1640"/>
       <p2 x="1140" y="1640"/>
     </wire>
@@ -4212,14 +4227,6 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="3040" y="1640"/>
       <p2 x="3060" y="1640"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4200"/>
-      <p2 x="2980" y="4200"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4200"/>
-      <p2 x="2680" y="4200"/>
     </wire>
     <wire>
       <p1 x="1140" y="620"/>
@@ -4262,16 +4269,12 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="620" y="1140"/>
     </wire>
     <wire>
-      <p1 x="2920" y="3700"/>
-      <p2 x="2980" y="3700"/>
+      <p1 x="2560" y="3700"/>
+      <p2 x="2680" y="3700"/>
     </wire>
     <wire>
       <p1 x="2880" y="3700"/>
-      <p2 x="2900" y="3700"/>
-    </wire>
-    <wire>
-      <p1 x="2560" y="3700"/>
-      <p2 x="2680" y="3700"/>
+      <p2 x="3000" y="3700"/>
     </wire>
     <wire>
       <p1 x="740" y="-120"/>
@@ -4314,8 +4317,16 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="3060" y="1660"/>
     </wire>
     <wire>
-      <p1 x="2900" y="4220"/>
-      <p2 x="2980" y="4220"/>
+      <p1 x="2980" y="4220"/>
+      <p2 x="3000" y="4220"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4220"/>
+      <p2 x="2960" y="4220"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4220"/>
+      <p2 x="2680" y="4220"/>
     </wire>
     <wire>
       <p1 x="1120" y="640"/>
@@ -4346,16 +4357,12 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2600" y="3720"/>
     </wire>
     <wire>
-      <p1 x="2940" y="3720"/>
-      <p2 x="2980" y="3720"/>
+      <p1 x="2620" y="3720"/>
+      <p2 x="2680" y="3720"/>
     </wire>
     <wire>
       <p1 x="2880" y="3720"/>
-      <p2 x="2920" y="3720"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="3720"/>
-      <p2 x="2680" y="3720"/>
+      <p2 x="3000" y="3720"/>
     </wire>
     <wire>
       <p1 x="2420" y="1160"/>
@@ -4374,16 +4381,28 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2600" y="140"/>
     </wire>
     <wire>
+      <p1 x="1020" y="4240"/>
+      <p2 x="2600" y="4240"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="4240"/>
+      <p2 x="3000" y="4240"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4240"/>
+      <p2 x="2940" y="4240"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4240"/>
+      <p2 x="2680" y="4240"/>
+    </wire>
+    <wire>
       <p1 x="0" y="1680"/>
       <p2 x="1100" y="1680"/>
     </wire>
     <wire>
       <p1 x="2420" y="1680"/>
       <p2 x="2760" y="1680"/>
-    </wire>
-    <wire>
-      <p1 x="2780" y="4240"/>
-      <p2 x="2900" y="4240"/>
     </wire>
     <wire>
       <p1 x="1120" y="660"/>
@@ -4430,16 +4449,16 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2960" y="1180"/>
     </wire>
     <wire>
-      <p1 x="2960" y="3740"/>
-      <p2 x="2980" y="3740"/>
+      <p1 x="2620" y="3740"/>
+      <p2 x="2680" y="3740"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="3740"/>
+      <p2 x="3000" y="3740"/>
     </wire>
     <wire>
       <p1 x="2880" y="3740"/>
-      <p2 x="2940" y="3740"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="3740"/>
-      <p2 x="2680" y="3740"/>
+      <p2 x="2960" y="3740"/>
     </wire>
     <wire>
       <p1 x="0" y="160"/>
@@ -4470,8 +4489,20 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2960" y="1700"/>
     </wire>
     <wire>
-      <p1 x="2660" y="4260"/>
-      <p2 x="2780" y="4260"/>
+      <p1 x="2960" y="4260"/>
+      <p2 x="3000" y="4260"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4260"/>
+      <p2 x="2920" y="4260"/>
+    </wire>
+    <wire>
+      <p1 x="3020" y="4260"/>
+      <p2 x="3040" y="4260"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4260"/>
+      <p2 x="2680" y="4260"/>
     </wire>
     <wire>
       <p1 x="1140" y="680"/>
@@ -4502,16 +4533,16 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2600" y="3760"/>
     </wire>
     <wire>
-      <p1 x="3000" y="3760"/>
-      <p2 x="3040" y="3760"/>
+      <p1 x="2620" y="3760"/>
+      <p2 x="2680" y="3760"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="3760"/>
+      <p2 x="3000" y="3760"/>
     </wire>
     <wire>
       <p1 x="2880" y="3760"/>
-      <p2 x="2980" y="3760"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="3760"/>
-      <p2 x="2680" y="3760"/>
+      <p2 x="2940" y="3760"/>
     </wire>
     <wire>
       <p1 x="180" y="-180"/>
@@ -4542,12 +4573,16 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2940" y="1720"/>
     </wire>
     <wire>
-      <p1 x="2900" y="4280"/>
-      <p2 x="2980" y="4280"/>
+      <p1 x="2940" y="4280"/>
+      <p2 x="3000" y="4280"/>
     </wire>
     <wire>
-      <p1 x="3000" y="4280"/>
-      <p2 x="3040" y="4280"/>
+      <p1 x="2880" y="4280"/>
+      <p2 x="2900" y="4280"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4280"/>
+      <p2 x="2680" y="4280"/>
     </wire>
     <wire>
       <p1 x="200" y="700"/>
@@ -4586,12 +4621,20 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="1040" y="1220"/>
     </wire>
     <wire>
-      <p1 x="2880" y="3780"/>
-      <p2 x="2980" y="3780"/>
-    </wire>
-    <wire>
       <p1 x="2620" y="3780"/>
       <p2 x="2680" y="3780"/>
+    </wire>
+    <wire>
+      <p1 x="2960" y="3780"/>
+      <p2 x="3000" y="3780"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="3780"/>
+      <p2 x="2920" y="3780"/>
+    </wire>
+    <wire>
+      <p1 x="3020" y="3780"/>
+      <p2 x="3040" y="3780"/>
     </wire>
     <wire>
       <p1 x="1460" y="200"/>
@@ -4623,15 +4666,7 @@ CPU is paused or not. Is this bad?</string>
     </wire>
     <wire>
       <p1 x="2920" y="4300"/>
-      <p2 x="2980" y="4300"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4300"/>
-      <p2 x="2900" y="4300"/>
-    </wire>
-    <wire>
-      <p1 x="2560" y="4300"/>
-      <p2 x="2680" y="4300"/>
+      <p2 x="3000" y="4300"/>
     </wire>
     <wire>
       <p1 x="160" y="720"/>
@@ -4654,12 +4689,16 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="760" y="1240"/>
     </wire>
     <wire>
-      <p1 x="2880" y="3800"/>
-      <p2 x="2980" y="3800"/>
-    </wire>
-    <wire>
       <p1 x="2620" y="3800"/>
       <p2 x="2680" y="3800"/>
+    </wire>
+    <wire>
+      <p1 x="2940" y="3800"/>
+      <p2 x="3000" y="3800"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="3800"/>
+      <p2 x="2900" y="3800"/>
     </wire>
     <wire>
       <p1 x="2300" y="-220"/>
@@ -4682,20 +4721,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="2780"/>
     </wire>
     <wire>
-      <p1 x="1900" y="4320"/>
-      <p2 x="2600" y="4320"/>
-    </wire>
-    <wire>
-      <p1 x="2940" y="4320"/>
-      <p2 x="2980" y="4320"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4320"/>
-      <p2 x="2920" y="4320"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4320"/>
-      <p2 x="2680" y="4320"/>
+      <p1 x="2900" y="4320"/>
+      <p2 x="3000" y="4320"/>
     </wire>
     <wire>
       <p1 x="-80" y="1760"/>
@@ -4726,8 +4753,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="780" y="1260"/>
     </wire>
     <wire>
-      <p1 x="2900" y="3820"/>
-      <p2 x="2980" y="3820"/>
+      <p1 x="2920" y="3820"/>
+      <p2 x="3000" y="3820"/>
     </wire>
     <wire>
       <p1 x="2320" y="-240"/>
@@ -4754,6 +4781,10 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="2800"/>
     </wire>
     <wire>
+      <p1 x="2780" y="4340"/>
+      <p2 x="3000" y="4340"/>
+    </wire>
+    <wire>
       <p1 x="-100" y="1780"/>
       <p2 x="1000" y="1780"/>
     </wire>
@@ -4764,18 +4795,6 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="2300" y="1780"/>
       <p2 x="2400" y="1780"/>
-    </wire>
-    <wire>
-      <p1 x="2960" y="4340"/>
-      <p2 x="2980" y="4340"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4340"/>
-      <p2 x="2940" y="4340"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4340"/>
-      <p2 x="2680" y="4340"/>
     </wire>
     <wire>
       <p1 x="120" y="760"/>
@@ -4806,8 +4825,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="800" y="1280"/>
     </wire>
     <wire>
-      <p1 x="2780" y="3840"/>
-      <p2 x="2900" y="3840"/>
+      <p1 x="2900" y="3840"/>
+      <p2 x="3000" y="3840"/>
     </wire>
     <wire>
       <p1 x="2280" y="-260"/>
@@ -4858,20 +4877,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1800"/>
     </wire>
     <wire>
-      <p1 x="1000" y="4360"/>
-      <p2 x="2600" y="4360"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4360"/>
+      <p1 x="2660" y="4360"/>
       <p2 x="2980" y="4360"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4360"/>
-      <p2 x="2680" y="4360"/>
-    </wire>
-    <wire>
-      <p1 x="3000" y="4360"/>
-      <p2 x="3040" y="4360"/>
     </wire>
     <wire>
       <p1 x="100" y="780"/>
@@ -4906,8 +4913,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2720" y="1300"/>
     </wire>
     <wire>
-      <p1 x="2660" y="3860"/>
-      <p2 x="2780" y="3860"/>
+      <p1 x="2780" y="3860"/>
+      <p2 x="3000" y="3860"/>
     </wire>
     <wire>
       <p1 x="1460" y="280"/>
@@ -4962,14 +4969,6 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2720" y="1820"/>
     </wire>
     <wire>
-      <p1 x="2880" y="4380"/>
-      <p2 x="2980" y="4380"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4380"/>
-      <p2 x="2680" y="4380"/>
-    </wire>
-    <wire>
       <p1 x="60" y="800"/>
       <p2 x="620" y="800"/>
     </wire>
@@ -5010,12 +5009,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1320"/>
     </wire>
     <wire>
-      <p1 x="2900" y="3880"/>
+      <p1 x="2660" y="3880"/>
       <p2 x="2980" y="3880"/>
-    </wire>
-    <wire>
-      <p1 x="3000" y="3880"/>
-      <p2 x="3040" y="3880"/>
     </wire>
     <wire>
       <p1 x="760" y="300"/>
@@ -5050,12 +5045,16 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1840"/>
     </wire>
     <wire>
-      <p1 x="2880" y="4400"/>
-      <p2 x="2980" y="4400"/>
+      <p1 x="2660" y="4400"/>
+      <p2 x="2680" y="4400"/>
     </wire>
     <wire>
-      <p1 x="2620" y="4400"/>
-      <p2 x="2680" y="4400"/>
+      <p1 x="2880" y="4400"/>
+      <p2 x="3000" y="4400"/>
+    </wire>
+    <wire>
+      <p1 x="3020" y="4400"/>
+      <p2 x="3040" y="4400"/>
     </wire>
     <wire>
       <p1 x="40" y="820"/>
@@ -5094,20 +5093,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1340"/>
     </wire>
     <wire>
-      <p1 x="2920" y="3900"/>
-      <p2 x="2980" y="3900"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="3900"/>
-      <p2 x="2900" y="3900"/>
-    </wire>
-    <wire>
-      <p1 x="2560" y="3900"/>
-      <p2 x="2680" y="3900"/>
-    </wire>
-    <wire>
       <p1 x="180" y="-320"/>
-      <p2 x="2540" y="-320"/>
+      <p2 x="2560" y="-320"/>
     </wire>
     <wire>
       <p1 x="1020" y="320"/>
@@ -5150,8 +5137,12 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="1860"/>
     </wire>
     <wire>
-      <p1 x="2900" y="4420"/>
-      <p2 x="2980" y="4420"/>
+      <p1 x="2880" y="4420"/>
+      <p2 x="3000" y="4420"/>
+    </wire>
+    <wire>
+      <p1 x="2560" y="4420"/>
+      <p2 x="2680" y="4420"/>
     </wire>
     <wire>
       <p1 x="20" y="840"/>
@@ -5178,19 +5169,15 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="2380"/>
     </wire>
     <wire>
-      <p1 x="1940" y="3920"/>
-      <p2 x="2600" y="3920"/>
-    </wire>
-    <wire>
-      <p1 x="2940" y="3920"/>
-      <p2 x="2980" y="3920"/>
-    </wire>
-    <wire>
       <p1 x="2880" y="3920"/>
-      <p2 x="2920" y="3920"/>
+      <p2 x="3000" y="3920"/>
     </wire>
     <wire>
-      <p1 x="2620" y="3920"/>
+      <p1 x="3020" y="3920"/>
+      <p2 x="3040" y="3920"/>
+    </wire>
+    <wire>
+      <p1 x="2660" y="3920"/>
       <p2 x="2680" y="3920"/>
     </wire>
     <wire>
@@ -5215,7 +5202,7 @@ CPU is paused or not. Is this bad?</string>
     </wire>
     <wire>
       <p1 x="1060" y="-340"/>
-      <p2 x="2440" y="-340"/>
+      <p2 x="2460" y="-340"/>
     </wire>
     <wire>
       <p1 x="720" y="340"/>
@@ -5238,6 +5225,18 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="560" y="340"/>
     </wire>
     <wire>
+      <p1 x="1900" y="4440"/>
+      <p2 x="2600" y="4440"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4440"/>
+      <p2 x="3000" y="4440"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4440"/>
+      <p2 x="2680" y="4440"/>
+    </wire>
+    <wire>
       <p1 x="2600" y="1880"/>
       <p2 x="2640" y="1880"/>
     </wire>
@@ -5252,10 +5251,6 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="3080" y="1880"/>
       <p2 x="3100" y="1880"/>
-    </wire>
-    <wire>
-      <p1 x="2780" y="4440"/>
-      <p2 x="2900" y="4440"/>
     </wire>
     <wire>
       <p1 x="0" y="860"/>
@@ -5274,6 +5269,14 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="2400"/>
     </wire>
     <wire>
+      <p1 x="2880" y="3940"/>
+      <p2 x="3000" y="3940"/>
+    </wire>
+    <wire>
+      <p1 x="2560" y="3940"/>
+      <p2 x="2680" y="3940"/>
+    </wire>
+    <wire>
       <p1 x="300" y="1380"/>
       <p2 x="1400" y="1380"/>
     </wire>
@@ -5290,24 +5293,20 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="3060" y="1380"/>
     </wire>
     <wire>
-      <p1 x="2960" y="3940"/>
-      <p2 x="2980" y="3940"/>
+      <p1 x="2540" y="-360"/>
+      <p2 x="2560" y="-360"/>
     </wire>
     <wire>
-      <p1 x="2880" y="3940"/>
-      <p2 x="2940" y="3940"/>
+      <p1 x="2340" y="-360"/>
+      <p2 x="2360" y="-360"/>
     </wire>
     <wire>
-      <p1 x="2620" y="3940"/>
-      <p2 x="2680" y="3940"/>
+      <p1 x="2620" y="-360"/>
+      <p2 x="2640" y="-360"/>
     </wire>
     <wire>
-      <p1 x="2320" y="-360"/>
-      <p2 x="2340" y="-360"/>
-    </wire>
-    <wire>
-      <p1 x="2520" y="-360"/>
-      <p2 x="2540" y="-360"/>
+      <p1 x="2560" y="-360"/>
+      <p2 x="2580" y="-360"/>
     </wire>
     <wire>
       <p1 x="740" y="360"/>
@@ -5342,6 +5341,18 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="3060" y="1900"/>
     </wire>
     <wire>
+      <p1 x="2980" y="4460"/>
+      <p2 x="3000" y="4460"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4460"/>
+      <p2 x="2960" y="4460"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4460"/>
+      <p2 x="2680" y="4460"/>
+    </wire>
+    <wire>
       <p1 x="660" y="880"/>
       <p2 x="700" y="880"/>
     </wire>
@@ -5352,6 +5363,18 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="800" y="880"/>
       <p2 x="2680" y="880"/>
+    </wire>
+    <wire>
+      <p1 x="1940" y="3960"/>
+      <p2 x="2600" y="3960"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="3960"/>
+      <p2 x="2680" y="3960"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="3960"/>
+      <p2 x="3000" y="3960"/>
     </wire>
     <wire>
       <p1 x="2460" y="1400"/>
@@ -5366,32 +5389,12 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="3060" y="1400"/>
     </wire>
     <wire>
-      <p1 x="1040" y="3960"/>
-      <p2 x="2600" y="3960"/>
+      <p1 x="2440" y="-380"/>
+      <p2 x="2460" y="-380"/>
     </wire>
     <wire>
-      <p1 x="2880" y="3960"/>
-      <p2 x="2980" y="3960"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="3960"/>
-      <p2 x="2680" y="3960"/>
-    </wire>
-    <wire>
-      <p1 x="3000" y="3960"/>
-      <p2 x="3040" y="3960"/>
-    </wire>
-    <wire>
-      <p1 x="2300" y="-380"/>
-      <p2 x="2340" y="-380"/>
-    </wire>
-    <wire>
-      <p1 x="2400" y="-380"/>
-      <p2 x="2420" y="-380"/>
-    </wire>
-    <wire>
-      <p1 x="2420" y="-380"/>
-      <p2 x="2440" y="-380"/>
+      <p1 x="2320" y="-380"/>
+      <p2 x="2360" y="-380"/>
     </wire>
     <wire>
       <p1 x="320" y="380"/>
@@ -5416,6 +5419,22 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="700" y="380"/>
       <p2 x="740" y="380"/>
+    </wire>
+    <wire>
+      <p1 x="1000" y="4480"/>
+      <p2 x="2600" y="4480"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="4480"/>
+      <p2 x="3000" y="4480"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4480"/>
+      <p2 x="2940" y="4480"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4480"/>
+      <p2 x="2680" y="4480"/>
     </wire>
     <wire>
       <p1 x="2200" y="1920"/>
@@ -5454,6 +5473,18 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="2440"/>
     </wire>
     <wire>
+      <p1 x="2620" y="3980"/>
+      <p2 x="2680" y="3980"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="3980"/>
+      <p2 x="3000" y="3980"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="3980"/>
+      <p2 x="2960" y="3980"/>
+    </wire>
+    <wire>
       <p1 x="260" y="1420"/>
       <p2 x="1300" y="1420"/>
     </wire>
@@ -5462,12 +5493,12 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2760" y="1420"/>
     </wire>
     <wire>
-      <p1 x="2880" y="3980"/>
-      <p2 x="2980" y="3980"/>
+      <p1 x="2300" y="-400"/>
+      <p2 x="2360" y="-400"/>
     </wire>
     <wire>
-      <p1 x="2620" y="3980"/>
-      <p2 x="2680" y="3980"/>
+      <p1 x="2420" y="-400"/>
+      <p2 x="2440" y="-400"/>
     </wire>
     <wire>
       <p1 x="-20" y="400"/>
@@ -5498,6 +5529,22 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2760" y="1940"/>
     </wire>
     <wire>
+      <p1 x="2960" y="4500"/>
+      <p2 x="3000" y="4500"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4500"/>
+      <p2 x="2920" y="4500"/>
+    </wire>
+    <wire>
+      <p1 x="3020" y="4500"/>
+      <p2 x="3040" y="4500"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4500"/>
+      <p2 x="2680" y="4500"/>
+    </wire>
+    <wire>
       <p1 x="2920" y="920"/>
       <p2 x="2940" y="920"/>
     </wire>
@@ -5518,6 +5565,22 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2840" y="2460"/>
     </wire>
     <wire>
+      <p1 x="1040" y="4000"/>
+      <p2 x="2600" y="4000"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4000"/>
+      <p2 x="2680" y="4000"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="4000"/>
+      <p2 x="3000" y="4000"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4000"/>
+      <p2 x="2940" y="4000"/>
+    </wire>
+    <wire>
       <p1 x="240" y="1440"/>
       <p2 x="1320" y="1440"/>
     </wire>
@@ -5532,14 +5595,6 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="2940" y="1440"/>
       <p2 x="2960" y="1440"/>
-    </wire>
-    <wire>
-      <p1 x="2880" y="4000"/>
-      <p2 x="2980" y="4000"/>
-    </wire>
-    <wire>
-      <p1 x="2620" y="4000"/>
-      <p2 x="2680" y="4000"/>
     </wire>
     <wire>
       <p1 x="200" y="420"/>
@@ -5586,6 +5641,18 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2760" y="1960"/>
     </wire>
     <wire>
+      <p1 x="2940" y="4520"/>
+      <p2 x="3000" y="4520"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4520"/>
+      <p2 x="2900" y="4520"/>
+    </wire>
+    <wire>
+      <p1 x="2620" y="4520"/>
+      <p2 x="2680" y="4520"/>
+    </wire>
+    <wire>
       <p1 x="2920" y="940"/>
       <p2 x="2940" y="940"/>
     </wire>
@@ -5614,6 +5681,22 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2900" y="2480"/>
     </wire>
     <wire>
+      <p1 x="2620" y="4020"/>
+      <p2 x="2680" y="4020"/>
+    </wire>
+    <wire>
+      <p1 x="2960" y="4020"/>
+      <p2 x="3000" y="4020"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4020"/>
+      <p2 x="2920" y="4020"/>
+    </wire>
+    <wire>
+      <p1 x="3020" y="4020"/>
+      <p2 x="3040" y="4020"/>
+    </wire>
+    <wire>
       <p1 x="220" y="1460"/>
       <p2 x="1340" y="1460"/>
     </wire>
@@ -5622,12 +5705,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2940" y="1460"/>
     </wire>
     <wire>
-      <p1 x="2900" y="4020"/>
-      <p2 x="2980" y="4020"/>
-    </wire>
-    <wire>
-      <p1 x="2420" y="-440"/>
-      <p2 x="2440" y="-440"/>
+      <p1 x="2440" y="-440"/>
+      <p2 x="2460" y="-440"/>
     </wire>
     <wire>
       <p1 x="80" y="440"/>
@@ -5666,6 +5745,10 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="1120" y="440"/>
     </wire>
     <wire>
+      <p1 x="2920" y="4540"/>
+      <p2 x="3000" y="4540"/>
+    </wire>
+    <wire>
       <p1 x="1420" y="960"/>
       <p2 x="2900" y="960"/>
     </wire>
@@ -5690,7 +5773,15 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2720" y="3520"/>
     </wire>
     <wire>
-      <p1 x="2780" y="4040"/>
+      <p1 x="2620" y="4040"/>
+      <p2 x="2680" y="4040"/>
+    </wire>
+    <wire>
+      <p1 x="2940" y="4040"/>
+      <p2 x="3000" y="4040"/>
+    </wire>
+    <wire>
+      <p1 x="2880" y="4040"/>
       <p2 x="2900" y="4040"/>
     </wire>
     <wire>
@@ -5734,6 +5825,10 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="3100" y="2000"/>
     </wire>
     <wire>
+      <p1 x="2900" y="4560"/>
+      <p2 x="3000" y="4560"/>
+    </wire>
+    <wire>
       <p1 x="2740" y="3540"/>
       <p2 x="2820" y="3540"/>
     </wire>
@@ -5758,8 +5853,8 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2820" y="2520"/>
     </wire>
     <wire>
-      <p1 x="2660" y="4060"/>
-      <p2 x="2780" y="4060"/>
+      <p1 x="2920" y="4060"/>
+      <p2 x="3000" y="4060"/>
     </wire>
     <wire>
       <p1 x="760" y="480"/>
@@ -5780,6 +5875,10 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="1340" y="2020"/>
       <p2 x="3120" y="2020"/>
+    </wire>
+    <wire>
+      <p1 x="2780" y="4580"/>
+      <p2 x="3000" y="4580"/>
     </wire>
     <wire>
       <p1 x="2860" y="3560"/>
@@ -5810,14 +5909,6 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="3260" y="2540"/>
     </wire>
     <wire>
-      <p1 x="2900" y="4080"/>
-      <p2 x="2980" y="4080"/>
-    </wire>
-    <wire>
-      <p1 x="3000" y="4080"/>
-      <p2 x="3040" y="4080"/>
-    </wire>
-    <wire>
       <p1 x="160" y="1520"/>
       <p2 x="1260" y="1520"/>
     </wire>
@@ -5828,6 +5919,10 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="2320" y="1520"/>
       <p2 x="2400" y="1520"/>
+    </wire>
+    <wire>
+      <p1 x="2900" y="4080"/>
+      <p2 x="3000" y="4080"/>
     </wire>
     <wire>
       <p1 x="1160" y="500"/>
@@ -5890,16 +5985,20 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2560" y="3700"/>
     </wire>
     <wire>
+      <p1 x="2560" y="-360"/>
+      <p2 x="2560" y="-320"/>
+    </wire>
+    <wire>
       <p1 x="2560" y="3700"/>
-      <p2 x="2560" y="3900"/>
+      <p2 x="2560" y="3940"/>
     </wire>
     <wire>
-      <p1 x="2560" y="3900"/>
-      <p2 x="2560" y="4100"/>
+      <p1 x="2560" y="3940"/>
+      <p2 x="2560" y="4180"/>
     </wire>
     <wire>
-      <p1 x="2560" y="4100"/>
-      <p2 x="2560" y="4300"/>
+      <p1 x="2560" y="4180"/>
+      <p2 x="2560" y="4420"/>
     </wire>
     <wire>
       <p1 x="260" y="640"/>
@@ -5959,7 +6058,7 @@ CPU is paused or not. Is this bad?</string>
     </wire>
     <wire>
       <p1 x="1040" y="1740"/>
-      <p2 x="1040" y="3960"/>
+      <p2 x="1040" y="4000"/>
     </wire>
     <wire>
       <p1 x="1040" y="580"/>
@@ -5968,6 +6067,10 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="2320" y="220"/>
       <p2 x="2320" y="1520"/>
+    </wire>
+    <wire>
+      <p1 x="2320" y="-380"/>
+      <p2 x="2320" y="-240"/>
     </wire>
     <wire>
       <p1 x="2320" y="-240"/>
@@ -6143,7 +6246,7 @@ CPU is paused or not. Is this bad?</string>
     </wire>
     <wire>
       <p1 x="2860" y="3560"/>
-      <p2 x="2860" y="3660"/>
+      <p2 x="2860" y="3640"/>
     </wire>
     <wire>
       <p1 x="2860" y="1600"/>
@@ -6334,38 +6437,6 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="340" y="1340"/>
     </wire>
     <wire>
-      <p1 x="2900" y="3680"/>
-      <p2 x="2900" y="3700"/>
-    </wire>
-    <wire>
-      <p1 x="2900" y="3820"/>
-      <p2 x="2900" y="3840"/>
-    </wire>
-    <wire>
-      <p1 x="2900" y="3880"/>
-      <p2 x="2900" y="3900"/>
-    </wire>
-    <wire>
-      <p1 x="2900" y="4020"/>
-      <p2 x="2900" y="4040"/>
-    </wire>
-    <wire>
-      <p1 x="2900" y="4080"/>
-      <p2 x="2900" y="4100"/>
-    </wire>
-    <wire>
-      <p1 x="2900" y="4220"/>
-      <p2 x="2900" y="4240"/>
-    </wire>
-    <wire>
-      <p1 x="2900" y="4280"/>
-      <p2 x="2900" y="4300"/>
-    </wire>
-    <wire>
-      <p1 x="2900" y="4420"/>
-      <p2 x="2900" y="4440"/>
-    </wire>
-    <wire>
       <p1 x="2900" y="2860"/>
       <p2 x="2900" y="2880"/>
     </wire>
@@ -6380,6 +6451,22 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="2900" y="2260"/>
       <p2 x="2900" y="2280"/>
+    </wire>
+    <wire>
+      <p1 x="2900" y="3800"/>
+      <p2 x="2900" y="3840"/>
+    </wire>
+    <wire>
+      <p1 x="2900" y="4040"/>
+      <p2 x="2900" y="4080"/>
+    </wire>
+    <wire>
+      <p1 x="2900" y="4280"/>
+      <p2 x="2900" y="4320"/>
+    </wire>
+    <wire>
+      <p1 x="2900" y="4520"/>
+      <p2 x="2900" y="4560"/>
     </wire>
     <wire>
       <p1 x="600" y="960"/>
@@ -6434,20 +6521,36 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="-100" y="1780"/>
     </wire>
     <wire>
-      <p1 x="2660" y="3660"/>
-      <p2 x="2660" y="3860"/>
-    </wire>
-    <wire>
       <p1 x="2660" y="100"/>
       <p2 x="2660" y="860"/>
     </wire>
     <wire>
-      <p1 x="2660" y="3860"/>
-      <p2 x="2660" y="4060"/>
+      <p1 x="2660" y="3640"/>
+      <p2 x="2660" y="3680"/>
     </wire>
     <wire>
-      <p1 x="2660" y="4060"/>
-      <p2 x="2660" y="4260"/>
+      <p1 x="2660" y="3680"/>
+      <p2 x="2660" y="3880"/>
+    </wire>
+    <wire>
+      <p1 x="2660" y="3880"/>
+      <p2 x="2660" y="3920"/>
+    </wire>
+    <wire>
+      <p1 x="2660" y="3920"/>
+      <p2 x="2660" y="4120"/>
+    </wire>
+    <wire>
+      <p1 x="2660" y="4120"/>
+      <p2 x="2660" y="4160"/>
+    </wire>
+    <wire>
+      <p1 x="2660" y="4160"/>
+      <p2 x="2660" y="4360"/>
+    </wire>
+    <wire>
+      <p1 x="2660" y="4360"/>
+      <p2 x="2660" y="4400"/>
     </wire>
     <wire>
       <p1 x="100" y="780"/>
@@ -6458,28 +6561,28 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="1380" y="620"/>
     </wire>
     <wire>
-      <p1 x="2920" y="3700"/>
-      <p2 x="2920" y="3720"/>
-    </wire>
-    <wire>
-      <p1 x="2920" y="3900"/>
-      <p2 x="2920" y="3920"/>
-    </wire>
-    <wire>
-      <p1 x="2920" y="4100"/>
-      <p2 x="2920" y="4120"/>
-    </wire>
-    <wire>
-      <p1 x="2920" y="4300"/>
-      <p2 x="2920" y="4320"/>
-    </wire>
-    <wire>
       <p1 x="360" y="560"/>
       <p2 x="360" y="1320"/>
     </wire>
     <wire>
+      <p1 x="2920" y="3780"/>
+      <p2 x="2920" y="3820"/>
+    </wire>
+    <wire>
+      <p1 x="2920" y="4020"/>
+      <p2 x="2920" y="4060"/>
+    </wire>
+    <wire>
+      <p1 x="2920" y="4260"/>
+      <p2 x="2920" y="4300"/>
+    </wire>
+    <wire>
+      <p1 x="2920" y="4500"/>
+      <p2 x="2920" y="4540"/>
+    </wire>
+    <wire>
       <p1 x="1900" y="560"/>
-      <p2 x="1900" y="4320"/>
+      <p2 x="1900" y="4440"/>
     </wire>
     <wire>
       <p1 x="620" y="260"/>
@@ -6506,10 +6609,6 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="1140" y="620"/>
     </wire>
     <wire>
-      <p1 x="2420" y="-440"/>
-      <p2 x="2420" y="-380"/>
-    </wire>
-    <wire>
       <p1 x="120" y="760"/>
       <p2 x="120" y="1560"/>
     </wire>
@@ -6534,22 +6633,6 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2680" y="880"/>
     </wire>
     <wire>
-      <p1 x="2940" y="3720"/>
-      <p2 x="2940" y="3740"/>
-    </wire>
-    <wire>
-      <p1 x="2940" y="3920"/>
-      <p2 x="2940" y="3940"/>
-    </wire>
-    <wire>
-      <p1 x="2940" y="4120"/>
-      <p2 x="2940" y="4140"/>
-    </wire>
-    <wire>
-      <p1 x="2940" y="4320"/>
-      <p2 x="2940" y="4340"/>
-    </wire>
-    <wire>
       <p1 x="2940" y="920"/>
       <p2 x="2940" y="940"/>
     </wire>
@@ -6570,12 +6653,36 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="2940" y="2860"/>
     </wire>
     <wire>
+      <p1 x="2940" y="3760"/>
+      <p2 x="2940" y="3800"/>
+    </wire>
+    <wire>
+      <p1 x="2940" y="4000"/>
+      <p2 x="2940" y="4040"/>
+    </wire>
+    <wire>
+      <p1 x="2940" y="4240"/>
+      <p2 x="2940" y="4280"/>
+    </wire>
+    <wire>
+      <p1 x="2940" y="4480"/>
+      <p2 x="2940" y="4520"/>
+    </wire>
+    <wire>
       <p1 x="1920" y="540"/>
-      <p2 x="1920" y="4120"/>
+      <p2 x="1920" y="4200"/>
     </wire>
     <wire>
       <p1 x="640" y="1200"/>
       <p2 x="640" y="1220"/>
+    </wire>
+    <wire>
+      <p1 x="2440" y="-440"/>
+      <p2 x="2440" y="-400"/>
+    </wire>
+    <wire>
+      <p1 x="2440" y="-400"/>
+      <p2 x="2440" y="-380"/>
     </wire>
     <wire>
       <p1 x="1160" y="420"/>
@@ -6634,8 +6741,24 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="1420" y="1480"/>
     </wire>
     <wire>
+      <p1 x="2960" y="3740"/>
+      <p2 x="2960" y="3780"/>
+    </wire>
+    <wire>
+      <p1 x="2960" y="3980"/>
+      <p2 x="2960" y="4020"/>
+    </wire>
+    <wire>
+      <p1 x="2960" y="4220"/>
+      <p2 x="2960" y="4260"/>
+    </wire>
+    <wire>
+      <p1 x="2960" y="4460"/>
+      <p2 x="2960" y="4500"/>
+    </wire>
+    <wire>
       <p1 x="1940" y="520"/>
-      <p2 x="1940" y="3920"/>
+      <p2 x="1940" y="3960"/>
     </wire>
     <wire>
       <p1 x="2200" y="320"/>
@@ -6708,6 +6831,22 @@ CPU is paused or not. Is this bad?</string>
     <wire>
       <p1 x="420" y="420"/>
       <p2 x="420" y="520"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="3640"/>
+      <p2 x="2980" y="3740"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="3880"/>
+      <p2 x="2980" y="3980"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="4120"/>
+      <p2 x="2980" y="4220"/>
+    </wire>
+    <wire>
+      <p1 x="2980" y="4360"/>
+      <p2 x="2980" y="4460"/>
     </wire>
     <wire>
       <p1 x="1960" y="500"/>
@@ -6850,36 +6989,20 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="220" y="1460"/>
     </wire>
     <wire>
-      <p1 x="2780" y="3660"/>
-      <p2 x="2780" y="3680"/>
-    </wire>
-    <wire>
       <p1 x="2780" y="3820"/>
-      <p2 x="2780" y="3840"/>
-    </wire>
-    <wire>
-      <p1 x="2780" y="3860"/>
-      <p2 x="2780" y="3880"/>
-    </wire>
-    <wire>
-      <p1 x="2780" y="4020"/>
-      <p2 x="2780" y="4040"/>
+      <p2 x="2780" y="3860"/>
     </wire>
     <wire>
       <p1 x="2780" y="4060"/>
-      <p2 x="2780" y="4080"/>
+      <p2 x="2780" y="4100"/>
     </wire>
     <wire>
-      <p1 x="2780" y="4220"/>
-      <p2 x="2780" y="4240"/>
+      <p1 x="2780" y="4300"/>
+      <p2 x="2780" y="4340"/>
     </wire>
     <wire>
-      <p1 x="2780" y="4260"/>
-      <p2 x="2780" y="4280"/>
-    </wire>
-    <wire>
-      <p1 x="2780" y="4420"/>
-      <p2 x="2780" y="4440"/>
+      <p1 x="2780" y="4540"/>
+      <p2 x="2780" y="4580"/>
     </wire>
     <wire>
       <p1 x="3040" y="1120"/>
@@ -6919,15 +7042,11 @@ CPU is paused or not. Is this bad?</string>
     </wire>
     <wire>
       <p1 x="1000" y="1780"/>
-      <p2 x="1000" y="4360"/>
+      <p2 x="1000" y="4480"/>
     </wire>
     <wire>
       <p1 x="2540" y="0"/>
       <p2 x="2540" y="80"/>
-    </wire>
-    <wire>
-      <p1 x="2540" y="-360"/>
-      <p2 x="2540" y="-320"/>
     </wire>
     <wire>
       <p1 x="1260" y="1520"/>
@@ -6962,7 +7081,7 @@ CPU is paused or not. Is this bad?</string>
       <p2 x="760" y="1240"/>
     </wire>
     <wire>
-      <p1 x="2300" y="-380"/>
+      <p1 x="2300" y="-400"/>
       <p2 x="2300" y="-220"/>
     </wire>
     <wire>
@@ -6975,7 +7094,7 @@ CPU is paused or not. Is this bad?</string>
     </wire>
     <wire>
       <p1 x="1020" y="1760"/>
-      <p2 x="1020" y="4160"/>
+      <p2 x="1020" y="4240"/>
     </wire>
   </wires>
   <measurementOrdering/>

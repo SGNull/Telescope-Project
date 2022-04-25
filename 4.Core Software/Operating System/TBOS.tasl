@@ -27,38 +27,42 @@ JMP >Init
 		OOB: Terminates the current process and all of its children.
   
    v1.0 is especially minimalist, and future versions will modify 1.0 to achieve higher functions.
+   IMPORTANT: In TBOS v1, a program's heap & stack space may start as non-zero.
 %)
 
 / ------------------------------------------------------------Data------------------------------------------------------------
 (/ ------- Hardware constants -------
 	/ Processor constants
-	@WORD_SIZE = 16  / Word size in bits (always must be 16)
-	@STATE_REG_COUNT = 12  / Number of registers which should be stored (always 12)
+	@WORD_SIZE 		= 16  / Word size in bits (always must be 16)
+	@STATE_REG_COUNT 	= 12  / Number of registers which should be stored (always 12)
 
-	@DRIVE_IOP_GROUP = 0
-	@DRIVE_PTR_IOP_GROUP = 1
-	@IOP_GROUP_MASK = 0xE000
-	@IOP_GROUP_SHIFT = 13
-	@DRIVE_PTR_BIT = 0x2000
+	@DRIVE_IOP_GROUP     	= 0
+	@DRIVE_PTR_IOP_GROUP 	= 1
+	@IOP_GROUP_MASK 		= 0xE000
+	@IOP_GROUP_SHIFT 		= 13
+	@DRIVE_PTR_BIT 		= 13
 
-	@HI_SHIFT = 8
-	@LO_SHIFT = >HI_SHIFT
-	@LO_MASK = 0x00FF
+	@HI_SHIFT 	= 8
+	@LO_SHIFT	= >HI_SHIFT
+	@LO_MASK 	= 0x00FF
 
-	@EXC_MASK = 0x0700
-	@EXC_SHIFT = 8
+	@EXC_MASK 	= 0x0700
+	@EXC_SHIFT 	= 8
 	
-	@EXC_CTDZ = 4
-	@EXC_SYS = 5
-	@EXC_PRIV = 6
-	@EXC_OOB = 7
+	@EXC_CTDZ 	= 4
+	@EXC_SYS 	= 5
+	@EXC_PRIV 	= 6
+	@EXC_OOB 	= 7
 
 
 	/ Computer determined hardware constants
-	@PC_STATUS_IOP = 0xF000
-	@RANDOM_IOP = >PC_STATUS_IOP
-
-	@ENDLOAD = 0xF33D
+	@PC_STATUS_IOP 		= 0xF000
+	@RANDOM_IOP 			= >PC_STATUS_IOP
+	@COUNTER_START_IOP 	= 0xE000
+	@COUNTER_STOP_IOP 	= 0xE800
+	
+	@ADDR_BEFORE_BOOT = 0xFEFF
+	@ENDLOAD 		= 0xF33D
 
 
 	/ OS determined hardware constants
@@ -88,6 +92,8 @@ JMP >Init
 
 	#ProcCount = 0		/ Number of running processes
 	#CurrentProcID = 0	/ Current running process
+	
+	@CTD_VAL = 0x0800
 
 
 	/ EXA and CTD are constant, PC is in the OS, and IO doesn't make sense to store, so 12 words per state
@@ -121,7 +127,7 @@ JMP >Init
 	@BAD_START_ERROR 		= 0xFF00
 	@UNKNOWN_EXC_ERROR 	= 0xFF01
 	
-	@SYS_SPAWN_PROG_GOOD	= 1
+	@SYS_SPAWN_PROG_GOOD	= 0x00A1
 	@SYS_SPAWN_PROG_MEM	= 0xF000
 	@SYS_SPAWN_PROG_MAX	= 0xF001
 	@SYS_SPAWN_PROG_PRIV	= 0xF002	/ Right now can occur for ALL processes, not just user
@@ -134,22 +140,24 @@ JMP >Init
 
 
 
-/ Rating: 2/3 (Close)
 / Initializes the OS environment (may have to remove the bootloader)
 (#Init
 	/ Set the status
 	LDI RG0 >START_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
 	
+	/ Start the cycle counter
+	LDI FLG >COUNTER_START_IOP; MOV IO RG0
+	
 	/ Remove the bootloader
-	ZRO RG0; ZRO RG1; LDI RG2 >ENDLOAD
+	ZRO RG0; LDI RG1 >ADDR_BEFORE_BOOT; LDI RG2 >ENDLOAD
 	#Ini.CleanLoop
-		DEC RG1; LOD RG3 RG1 0
+		INC RG1; LOD RG3 RG1 0
 		STR RG0 RG1 0
 	CMP RG3 RG2; JNE >Ini.CleanLoop
 	
 	/ Calculate the OS size in chunks in RG1
 	LDI RG1 >OSEndPoint; LDI RG0 >CHUNK_SIZE; ALU DIV RG1 RG0
-	ALI ADD RG1 1  / Add the stack chunk
+	ALI ADD RG1 2  / Add the stack chunk + 1 for remainder
 	
 	/ Call MarkBits(start chunk, size)
 	LDI RG0 >NUM_CHUNKS; ALI SUB RG0 1  / Adjust for stack (will be at end of mem)
@@ -162,12 +170,14 @@ JMP >Init
 	#Ini.OK
 	
 	/ Create the root thread
-	LDI RG0 1; STR RG0 RG0 >ProcCount
 	MOV RG0 OUT; LDI FLG >ROOT_PROC_FLG
 	CAL >MakeChildThread
 	
 	/ Set the new status
 	LDI RG0 >RUN_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
+	
+	/ Make sure the dispatcher runs root first
+	NUL RG0; STR RG0 RG0 >CurrentProcID
 	
 	/ Send control off to the dispatcher
 	JMP >Dispatcher
@@ -191,20 +201,25 @@ JMP >Init
 	PAS RG0; JIF EQZ >Dis.Done
 	
 	/ If not, get the next process ID in RG0
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID
 	#Dis.GetNext
-		ZRO RG0; LOD RG0 RG0 >CurrentProcID
 		INC RG0
 		LDI RG1 >MAX_PROC_COUNT; ALU MOD RG0 RG1
 		
 		/ Then get its main word in RG1
 		MOV RG1 RG0; LDI RG2 >PROC_WORDS; ALU MUL RG1 RG2
 		LOD RG1 RG1 >ProcList
-	
 	/ Now run it if it's active
 	AIN SET RG1 >PROC_ACTIVE_BIT; JIF NCR >Dis.GetNext
 	
+	/ Store the new current process
+	STR RG0 RG0 >CurrentProcID
+	
+	/ Load the process' state and resume it.
 	ALI MUL RG0 >STATE_REG_COUNT; LDI RG1 >StateList; ALU ADD RG0 RG1
 	LOD EPC RG0 >EPC_OFFSET
+	LDI EXA >ExHandler
+	LDI CTD >CTD_VAL
 	LOD HLB RG0 >HLB_OFFSET
 	LOD FLG RG0 >FLG_OFFSET
 	LOD SP RG0 >SP_OFFSET
@@ -281,6 +296,7 @@ JMP >Init
 
 / Handles any exceptions that occur
 (#ExHandler
+
 	/ Store off RG0-2 and FLG for CTDZ
 	STR RG0 RG0 >TState
 	LDI RG0 >TState
@@ -322,6 +338,7 @@ JMP >Init
 
 / Calls terminate on the current process then returns to the dispatcher
 (#TerminateCurrent
+	HLT; 0xF000
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
 	LDI RA >Dispatcher; JMP >Terminate
 )
@@ -392,9 +409,6 @@ JMP >Init
 	/ Before doing anything, make sure we can actually spawn a process
 	ZRO RG1; LOD RG1 RG1 >ProcCount; LDI RG2 >MAX_PROC_COUNT
 	CMP RG1 RG2; JGE >SSP.MaxError
-	
-	/ Increment ProcCount
-	INC RG1; STR RG1 RG1 >ProcCount
 
 	/ Get the current proc's state location
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID
@@ -439,16 +453,21 @@ JMP >Init
 / Modifies RG0-5 and FLG
 (#MakeChildThread
 	PSH 2; STR RA SP 0; STR FLG SP 1
-
+	
 	/ Find inactive thread
 	NUL RG1
 	#MCT.Search
 		INC RG1
 		MOV RG2 RG1; ALI MUL RG2 >PROC_WORDS; LOD RG3 RG2 >ProcList
-	AIN SET RG3 >PROC_ACTIVE_BIT; JIF NEZ >MCT.Search
+	AIN SET RG3 >PROC_ACTIVE_BIT; JIF CAR >MCT.Search
 	
 	/ Activate and zero out thread number RG1
-	ZRO RG3; ALI SET RG3 >PROC_ACTIVE_BIT; STR RG3 RG2
+	ZRO RG3; ALI SET RG3 >PROC_ACTIVE_BIT; STR RG3 RG2 >ProcList
+	
+	/ Increment ProcCount
+	ZRO RG2; LOD RG2 RG2 >ProcCount
+	INC RG2; STR RG2 RG2 >ProcCount
+	
 	
 	/ Get the location of its state in RG2
 	MOV RG2 RG1; ALI MUL RG2 >STATE_REG_COUNT
@@ -472,6 +491,7 @@ JMP >Init
 	STR RG3 RG2 >FLG_OFFSET
 	STR RG0 RG2 >HLB_OFFSET
 	
+	
 	/ InsertChild(ThisProcNum) and return to RA
 	MOV RG0 RG1
 	MOV OUT RG0; LOD RA SP 0; POP 2
@@ -488,7 +508,7 @@ JMP >Init
 	
 	/ Calculate the size of the program in RG0 (in chunks)
 	MOV RG0 IO
-	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; INC RG0
+	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; ALI ADD RG0 2
 	
 	/ Check memory to see where it will fit
 	CAL >FindOpenMemory
@@ -658,7 +678,7 @@ JMP >Init
 				CMP RG2 RG0; JEQ >FOM.Success
 				
 				/ If not, check if we need to go to the next word for the next bit
-				AFN MOD RG5 RG4; JIF EQZ >FOM.SameWord
+				AFN MOD RG5 RG4; JIF NEZ >FOM.SameWord
 					/ Not the same word, so grab the new one.
 					MOV RG6 RG5; ALU DIV RG6 RG4; ALI MOD RG6 >BMP_WORDS
 					LOD RG3 RG6 >MallocBMPs
@@ -682,7 +702,7 @@ JMP >Init
 		
 		/ If not, get the next word if needed and loop
 		AFN MOD RG1 RG4; JIF NEZ >FOM.Loop
-		MOV RG5 RG1; ALU DIV RG5 RG2; LOD RG3 RG5 >MallocBMPs  / Get next word
+		MOV RG5 RG1; ALU DIV RG5 RG4; LOD RG3 RG5 >MallocBMPs  / Get next word
 	JMP >FOM.Loop
 	
 	#FOM.Success

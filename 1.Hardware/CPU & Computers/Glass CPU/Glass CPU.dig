@@ -856,6 +856,16 @@ It must be held down for at least 2 full clock cycles to work.</string>
       <elementAttributes/>
       <pos x="-800" y="500"/>
     </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Label</string>
+          <string>LO Enabled</string>
+        </entry>
+      </elementAttributes>
+      <pos x="1360" y="140"/>
+    </visualElement>
   </visualElements>
   <wires>
     <wire>
@@ -961,6 +971,10 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="420" y="140"/>
       <p2 x="440" y="140"/>
+    </wire>
+    <wire>
+      <p1 x="1080" y="140"/>
+      <p2 x="1360" y="140"/>
     </wire>
     <wire>
       <p1 x="-740" y="1040"/>
@@ -2004,7 +2018,7 @@ It must be held down for at least 2 full clock cycles to work.</string>
     </wire>
     <wire>
       <p1 x="1080" y="60"/>
-      <p2 x="1080" y="280"/>
+      <p2 x="1080" y="140"/>
     </wire>
     <wire>
       <p1 x="1080" y="660"/>
@@ -2013,6 +2027,10 @@ It must be held down for at least 2 full clock cycles to work.</string>
     <wire>
       <p1 x="1080" y="860"/>
       <p2 x="1080" y="900"/>
+    </wire>
+    <wire>
+      <p1 x="1080" y="140"/>
+      <p2 x="1080" y="280"/>
     </wire>
     <wire>
       <p1 x="1340" y="320"/>

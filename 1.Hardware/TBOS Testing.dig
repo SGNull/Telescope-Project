@@ -148,10 +148,6 @@
       <elementName>Clock</elementName>
       <elementAttributes>
         <entry>
-          <string>runRealTime</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
           <string>Frequency</string>
           <int>4096</int>
         </entry>
@@ -222,7 +218,7 @@
         </entry>
         <entry>
           <string>Data</string>
-          <data>1d,0,f,48,65,6c,6c,6f,20,57,6f,72,6c,64,21,ffff,50a0,4800,b100
+          <data>1d,4600,f,48,65,6c,6c,6f,20,57,6f,72,6c,64,21,ffff,50a0,4800,b100
 ,b010,6020,2,cb21,4000,1c,3092,9901,4600,13</data>
         </entry>
       </elementAttributes>
@@ -356,7 +352,7 @@
         </entry>
         <entry>
           <string>Bits</string>
-          <int>19</int>
+          <int>20</int>
         </entry>
       </elementAttributes>
       <pos x="1100" y="440"/>
@@ -374,7 +370,7 @@
         </entry>
         <entry>
           <string>Bits</string>
-          <int>19</int>
+          <int>20</int>
         </entry>
       </elementAttributes>
       <pos x="1100" y="480"/>
@@ -392,7 +388,7 @@
         </entry>
         <entry>
           <string>Bits</string>
-          <int>19</int>
+          <int>20</int>
         </entry>
       </elementAttributes>
       <pos x="1100" y="520"/>
@@ -425,7 +421,7 @@
         </entry>
         <entry>
           <string>Bits</string>
-          <int>19</int>
+          <int>20</int>
         </entry>
       </elementAttributes>
       <pos x="1100" y="400"/>
