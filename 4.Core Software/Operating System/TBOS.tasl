@@ -176,8 +176,8 @@ JMP >Init
 	/ Set the new status
 	LDI RG0 >RUN_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
 	
-	/ Make sure the dispatcher runs root first (THIS WAS CHANGED FOR TESTING)
-	ZRO RG0; STR RG0 RG0 >CurrentProcID
+	/ Make sure the dispatcher runs root first
+	NUL RG0; STR RG0 RG0 >CurrentProcID
 	
 	/ Send control off to the dispatcher
 	JMP >Dispatcher
