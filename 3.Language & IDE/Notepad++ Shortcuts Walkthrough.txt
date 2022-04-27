@@ -2,11 +2,11 @@
 Plugins -> Plugins Admin/Plugins Manager -> use the searchbox -> check both -> Install
 
 2. Create a script
-Press f6 -> Copy this into the box, replacing [YOURASSEMBLERFILE] with the the TAS assembler's full path:
+Press f6 -> Copy this into the box, replacing [X] with the the TASL assembler's full path:
     npp_save
     CD $(CURRENT_DIRECTORY)
-    py "[YOURASSEMBLERFILE]" "$(FILE_NAME)"
-Save -> name it "TAS Compile" -> Save -> OK -> make sure you get output
+    py "[X]" "$(FILE_NAME)"
+Save -> name it "TASL Assemble" -> Save -> OK -> make sure you get output
 
 3. Add it as a shortcut
 Plugins -> NppExec -> Advanced Options -> Menu Item *at the bottom left of the window*
@@ -18,6 +18,6 @@ Plugins -> CustomizeToolbar -> Custom Buttons
 Navigate to %AppData%\Notepad++\plugins\config\CustomizeToolbar.btn
 Here's an example entry:
 
-Plugins,NppExec,TAS Compile,,*G:TA,*G:TA
+Plugins,NppExec,TASL Assemble,,*G:TA,*G:TA
 
-(Ignoring the incorrect usage of Compile) this makes the script "TAS Compile" run when pressing the [G]reen button labelled "TA".
+(Ignoring the incorrect usage of Compile) this makes the script "TASL Assemble" run when pressing the [G]reen button labelled "TA".

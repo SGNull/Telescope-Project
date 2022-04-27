@@ -136,7 +136,7 @@
         </entry>
         <entry>
           <string>lastDataFile</string>
-          <file>C:\Users\Devin\Desktop\Telescope Project\2.Test Programs\Telescope Computer Test\TelescopeTest.tload.hex</file>
+          <file>C:\Users\Devin\Desktop\Telescope Project\2.Hardware Test Programs\Telescope Computer Test\TelescopeTest.tload.hex</file>
         </entry>
         <entry>
           <string>autoReload</string>
@@ -821,7 +821,7 @@
         </entry>
         <entry>
           <string>lastDataFile</string>
-          <file>C:\Users\Devin\Desktop\Telescope Project\2.Test Programs\Telescope Computer Test\TestServe.tload.hex</file>
+          <file>C:\Users\Devin\Desktop\Telescope Project\2.Hardware Test Programs\Telescope Computer Test\TestServe.tload.hex</file>
         </entry>
         <entry>
           <string>autoReload</string>

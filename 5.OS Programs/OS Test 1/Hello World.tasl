@@ -1,0 +1,34 @@
+JMP >Init
+(% Simple hello world test.
+
+   A simple test program for TBOS v1.0.
+   Prints the string "Hello World!" to terminal 1.
+   The program then halts, which should cause it to be terminated.
+%)
+
+/ ------- Data -------
+
+#MyString = "Hello World!"
+@KEY_TERM_FLG = 0x4800
+
+/ ------- Code -------
+
+#Init
+	/ Initialize the registers
+	LDI FLG >KEY_TERM_FLG
+	ZRO RG0; NUL RG1
+	
+	/ Loop through the string and print until we see NULL
+	#I.PrintLoop
+		LOD RG2 RG0 >MyString
+		CMP RG2 RG1; JEQ >I.Done
+		MOV IO RG2
+		INC RG0; JMP >I.PrintLoop
+	#I.Done
+	
+	/ Halt when we're done
+	HLT
+	
+
+
+
