@@ -176,8 +176,8 @@ JMP >Init
 	/ Set the new status
 	LDI RG0 >RUN_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
 	
-	/ Make sure the dispatcher runs root first
-	NUL RG0; STR RG0 RG0 >CurrentProcID
+	/ Make sure the dispatcher runs root first (THIS WAS CHANGED FOR TESTING)
+	ZRO RG0; STR RG0 RG0 >CurrentProcID
 	
 	/ Send control off to the dispatcher
 	JMP >Dispatcher
@@ -338,7 +338,6 @@ JMP >Init
 
 / Calls terminate on the current process then returns to the dispatcher
 (#TerminateCurrent
-	HLT; 0xF000
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
 	LDI RA >Dispatcher; JMP >Terminate
 )
