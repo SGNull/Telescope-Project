@@ -1,0 +1,35 @@
+JMP >Init
+(% Writes keyboard 1 input to terminal 1
+   
+   Reader will wait and read keyboard 1
+   Writer will wait and write what its given to terminal 1
+   
+   This is easier said than done.
+   Reader will read keyboard 1, then write the result out TNET 1
+   Writer will read TNET 2 and write what it gets to the terminal
+   Main will wait on TNET 3 to recieve anything, and if it does it halts
+   Let's hope it works!!
+%)
+
+/ ------- Data -------
+
+@DRIVE1 = 0x0800
+@DRIVE2 = 0x1000
+@TNET3 = 0x9800
+
+/ ------- Code -------
+
+(#Init
+	/ Spawn threads
+	LDI FLG >DRIVE1
+	SYS
+	LDI FLG >DRIVE2
+	SYS
+	
+	/ Wait on TNET 3
+	LDI FLG >TNET3
+	#I.Wait JIF PNW >I.Wait
+	
+	/ Halt when given a signal
+	HLT
+)	

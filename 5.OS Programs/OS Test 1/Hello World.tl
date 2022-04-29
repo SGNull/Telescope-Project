@@ -1,0 +1,22 @@
+JMP
+>Init
+#MyString
+"Hello World!"
+@KEY_TERM_FLG 0x4800
+#Init
+LDI FLG
+>KEY_TERM_FLG
+ZRO RG0
+NUL RG1
+#I.PrintLoop
+LOD RG2 RG0
+>MyString
+CMP RG2 RG1
+JEQ
+>I.Done
+MOV IO RG2
+INC RG0
+JMP
+>I.PrintLoop
+#I.Done
+HLT

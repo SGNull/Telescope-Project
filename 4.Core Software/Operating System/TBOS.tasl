@@ -93,7 +93,7 @@ JMP >Init
 	#ProcCount = 0		/ Number of running processes
 	#CurrentProcID = 0	/ Current running process
 	
-	@CTD_VAL = 0x0800
+	@CTD_VAL = 0x0020
 
 
 	/ EXA and CTD are constant, PC is in the OS, and IO doesn't make sense to store, so 12 words per state

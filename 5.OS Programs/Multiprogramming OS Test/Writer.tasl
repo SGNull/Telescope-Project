@@ -1,0 +1,16 @@
+JMP >Init
+(% Reader program for multiprogramming test
+   
+   Reads terminal 1 and writes it to TNET 1
+%)
+
+/ ------- Data -------
+
+@KEYBOARD1 = 0x
+@TNET1
+
+/ ------- Code -------
+
+(#Init
+
+)
