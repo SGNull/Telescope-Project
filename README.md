@@ -84,7 +84,7 @@ After writing your .tasl file, you can run it through the Python assembler for c
 
 -l is actually available in the self-assembler via the @GENLOADABLE constant. This will create a .tload file, which can be ran by the bootloader (but NOT directly on the CPU. It will probably halt, but it might also really mess up your program).
 
-The bootloader idea came about back when I was working in Logisim, because the contents of RAM have to be re-loaded every time. While Digital does support automatically loading the RAM, _*I*_ don't. This is very realistic, so I developed a bootloader machine which can be used in any computer system. It's identical to the CPU, except it supports ROM chips and not RAM chips. These ROM chips must be in the .tload format in order to be ran.
+The bootloader idea came about back when I was working in Logisim, because the contents of RAM have to be re-loaded every time. While Digital does support automatically loading the RAM, _*I*_ don't. This is a realistic challenge, so I developed a bootloader machine which can be used in any computer system. It's identical to the CPU, except it supports ROM chips and not RAM chips. These ROM chips must be in the .tload format in order to be ran.
 
 ## Documentation
 
@@ -100,9 +100,9 @@ I tried to be somewhat organized about how I do things on Github for this projec
   - If an issue is surprisingly big or takes time to fix, I'll leave comments detailing my progress.
 
 - I organize issues in 4 ways:
-  - Issues are pineed if they are currently being worked on.
-  - Labels are used to provide a quick, easy-to-see categorization of the issue.
-  - Milestones are used when multiple issues are in service of a single goal.
+  - Issues are pined if they are currently being worked on.
+  - Labels are used to provide a quick, easy-to-see category for the issue.
+  - Milestones are used when there's a clear goal I have, and when a given issue is in service of that goal.
   - Projects are used to break issues down into the main project categories like OS, Assembler, CPU, etc.
 
 - As I am working on a particular issue or set of issues, other things tend to change.
