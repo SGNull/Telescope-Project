@@ -1,0 +1,23 @@
+JMP >Init
+(% Writer program for multiprogramming test
+   
+   Reads TNET1 and writes it to terminal 1
+%)
+
+/ ------- Data -------
+
+@TERMINAL1 	= 0b0100100000000000
+@TNET1	 	= 0b1000100000000000
+
+/ ------- Code -------
+
+(#Init
+	/ Wait on TNET1
+	LDI FLG >TNET1
+	#I.Wait: JIF PNW >I.Wait
+	
+	/ Write to terminal and loop
+	MOV RG0 IO
+	LDI FLG >TERMINAL1; MOV IO RG0
+	JMP >Init
+)

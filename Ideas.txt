@@ -1,3 +1,6 @@
+These are some ideas that I come up with during the project that are somewhat out of the way, but still feasible enough to be written down.
+
+
 Libraries for commonly used things (strings, tables, objects).
 
 A syntax enforcer & better error checker for TASL V3+.
@@ -6,8 +9,10 @@ A light compiler with support for simple loops, function calls, variables, and +
 
 Parallel processing with dual read memory.
 
-VRAM using a TLB microcontroller which can be controlled via some I/O device.
+Integration of the QT Project with the Telescope Computer? QPU as a coprocessor? How would this even work?
 
-With networking: simple, traditionally programmed AI which moves data over the network using networking software that receives updates, and they randomly decide to install that update or not.
+VRAM using a TLB microcontroller which can be controlled via some I/O device (possibly part of the internal expansion IO group).
 
-Computer defect simulation by randomly deleting a line from a random hardware file it's dependent on (and hoping it still loads properly)
+With networking: simple (not machine learning) AI which moves data over the network using networking software that receives updates, and they randomly decide to install that update or not.
+
+Computer defect simulation by randomly deleting a line from a random hardware file it's dependent on (and hoping it still loads properly. Probably use some kind of regex to delete stuff)

@@ -1,0 +1,43 @@
+JMP >Init
+(% Writes keyboard 1 input to terminal 1
+   
+   Reader will wait and read keyboard 1
+   Writer will wait and write what its given to terminal 1
+   All will stop when the $ character is seen
+   
+   More technically speaking...
+   
+   Reader will read keyboard 1, then write the result to TNET 1
+   TNET 1 will be connected to itself to make a shared register
+   Writer will read TNET 1 and write what it gets to the terminal
+   
+   If reader sees the $ character, it instead writes it to TNET 2 and loops forever.
+   TNET 2 will also be connected to itself
+   Main will wait on TNET 2 to recieve anything, and if it does it halts
+   
+   Main halting should terminate reader and writer, since they are its children.
+   
+   Let's hope it works!!
+%)
+
+/ ------- Data -------
+
+@DRIVE2 	= 0b0001000000000000
+@DRIVE1 	= 0b0000100000000000
+@TNET2	= 0b1001000000000000
+
+
+/ ------- Code -------
+
+(#Init
+	/ Spawn threads
+	LDI FLG >DRIVE1; SYS  / Reader
+	LDI FLG >DRIVE2; SYS  / Writer
+	
+	/ Wait on TNET 3
+	LDI FLG >TNET2
+	#I.Wait: JIF PNW >I.Wait
+	
+	/ Halt when given a signal
+	HLT
+)	

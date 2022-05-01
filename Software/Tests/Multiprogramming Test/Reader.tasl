@@ -1,0 +1,39 @@
+JMP >Init
+(% Reader program for multiprogramming test
+   
+   Load on drive 1
+   
+   Reads terminal 1 and writes it to TNET 1
+   If it sees STOP_CHAR, writes it to TNET 2 and infinite loops
+%)
+
+/ ------- Data -------
+
+@KEYBOARD1 	= 0b0100100000000000
+@TNET1 		= 0b1000100000000000
+@TNET2 		= 0b1001000000000000
+@STOP_CHAR 	= '$'
+
+/ ------- Code -------
+
+(#Init
+	LDI RG1 >STOP_CHAR
+	
+	/ Wait for keyboard input
+	#I.SetupWait
+	LDI FLG >KEYBOARD1
+	#I.Wait: JIF PNW >I.Wait
+	
+	/ Check if it's the terminating character
+	MOV RG0 IO; CMP RG0 RG1; JEQ >I.Done
+	LDI FLG >TNET1; MOV IO RG0
+	
+	/ Then wait for character to be read by Writer
+	#I.WaitAgain: JIF PNR >I.WaitAgain
+	JMP >I.SetupWait
+	
+	/ Write to TNET2 and loop forever
+	#I.Done
+	LDI FLG >TNET2; MOV IO RG0
+	#I.Forever: JMP >I.Forever
+)
