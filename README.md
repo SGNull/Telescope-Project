@@ -1,6 +1,6 @@
 # Telescope Project
 
-This is a personal project of mine that is still being developed, and probably will be for ~~a few months~~ quite some time, now that it's my official senior project.
+This is a personal project of mine that is still being developed, and probably will be for quite some time, given how well it has turned out.
 
 I had a lot of different, rather big goals for this project. Here are just a few of them:
 1. Design a CPU with a simple yet robust ISA capable of running a simple OS ~~in [Logisim](https://www.cburch.com/logisim/)~~ in [Digital](https://github.com/hneemann/Digital).
