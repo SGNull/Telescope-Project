@@ -56,7 +56,7 @@ JMP >MyLabel
 
 @MY_CONSTANT = 5
 @MY_OTHER_CONST = 'H'
-#MyEmptyArray = (~32)  / An empty array of size 32
+#MyEmptyArray = (~MY_CONSTANT)  / An empty array of size MY_CONSTANT
 #MyArray = (24, 'a', 'b', 15, 0x1, 0b010110)
 #MyString = "Hello World!"
 
