@@ -1,5 +1,6 @@
-0x0002 - MyString
 0x4800 - KEY_TERM_FLG
-0x000f - Init
-0x0013 - I.PrintLoop
-0x001c - I.Done
+0xffff - STRING_END_VALUE
+0x0002 - MyString
+0x000f - Main
+0x0014 - Main.Loop
+0x001d - Main.Done

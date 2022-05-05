@@ -1,21 +1,20 @@
 JMP >START
-%
- A sort test to make sure that memory access works fine.
+(% A sort test to make sure that memory access works fine.
  
- Reads IO until the list is full.
- Then goes back and sorts the list using insertion sort.
- Finally, it reads the contents of memory to the I/O.
+   Reads IO until the list is full.
+   Then goes back and sorts the list using insertion sort.
+   Finally, it reads the contents of memory to the I/O.
  
- Note that this is a really bad sorting algorithm in this architecture, given that memory access is 3 clock cycles. 
- However, this is very good for a memory test.
-%
+   Note that this is a really bad sorting algorithm in this architecture, given that memory access is 3 clock cycles. 
+   However, this is very good for a memory test.
+%)
 
 
 
 / Data "segment"
 
 @LIST_SIZE = 10
-#List = (~10)
+#List = (~LIST_SIZE)
 
 
 

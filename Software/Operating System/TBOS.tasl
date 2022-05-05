@@ -78,43 +78,43 @@ JMP >Init
 (/ ------- OS Properties & Data -------
 	/ Process = [1-bit Active] 000 [4-bit parent] [4-bit nextSib] [4-bit child]
 	/ NOTE: This could be modified to support 32 procs, but memory conflicts would be much more likely.
-	@MAX_PROC_COUNT = 16
-	@PROC_WORDS = 1		/ must be under 16
-	#ProcList = ~16		/ must have size of MAX_PROC_COUNT x PROC_WORDS
+	@MAX_PROC_COUNT 	= 16
+	@PROC_WORDS		= 1		/ must be under 16
+	@PROC_CxPROC_W 	= 16	/ must be MAX_PROC_COUNT x PROC_WORDS
+	#ProcList 		= ~PROC_CxPROC_W
 
-	@PROC_ACTIVE_BIT = 15
-	@PARENT_MASK = 0xF00
-	@PARENT_SHIFT = 8
-	@SIB_MASK = 0xF0
-	@SIB_SHIFT = 4
-	@CHILD_MASK = 0xF
+	@PROC_ACTIVE_BIT 	= 15
+	@PARENT_MASK 		= 0xF00
+	@PARENT_SHIFT 	= 8
+	@SIB_MASK 		= 0xF0
+	@SIB_SHIFT 		= 4
+	@CHILD_MASK 		= 0xF
 
 	@ROOT_PROC_ID = 0				/ Must be 0
 	@NULL_PROC_ID = >ROOT_PROC_ID	/ Must be ROOT_PROC_ID
 
-	#ProcCount = 0		/ Number of running processes
-	#CurrentProcID = 0	/ Current running process
+	#ProcCount 		= 0		/ Number of running processes
+	#CurrentProcID 	= 0	/ Current running process
 	
 	@CTD_VAL = 0x0020
 
 
 	/ EXA and CTD are constant, PC is in the OS, and IO doesn't make sense to store, so 12 words per state
-	/ 16 max proc x 12 words per proc = 192
 	/ Each state has the following format: RG0-7, FLG, SP, EPC, HLB
-	#StateList = ~192
-	@FLG_OFFSET = 8
-	@SP_OFFSET = 9
-	@EPC_OFFSET = 10
-	@HLB_OFFSET = 11
+	@PROC_CxSTATE_S 	= 192 / 16 max proc x 12 words per proc = 192
+	#StateList 		= ~PROC_CxSTATE_S
+	@FLG_OFFSET 		= 8
+	@SP_OFFSET 		= 9
+	@EPC_OFFSET 		= 10
+	@HLB_OFFSET 		= 11
 
-	@CHUNK_SIZE = 0x0400
-	@NUM_CHUNKS = 64		/ Must be (2^16)/CHUNK_SIZE
-	@BMP_WORDS = 4		/ Must be NUM_CHUNKS/16, and under 16
-	#MallocBMPs = (~4)	/ Must have size of BMP_WORDS
+	@CHUNK_SIZE 	= 0x0400
+	@NUM_CHUNKS 	= 64		/ Must be (2^16)/CHUNK_SIZE
+	@BMP_WORDS 	= 4			/ Must be NUM_CHUNKS/16, and under 16
+	#MallocBMPs = (~BMP_WORDS)
 
 	/ Where (some of) the state of the CPU is immediately stored at.
-	/ EPC and HLB are not stored
-	#TState = (~12)
+	#TState = (~STATE_REG_COUNT)
 
 	#MarkInst: ALU SET RG5 RG4
 	#UnmarkInst: ALU UST RG5 RG4
@@ -645,7 +645,7 @@ JMP >Init
 	#LoF.LoadLoop
 		STR IO RG1 0
 		INC RG1
-	DEC RG0; JIF NEZ >LoF.LoadLoop
+	DCC RG0; JIF NEZ >LoF.LoadLoop
 	
 	/ Finally, return
 	#LoF.Done
@@ -745,7 +745,7 @@ JMP >Init
 		#MoB.ModBit:NOP
 		
 		/ Goto the next bit (unless we're at the end, or end of word)
-		INC RG4; DEC RG1; JIF EQZ >MoB.Done
+		INC RG4; DCC RG1; JIF EQZ >MoB.Done
 		ALF MOD RG4 RG2; JIF NEZ >MoB.Loop
 		
 		/ If at the end of word, store the word and get the next one

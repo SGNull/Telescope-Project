@@ -1,22 +1,24 @@
 JMP
->Init
+>Main
+@KEY_TERM_FLG 0b0100100000000000
+@STRING_END_VALUE 0xFFFF
 #MyString
 "Hello World!"
-@KEY_TERM_FLG 0x4800
-#Init
+#Main
+ZRO RG0
+LDI RG1
+>STRING_END_VALUE
 LDI FLG
 >KEY_TERM_FLG
-ZRO RG0
-NUL RG1
-#I.PrintLoop
+#Main.Loop
 LOD RG2 RG0
 >MyString
 CMP RG2 RG1
 JEQ
->I.Done
+>Main.Done
 MOV IO RG2
 INC RG0
 JMP
->I.PrintLoop
-#I.Done
+>Main.Loop
+#Main.Done
 HLT

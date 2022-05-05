@@ -59,12 +59,16 @@ instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       0xbe5a, 0xb100, 0b0010,  # ZRO
                       0xb2ae, 0xb000, 0b0010,  # NUL
                       0xcc30, 0x9200, 0b0010,  # PAS
-                      0x8dc9, 0x9901, 0b0010,  # INC (set flags)
-                      0x8ca4, 0x9b01, 0b0010,  # DEC (set flags)
+
+                      0x8dc9, 0xb901, 0b0010,  # INC
+                      0x8ca4, 0xbb01, 0b0010,  # DEC
+                      0x8c69, 0x9901, 0b0010,  # ICC (inc +set flags)
+                      0x8c64, 0x9b01, 0b0010,  # DCC (dec +set flags)
                       0xa270, 0xbbb0, 0b1001,  # PSH
                       0xc1f0, 0xb9b0, 0b1001,  # POP
                       0xc1a3, 0xcb00, 0b0011,  # CMP
                       0xa5a3, 0xdb00, 0b1011,  # CMI
+
                       0xc1aa, 0x4600, 0b0000,  # JMP
                       0xc4aa, 0x4000, 0b0000,  # JEQ
                       0x95ca, 0x4800, 0b0000,  # JNE
@@ -230,12 +234,34 @@ def main():
     input_ROM.append(STOP_CHAR)
     input_ROM.append(STOP_CHAR)
 
+    # If in compress mode, just compress the file
     if compress:
         print("")
         print("Compression enabled, starting compressor...")
         compress_file(input_file_name + COMPRESSED_FILE_SUFFIX)
         print("Compressor finished.")
 
+    # If in debug mode, just write the debug outputs
+    elif in_debug_mode:
+        print("")
+        print("Running debug functions")
+        print("")
+
+        # Debug functions go here.
+
+        # First, build the label table
+        write_0_to_input()
+        build_tables()
+
+        # Now print the label table
+        make_table_file(input_file_name + TABLE_FILE_SUFFIX)
+
+        print("")
+
+        # Now make the RTL file
+        write_RTL(input_file_name + REDUCED_FILE_SUFFIX)
+
+    # Else, just assemble the file
     else:
         # Start the assembler.
         print("")
@@ -256,19 +282,6 @@ def main():
             out_file.writelines(output_lines)
 
         print("Contents written to output.")
-
-        # If we're in debug mode, call the debugging functions.
-        if in_debug_mode:
-            print("")
-            print("Debug mode is enabled")
-            print("")
-
-            # Debug functions go here.
-            make_table_file(input_file_name + TABLE_FILE_SUFFIX)
-
-            print("")
-
-            write_RTL(input_file_name + REDUCED_FILE_SUFFIX)
 
     print("")
     print("The simulation has finished.")
@@ -507,13 +520,12 @@ def reduce_input_ROM(to_RTL):
 
         # If to_RTL, we want to write all of the zeros to the output
         elif first_char is ARRAY_CHAR:
-            buff_stuff = buff_string()
             if to_RTL:
-                num_zeros = int(buff_stuff[1:])
+                num_zeros = label_lookup()
                 for i in range(0, num_zeros):
-                    outlines.append("0x0000\n")
+                    outlines.append("0x0000 of " + buff_string()[1:] + " \n")
             else:
-                outlines.append(buff_stuff + "\n")
+                outlines.append(buff_string() + "\n")
 
         else: # if the buffer contains an instruction
             # This part is mostly a direct copy from build_tables
@@ -525,7 +537,7 @@ def reduce_input_ROM(to_RTL):
                 if to_RTL:
                     outlines.append("MOV RA PC\n")
                     outlines.append("ALI ADD RA 4\n")
-                    outlines.append("JIF TRU\n")
+                    outlines.append("JMP\n")
                 else:
                     outlines.append("CAL\n")
             else:
@@ -578,10 +590,14 @@ def is_char_important(char_num):
 
 
 def start_point():
-    # Reset input
+    # Reset input for label table
     write_0_to_input()
-    # Goto the assembler by calling build_tables.
+    # Build the label table
     build_tables()
+    # Reset input for assembler
+    write_0_to_input()
+    # Call the assembler
+    assemble()
 
 
 def get_value_base(multiplier, starting_index):
@@ -867,7 +883,7 @@ def build_tables():
             program_counter += buffer_index - 1
 
         elif first_char == ARRAY_CHAR:  # It's an empty array
-            zeros = get_value_base(10, 1)  # A decimal number of zeros follows this character.
+            zeros = label_lookup()
             program_counter += zeros
 
         elif SEL(first_char, 6) == 0:  # It's a number
@@ -896,13 +912,9 @@ def build_tables():
                 if SEL(bitmap, 0) != 0:
                     get_next_text()
 
-    # After we're done, pass control to the actual assembler with the input reset
-    write_0_to_input()
-
+    # After we're done, if we're generating a loadable, write the program counter to the first line of output
     if generate_loadable:
         write_output(program_counter)
-
-    assemble()
 
 
 def assemble():
@@ -941,7 +953,7 @@ def assemble():
                     write_output(char)
 
             elif first_char == ARRAY_CHAR:  # It is an empty array, so we make it.
-                value = get_value_base(10, 1)
+                value = label_lookup()
                 num_zeros = 0
                 while num_zeros != value:
                     write_output(0)

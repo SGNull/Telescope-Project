@@ -30,18 +30,14 @@
         </entry>
         <entry>
           <string>Data</string>
-          <data>4600,1c,b100,b110,5020,31,7001,100,9911,cb12,4100,6,b110,3029
-,3009,7001,100,9911,cb12,4100,e,b100,b110,b120,b1a0,b1f0,2000
-,f33d,5010,2,5000,1c,ab01,b110,6021,2,7021,ff02,9911,cb10,4100
-,22,50c0,ff,b1a0,50e0,2,1000,faba</data>
+          <data>4600,1e,b100,b110,5020,33,7001,100,b911,cb12,4100,6,50a0,f800
+,b110,3029,3009,7001,100,b911,cb12,4100,10,b100,b110,b120,b1a0
+,b1f0,2000,f33d,5010,2,5000,1e,ab01,b110,6021,2,7021,ff02,b911
+,cb10,4100,24,50c0,ff,b1a0,50e0,2,1000,faba</data>
         </entry>
         <entry>
           <string>lastDataFile</string>
-          <file>C:\Users\Devin\Desktop\Telescope Project\Software\Bootloader\General Bootloader.tlo.hex</file>
-        </entry>
-        <entry>
-          <string>autoReload</string>
-          <boolean>true</boolean>
+          <file>..\..\Software\Bootloader\General Bootloader.tlo.hex</file>
         </entry>
       </elementAttributes>
       <pos x="1080" y="320"/>

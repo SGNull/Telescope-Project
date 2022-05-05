@@ -1,0 +1,27 @@
+LATEST CHANGES:
+
+Changelog is no longer being cleared after commits, because it should be an actual changelog.
+
+Testing assembler debug mode now just outputs debug files (fixed #43)
+
+RTL translation of CAL mnemonic now uses JMP instead of JIF TRU
+
+TestHash now accepts any capitalization of exit and q to quit
+
+Changed INC and DEC to not set flags, and added ICC and DCC mnemonics to set flags (fixed #33)
+
+Went back and edited + re-assembled all files with INC and DEC
+
+Fixed problem with ASCII file encoder not running the FTLV1.py script
+
+Turned off the "load on start" feature that Digital uses to automatically update firmware & software. This would cause issues on other people's computers with different directories.
+
+Fixed critical issue with Self Assembler not working (AssembleNext had a typo)
+
+
+COMPLETELY changed how empty arrays work. They are now treated like references, for example:
+ 
+@MY_LIST_SIZE = 23
+MyList = ~MY_LIST_SIZE
+
+The size MUST come before its usage. This was really hard to get working, but resolves #34

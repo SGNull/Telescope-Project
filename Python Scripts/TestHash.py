@@ -22,7 +22,7 @@ def main():
             out = out | temp
             print(mnemonic + " - " + hex(out))
 
-        elif mnemonic == "EXIT":
+        elif mnemonic.lower() == "exit" or mnemonic.lower() == 'q':
             print("Stopping...")
             break
 

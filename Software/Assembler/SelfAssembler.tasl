@@ -3,7 +3,7 @@ JMP >StartPoint
 (/ Constants, variables, and tables.
 
 /SET TO 0 IF ASSEMBLING TO PLAIN MACHINE CODE, SET TO 1 IF ASSEMBLING TO LOADABLE
-@GENLOADABLE = 0
+@GENLOADABLE = 1
 
 @INFLG = 0
 @OUTFLG = 0x800
@@ -28,8 +28,10 @@ JMP >StartPoint
               0xbe5a, 0xb100, 0b0010,  / ZRO
               0xb2ae, 0xb000, 0b0010,  / NUL
               0xcc30, 0x9200, 0b0010,  / PAS
-			  0x8dc9, 0x9901, 0b0010,  / INC (set flags)
-              0x8ca4, 0x9b01, 0b0010,  / DEC (set flags)
+			  0x8dc9, 0xb901, 0b0010,  / INC
+              0x8ca4, 0xbb01, 0b0010,  / DEC
+              0x8c69, 0x9901, 0b0010,  / ICC (inc +set flags)
+              0x8c64, 0x9b01, 0b0010,  / DCC (dec +set flags)
               0xa270, 0xbbb0, 0b1001,  / PSH
               0xc1f0, 0xb9b0, 0b1001,  / POP
               0xc1a3, 0xcb00, 0b0011,  / CMP
@@ -117,7 +119,10 @@ JMP >StartPoint
 @STOP = 0  / Must stay 0
 
 
-#Buffer = (~128)  / Will hold the next lexeme to be processed.
+@HEAP_SIZE = 4000
+
+@BUFFER_SIZE = 128
+#Buffer = (~BUFFER_SIZE)  / Will hold the next lexeme to be processed.
 #BuffIdx = 0  / Where the end point of the lexeme is in Buffer.
 
 #LblTblIdx = 0  / LblTblIdx is table_heap_pointer
@@ -515,11 +520,11 @@ JMP >StartPoint
 	CAL >GetNext
 	
 	/ RG1 = buffer_index
-	ALI AND RG1 0; LOD RG1 RG1 >BuffIdx
+	ZRO RG0; LOD RG1 RG0 >BuffIdx
 	
 	/ if buffer_index == 2 (if it's a 2 char mnemonic)
-	AIN SUB RG1 2; JIF NEZ >AN.Skip0
-		ALI AND RG2 0; STR RG2 RG1 >Buffer  / buffer[2] = 0
+	CMI RG1 2; JIF NEZ >AN.Skip0
+		ZRO RG2; STR RG2 RG1 >Buffer  / buffer[2] = 0
 		ALI ADD RG1 1; STR RG1 RG1 >BuffIdx  / buffer_index++
 	#AN.Skip0
 	
@@ -540,17 +545,36 @@ JMP >StartPoint
 )
 
 
+(#ShiftBuff  / UNSAFE for RG0-3, Shifts the buffer back by 1, clearing the first character
+	/ Initialize the registers
+	/   new      old       BuffIdx
+	ZRO RG0; LDI RG1 1; LOD RG2 RG0 >BuffIdx
+	
+	#ShB.Loop
+		/ Store old in new
+		LOD RG3 RG1 >Buffer
+		STR RG3 RG0 >Buffer;
+		/ Go to the next spot and check if we're done
+		INC RG0; INC RG1
+	CMP RG1 RG2; JNE >ShB.Loop
+	
+	/ Decrement the buffer index & return
+	DEC RG2; STR RG2 RG2 >BuffIdx
+	RET
+)
+
+
 (#BuildTables  / First pass through the file, build label table.
 
-	ALI AND RG0 0  / program_counter(RG0) = 0
-	ALI SUB SP 1; STR RG0 SP 0  / Push the program counter onto the stack.
+	ZRO RG0 / program_counter(RG0) = 0
+	PSH 1; STR RG0 SP 0  / Push the program counter onto the stack.
 	
 	#BT.Loop
 		/ GetNext()
 		CAL >GetNext
 		
 		/ RG0 = first character in buffer
-		ALI AND RG0 0; LOD RG0 RG0 >Buffer
+		ZRO RG0; LOD RG0 RG0 >Buffer
 		
 		/ If the first char is STOP, we're done
 		LDI RG1 >STOP; AFN SUB RG0 RG1; JIF EQZ >BT.Done
@@ -561,8 +585,8 @@ JMP >StartPoint
 			CAL >ApdStrLbl
 			
 			/ Add the value to the table.
-			LOD RG0 SP 0; ALI AND RG1 0; LOD RG1 RG1 >LblTblIdx; STR RG0 RG1 >LabelTable
-			ALI ADD RG1 1; STR RG1 RG1 >LblTblIdx
+			LOD RG0 SP 0; ZRO RG1; LOD RG1 RG1 >LblTblIdx; STR RG0 RG1 >LabelTable
+			INC RG1; STR RG1 RG1 >LblTblIdx
 			
 			/ Loop
 			JMP >BT.Loop
@@ -575,7 +599,7 @@ JMP >StartPoint
 			
 			/ Get the constant's text and check what type of constant it is.
 			CAL >GetNext
-			ALI AND RG0 0; LOD RG0 RG0 >Buffer
+			ZRO RG0; LOD RG0 RG0 >Buffer
 			
 			/ If the first character is CHAR, it's a character, else it's a number.
 			LDI RG1 >CHAR; CMP RG0 RG1; JNE >BT.CnNum
@@ -606,9 +630,13 @@ JMP >StartPoint
 			JMP >BT.Loop
 		#BT.NotString
 		
-		/ If the first char is ARRAY, do program counter += GetValueBase(10,1)
+		/ If the first char is ARRAY, do program counter += value
 		LDI RG1 >ARRAY; CMP RG0 RG1; JNE >BT.NotArr
-			LDI RG0 10; LDI RG1 1; CAL >GetValueBase
+			/ It's a reference, so get the value
+			CAL >LabelLookup
+			
+			/ Now add the result to the program counter
+			#BT.ArrRet
 			LOD RG0 SP 0; ALU ADD RG0 OUT; STR RG0 SP 0
 			JMP >BT.Loop
 		#BT.NotArr
@@ -730,8 +758,8 @@ JMP >StartPoint
 	
 	/ If ARRAY, get the value of the number, and write 0's that many times to the output
 	LDI RG1 >ARRAY; CMP RG0 RG1; JNE >ASM.NotArr
-		/ OUT = GetValueBase(10, 1)
-		LDI RG0 10; LDI RG1 1; CAL >GetValueBase
+		/ It's a reference, so get the value
+		CAL >LabelLookup
 		
 		/ Check to make sure the value isn't 0
 		PAS OUT; JIF EQZ >Assemble

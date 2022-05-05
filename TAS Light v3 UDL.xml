@@ -27,11 +27,11 @@
             <Keywords name="Keywords1">MOV LDI LOD STR PSH POP</Keywords>
             <Keywords name="Keywords2">RG0 RG1 RG2 RG3 RG4 RG5</Keywords>
             <Keywords name="Keywords3">PC IO FLG SP HLB EPC CTD EXA RG6 RG7 OUT RA</Keywords>
-            <Keywords name="Keywords4">@ &gt;</Keywords>
-            <Keywords name="Keywords5">ALU ALI ALF AIF AFN AIN NOT AND OR XOR SRB SLB SET UST NEG ADD ADC SUB SBB MUL DIV MOD ZRO NUL CMP PAS INC DEC CMI</Keywords>
+            <Keywords name="Keywords4">@ &gt; ~</Keywords>
+            <Keywords name="Keywords5">ALU ALI ALF AIF AFN AIN NOT AND OR XOR SRB SLB SET UST NEG ADD ADC SUB SBB MUL DIV MOD ZRO NUL CMP PAS INC DEC CMI ICC DCC</Keywords>
             <Keywords name="Keywords6">JIF EQZ LTZ CAR OVR PRD PWT TRU RND NEZ GEZ NCR NOV PNR PNW CAL JMP RET JEQ JNE JLT JGE</Keywords>
             <Keywords name="Keywords7">SYS RSM HLT NOP</Keywords>
-            <Keywords name="Keywords8"># ~</Keywords>
+            <Keywords name="Keywords8">#</Keywords>
             <Keywords name="Delimiters">00&apos; 01 02&apos; 03&quot; 04 05&quot; 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23</Keywords>
         </KeywordLists>
         <Styles>
