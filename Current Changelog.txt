@@ -1,5 +1,7 @@
 LATEST CHANGES:
 
-Somewhat resolved #46. There's a document made for the TSFS file system, but I'm not completely satisfied yet.
+Sped up OS initialization by not clearing the bootloader from the end of memory (there was no need to do that anyways).
 
-Worked on #47. Made the TSFS Drive Image Creator script which combines multiple .hex files into a single tsfs drive image. Still needs to be finished, though.
+Resolved #47; Finished and renamed the Python drive imager script.
+
+Resolved #10 finally! Realized it's not very helpful. Currently unsued (and probably unecessary. The Telescope Computer's drive system operates almost identically to the Assembler Computer's input and output).

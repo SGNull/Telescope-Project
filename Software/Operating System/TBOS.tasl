@@ -62,9 +62,6 @@ JMP >Init
 	@RANDOM_IOP 			= >PC_STATUS_IOP
 	@COUNTER_START_IOP 	= 0xE000
 	@COUNTER_STOP_IOP 	= 0xE800
-	
-	@ADDR_BEFORE_BOOT = 0xFEFF
-	@ENDLOAD 		= 0xF33D
 
 
 	/ OS determined hardware constants
@@ -149,13 +146,6 @@ JMP >Init
 	
 	/ Start the cycle counter
 	LDI FLG >COUNTER_START_IOP; MOV IO RG0
-	
-	/ Remove the bootloader
-	ZRO RG0; LDI RG1 >ADDR_BEFORE_BOOT; LDI RG2 >ENDLOAD
-	#Ini.CleanLoop
-		INC RG1; LOD RG3 RG1 0
-		STR RG0 RG1 0
-	CMP RG3 RG2; JNE >Ini.CleanLoop
 	
 	/ Calculate the OS size in chunks in RG1
 	LDI RG1 >OSEndPoint; LDI RG0 >CHUNK_SIZE; ALU DIV RG1 RG0
