@@ -1,7 +1,13 @@
 LATEST CHANGES:
 
-Sped up OS initialization by not clearing the bootloader from the end of memory (there was no need to do that anyways).
+Went back and revised some comments/documentation to refresh myself on this project, and to make things (hopefully) much clearer.
 
-Resolved #47; Finished and renamed the Python drive imager script.
+Resolved #48 - Made the bootloader machine that should have been made from the start. In retrospect, the original bootloader was a good test of TASL, but still, the solution was right there.
 
-Resolved #10 finally! Realized it's not very helpful. Currently unsued (and probably unecessary. The Telescope Computer's drive system operates almost identically to the Assembler Computer's input and output).
+Testing Assembler correctly uses warnings now.
+
+Created a much better drive imager script.
+
+Created a drive image inspector script for seeing what is inside each TSFS drive. Currently can only show the raw data of subdirectories, and is not configured to display actual text/instructions/etc. Still rather useful for seeing what types of files are stored in a drive.
+
+Resolved #49 - Created a button in N++ for the drive imager. This runs on the currently opened file's directory.

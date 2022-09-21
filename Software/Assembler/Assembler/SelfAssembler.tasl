@@ -224,6 +224,7 @@ JMP >StartPoint
 	#GNV.0
 
 	/ If Buffer[1] is a number, too.
+	/ If we conditionally set rg0 to either 1 or 2 here, we could check for negative numbers like we check for references above.
 	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SET RG0 6; JIF CAR >GNV.Char
 		LDI RG0 10; ZRO RG1; JMP >GetValueBase
 	#GNV.Char

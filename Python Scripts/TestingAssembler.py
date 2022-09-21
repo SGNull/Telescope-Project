@@ -2,19 +2,23 @@
 
 # A lot of time is wasted assembling files without an assembler.
 # While this project is about doing things from scratch, wasting time is not fun.
-# This assembler will be used to write another assembler in the TASL language itself.
+# This assembler was used to write another assembler in the TASL language itself.
 
 # This is also a simulation of the assembler that will be written.
 # As a result, there are some odd code style choices that were made throughout this program.
 # This was done to make this source code as close to the TASL source code as possible.
 
 import sys
+from warnings import warn
 
 # --------------------------------------Simulation Constants/Globals---------------------------------------
+# Args constants
 DEBUG_ARG = "-d"
 COMPRESS_ARG = "-c"
 LOADABLE_ARG = "-l"
 
+
+# File constants:
 OUTPUT_SUFFIX = ".tlo.hex"
 TABLE_FILE_SUFFIX = ".table"
 REDUCED_FILE_SUFFIX = ".rtl"
@@ -26,19 +30,42 @@ ACCEPTED_IN_SUFFIX = ["tasl", "tl"]
 LOGISIM_FILE_HEADER = "v2.0 raw"
 RTL_HEADER = "NOTE: DESPITE THEIR APPEARANCE, RTL FILES CANNOT BE ASSEMBLED"
 
-output_lines = []  # Should be in Logisim's drive format.
+
+# Hardware simulation:
+output_lines = []  # Should be in Logisim Drive Format.
 
 input_ROM = []     # Should be characters.
 input_pointer = 0  # Would be a physical counter attached to the input_ROM.
 output_ROM = []    # Should be 16-bit instructions.
 
+
+# Hardware Constants:
 NULL = 0xFFFF
 
+
+# Simulation Exceptions:
+class ArgumentsError(TypeError):
+    """Raised when the arguments provided are bad in some way."""
+    pass
+
+
+class ArgCountError(ArgumentsError):
+    """Raised when the wrong number of arguments are provided."""
+    pass
+
+
+class FileTypeError(ArgumentsError):
+    """Raised when the file provided is the wrong type of file."""
+    pass
+
+
 # --------------------------------------Assembler Constants/Globals----------------------------------------
+# Special instruction hashes:
 CAL_HASH = 0xb023
 
-# There will be three tables that the assembler will draw from, in addition to the label table:
-# Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
+
+# Tables:
+# Instruction table entries: (mnemonic_hash, translation, operand_bitmap(1 = operand required) )
 instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       0xb672, 0x1000, 0b0000,  # RSM
                       0xcf33, 0x2000, 0b0000,  # SYS
@@ -134,49 +161,63 @@ modifier_table = [0xD1EE, 0x0,  # NOT
                   NULL
                   ]
 
-COMMENT_CHAR = ord('/')  # Comments end at a newline character.
+
+# Special characters:
+COMMENT_CHAR = ord('/')     # Comments end at a newline character.
 NEWLINE_CHAR = ord('\n')
-MULTI_LINE_CHAR = ord('%')  # Commands are for later assemblers.
-LABEL_CHAR = ord('#')    # Labels end at a skippable character.
-CONST_CHAR = ord('@')    # Constants end at a skippable character.
-HEX_CHAR = ord('x')      # Hexadecimal numbers can have varying length, and end at a skippable character.
-BIN_CHAR = ord('b')      # Binary numbers have the same syntax as hexadecimal numbers.
-REF_CHAR = ord('>')      # References replace the following label with the value of the label.
-CHAR_CHAR = ord("'")     # Character syntax works somewhat similar to how it works in python.
-#                          However, it forces the assembler to take ANY *single* character and write it to the output.
-STRING_CHAR = ord('"')   # Places a series of characters in order in memory.
-ARRAY_CHAR = ord('~')    # The number of zeros in the array follows this character *in decimal only*.
+MULTI_LINE_CHAR = ord('%')  # Multi-line comments start and end with '%'
+LABEL_CHAR = ord('#')       # Labels end at a skippable character.
+CONST_CHAR = ord('@')       # Constants end at a skippable character.
+HEX_CHAR = ord('x')         # Hexadecimal numbers can have varying length, and end at a skippable character.
+BIN_CHAR = ord('b')         # Binary numbers have the same syntax as hexadecimal numbers.
+REF_CHAR = ord('>')         # References replace the following label with the value of the label.
+CHAR_CHAR = ord("'")        # Character syntax works somewhat similar to how it works in python. However,
+#                             it forces the assembler to take ANY *single* character and write it to the output.
+STRING_CHAR = ord('"')      # Places a series of characters in order in memory, followed by NULL.
+ARRAY_CHAR = ord('~')       # The number of zeros in the array follows this character *in decimal only*.
 STOP_CHAR = 0
 
-BUFFER_HEAP_SIZE = 128
-buffer = [0] * BUFFER_HEAP_SIZE  # The heap that the assembler will use to store words.
-buffer_index = 0  # Would be a variable in Logisim.
 
-LABEL_TABLE_HEAP_SIZE = 0x2000
+# Memory management:
+BUFFER_HEAP_SIZE = 128              # We do not expect anyone to type anything larger than 128 characters.
+buffer = [0] * BUFFER_HEAP_SIZE     # The heap that the assembler will use to store words.
+buffer_index = 0                    # Would be a variable in Logisim.
+
+LABEL_TABLE_HEAP_SIZE = 0x2000             # Somewhat arbitrary. Need enough space, but not too much.
 label_table = [0] * LABEL_TABLE_HEAP_SIZE  # Will contain entries like [size+1,l,a,b,e,l,value,size+1,l,a,...]
-#                                            Note: size+1 is the relative index of the value
-label_table_index = 0  # Would be a variable in Logisim.
+#                                            Note: size+1 happens to be the relative index of "value"
+label_table_index = 0                      # Would be a variable in Logisim.
 
+
+# Assembler options:
 generate_loadable = False  # Needs to be global because it effects the assembler.
 
 
 # ------------------------------------------The Simulation--------------------------------------------------
-def to_out_format(value):
-    """Takes a given value and returns the Logisim formatted version of that number."""
+def LDF_encode(value: int) -> str:
+    """Returns the Logisim Drive Format encoding of value as a string."""
+
     return hex(value)[2:]
 
 
-def main():
-    """Sets up the simulation, runs the assembler, and runs any extra features requested."""
+def main() -> None:
+    """
+    Sets up the simulation, runs the assembler, and runs any extra features requested.
+
+    Raises:
+        ArgumentsError: Bad second argument.
+        ArgCountError: Wrong number of arguments.
+        FileTypeError: Wrong input file type.
+    """
     global generate_loadable
 
-    # Check that the arguments are correct.
+    # Check that the number of arguments are correct.
     print("Checking the arguments...")
 
     if len(sys.argv) != 2 and len(sys.argv) != 3:
         print("Error: Expected 1 or 2 arguments (input file path and mode), got " + str(len(sys.argv) - 1) +
               " instead.")
-        raise ValueError
+        raise ArgCountError
 
     # Check if we're in debug mode.
     in_debug_mode = False
@@ -190,7 +231,7 @@ def main():
             generate_loadable = True
         else:
             print("Bad second argument: " + sys.argv[2])
-            raise ValueError
+            raise ArgumentsError
 
     # Check input file suffix
     input_file_path = sys.argv[1]
@@ -199,7 +240,7 @@ def main():
     if input_file_suffix not in ACCEPTED_IN_SUFFIX:
         print("Error: Expected input file type to be one of " + str(ACCEPTED_IN_SUFFIX) + ", got a " +
               input_file_suffix + " file instead.")
-        raise ValueError
+        raise FileTypeError
 
     # Get output file location
     input_file_name = input_file_path.split('.')[0]
@@ -225,10 +266,9 @@ def main():
 
     # If there's nothing in the ROM, then there was some kind of issue with the input file.
     if len(input_ROM) == 0:
-        print("Error: input file empty or not readable/found.")
-        raise Warning
+        warn("Error: input file empty or not readable/found.")
 
-    # 2 STOP_CHARs are appended to the end of memory, just to make sure that the assembler does not go past them
+    # 2 STOP_CHARs are appended to the end of memory, just to make sure that the assembler does not go past them.
     # There are some edge cases where this could happen if only 1 was used.
     # However, since the end of ROM would be all 0's anyway, this "fix" is actually realistic.
     input_ROM.append(STOP_CHAR)
@@ -275,7 +315,7 @@ def main():
         output_lines.append(LOGISIM_FILE_HEADER + "\n")
 
         for val in output_ROM:
-            out = to_out_format(val)
+            out = LDF_encode(val)
             output_lines.append(out + "\n")
 
         with open(output_file_path, 'w') as out_file:
@@ -287,11 +327,11 @@ def main():
     print("The simulation has finished.")
 
 
-def read_input():
+def read_input() -> int:
     """
-    Returns the next character from the input, incrementing the input pointer.
+    Returns the next input char, and increments the input pointer.
 
-    This would happen automatically when doing LDI FLG >INPUT_FLG, MOV RG0 IO
+    In the hardware, the input's pointer increments automatically when the input is read.
     """
     global input_pointer
     next_val = input_ROM[input_pointer]
@@ -299,58 +339,57 @@ def read_input():
     return next_val
 
 
-def write_0_to_input():
-    """Writing 0 to the input circuit resets the pointer."""
+def write_0_to_input() -> None:
+    """Writing 0 to the input circuit resets the input pointer."""
     global input_pointer
     input_pointer = 0
 
 
-def write_output(value):
+def write_output(value: int) -> None:
     """
     Writes the value to the output.
 
-    Would automatically increment some output pointer in Logisim when LDI FLG >OUTPUT_FLG, MOV IO RG0
+    This would automatically increment some output pointer at the hardware level.
     """
     output_ROM.append(value)
 
 
-# VERY IMPORTANT: SEL is now the carry output of SET and UST
-def SEL(value, bit):
+def SEL(value: int, bit: int) -> int:
     """
-    The SEL function in TASL:
+    Returns bit number 'bit' of 'value'.
 
-    Takes a value and the bit to select from that value, then returns that bit in position 0.
+    Deprecated in hardware; what was SEL is now the carry output of SET and UST.
     """
     mask = 1 << bit
     return (mask & value) >> bit
 
 
-def print_buffer():
-    """Prints the contents of the buffer."""
+def print_buffer() -> None:
+    """Prints the contents of the buffer to the console for debugging."""
     print("Printing heap contents...")
-    print(buff_string() + "\n")
+    print(buffer_as_string() + "\n")
 
 
-def form_hex(num):
-    """Formats a given integer into a 2-byte hexadecimal string. Mustn't be larger than 2^16"""
-    # Get the part of the hex number that should contain 4 characters
-    hex_str = hex(num)
-    parts = hex_str.split('x')
-    length = len(parts[1])
+def normalized_hex(num: int) -> str:
+    """
+    Formats a given integer into an exactly 2-byte hexadecimal string.
 
-    # If it's over 4, error.
-    if length > 4:
-        print("Value too large in form_hex().")
+    Raises:
+        ValueError: The value was larger than 2^16
+    """
+
+    hex_str = hex(num)[2:]
+    if len(hex_str) > 4:
+        print("Value too large in normalized_hex().")
         raise ValueError
 
-    # If not, insert zeros and return.
-    num_zeros = 4 - length
-    new_str = "0x" + ('0' * num_zeros) + parts[1]
+    num_zeros = 4 - len(hex_str)
+    new_str = "0x" + ('0' * num_zeros) + hex_str
     return new_str
 
 
-def buff_string():
-    """Returns the contents of the buffer as a string"""
+def buffer_as_string() -> str:
+    """Returns the contents of the buffer as a string."""
     buf_string = ""
     for i in range(0, buffer_index):
         buf_string += chr(buffer[i])
@@ -361,7 +400,7 @@ def buff_string():
 # ------------------------------------------------Extra Features------------------------------------------------------
 
 
-def compress_file(TL_file_path):
+def compress_file(TL_file_path: str) -> None:
     """Creates a TL copy of the TASL file for module-based programs."""
 
     # Reduce the input ROM to TL lines
@@ -376,7 +415,7 @@ def compress_file(TL_file_path):
         print("TL output file written.")
 
 
-def make_table_file(table_file_path):
+def make_table_file(table_file_path: str) -> None:
     """Creates a file containing the contents of the label table."""
 
     # Gather the contents of the label table
@@ -391,7 +430,7 @@ def make_table_file(table_file_path):
         print("Table output file written.")
 
 
-def write_RTL(RTL_file_path):
+def write_RTL(RTL_file_path: str) -> None:
     """Creates an RTL copy of the TASL file for reference when debugging"""
 
     # Reduce the input ROM to RTL lines
@@ -406,7 +445,7 @@ def write_RTL(RTL_file_path):
         print("RTL output file written.")
 
 
-def gather_label_table():
+def gather_label_table() -> list:
     """Returns the constants of the label table in an easy-to-read format as a list of lines."""
     # See the label table structure to better understand how this function works.
     index = 0
@@ -427,7 +466,7 @@ def gather_label_table():
         value = label_table[index]
 
         # Then print the label number, label name, and its value
-        outlines.append(form_hex(value) + " - " + label + "\n")
+        outlines.append(normalized_hex(value) + " - " + label + "\n")
 
         # Finally, increment the index for the next label
         index += 1
@@ -435,14 +474,8 @@ def gather_label_table():
     return outlines
 
 
-def reduce_input_ROM(to_RTL):
-    """
-    Uses assembler functions to generate a reduced version of the input file.
-
-    If to_RTL is true, it will generate the lines for a .rtl file as opposed to a .tl file.
-
-    :returns a list of lines for the output file.
-    """
+def reduce_input_ROM(to_RTL: bool) -> list:
+    """Uses assembler functions to generate a reduced version of the input file, either to TL or RTL."""
 
     # Reset the input pointer before continuing
     write_0_to_input()
@@ -466,24 +499,25 @@ def reduce_input_ROM(to_RTL):
         # Ignore labels if RTL
         elif first_char is LABEL_CHAR:
             # If this does not occur within the elif block, it will treat labels as instructions.
+            # ^^^ Seriously. There is an "else" at the bottom of this "elif" chain. Leave this be.
             if not to_RTL:
-                outlines.append(buff_string() + "\n")
+                outlines.append(buffer_as_string() + "\n")
 
         # Ignore constants if RTL
         elif first_char is CONST_CHAR:
             temp_string = ""
 
             if not to_RTL:
-                temp_string = buff_string()
+                temp_string = buffer_as_string()
 
             get_next_text()
 
             if not to_RTL:
-                outlines.append(temp_string + " " + buff_string() + "\n")
+                outlines.append(temp_string + " " + buffer_as_string() + "\n")
 
         # Write everything else to the output.
         elif first_char is CHAR_CHAR:
-            temp_string = buff_string()
+            temp_string = buffer_as_string()
 
             # Check for edge-cases if reducing to_RTL
             if to_RTL and temp_string[1] == '\n':
@@ -496,7 +530,7 @@ def reduce_input_ROM(to_RTL):
             outlines.append(temp_string + "\n")
 
         elif first_char is STRING_CHAR:
-            chars = buff_string()[1:-1]
+            chars = buffer_as_string()[1:-1]
 
             if to_RTL:
                 for char in chars:
@@ -510,26 +544,26 @@ def reduce_input_ROM(to_RTL):
                         outlines.append("'" + char + "'\n")
                 outlines.append("0xffff\n")
             else:
-                outlines.append(buff_string() + "\n")
+                outlines.append(buffer_as_string() + "\n")
 
         elif first_char is REF_CHAR:
-            outlines.append(buff_string() + "\n")
+            outlines.append(buffer_as_string() + "\n")
 
         elif chr(first_char).isnumeric():
-            outlines.append(buff_string() + "\n")
+            outlines.append(buffer_as_string() + "\n")
 
         # If to_RTL, we want to write all of the zeros to the output
         elif first_char is ARRAY_CHAR:
             if to_RTL:
                 num_zeros = label_lookup()
                 for i in range(0, num_zeros):
-                    outlines.append("0x0000 of " + buff_string()[1:] + " \n")
+                    outlines.append("0x0000 of " + buffer_as_string()[1:] + " \n")
             else:
-                outlines.append(buff_string() + "\n")
+                outlines.append(buffer_as_string() + "\n")
 
         else: # if the buffer contains an instruction
             # This part is mostly a direct copy from build_tables
-            instruction = buff_string()
+            instruction = buffer_as_string()
 
             hash_key = hash_buffer()
 
@@ -548,13 +582,13 @@ def reduce_input_ROM(to_RTL):
 
                 if SEL(bitmap, 2) != 0:
                     get_next_text()
-                    instruction += " " + buff_string()
+                    instruction += " " + buffer_as_string()
                 if SEL(bitmap, 1) != 0:
                     get_next_text()
-                    instruction += " " + buff_string()
+                    instruction += " " + buffer_as_string()
                 if SEL(bitmap, 0) != 0:
                     get_next_text()
-                    instruction += " " + buff_string()
+                    instruction += " " + buffer_as_string()
 
                 outlines.append(instruction + "\n")
 
@@ -564,12 +598,14 @@ def reduce_input_ROM(to_RTL):
 # ------------------------------------------------The Assembler------------------------------------------------------
 
 
-def is_char_important(char_num):
-    # First check if it's 0 (cause we care about the stop character)
-    if char_num == 0:
+def is_char_important(char_num: int) -> bool:
+    """Check if a given character is 'important' or not."""
+
+    # First check if it's the stop character
+    if char_num == STOP_CHAR:
         return True
 
-    # This includes uppercase, lowercase, and some other symbols that we may care about
+    # This check includes uppercase, lowercase, and some other symbols that we may care about
     if char_num > 63:
         return True
 
@@ -589,7 +625,9 @@ def is_char_important(char_num):
     return False
 
 
-def start_point():
+def start_point() -> None:
+    """The first function to run in the assembler."""
+
     # Reset input for label table
     write_0_to_input()
     # Build the label table
@@ -600,38 +638,48 @@ def start_point():
     assemble()
 
 
-def get_value_base(multiplier, starting_index):
-    """Assumes the heap currently has some kind of number in it."""
+def get_value_base(base_num: int, starting_index: int) -> int:
+    """Get the value of the heap beginning at 'starting index' in base 'base_num.'"""
+
+    # Set up the loop
     out = 0
     index = starting_index
     while True:
         if index == buffer_index:
             break
 
+        # Get the next character and adjust it's value properly.
         next_char = buffer[index]
         if (next_char & 0x40) != 0:  # it's text
             next_char += 9
 
+        # Shift the total by 'base_num' then add the character's value to it.
+        out = out * base_num
         next_char = next_char & 0xF
-        out = out * multiplier
         out = out + next_char
 
+        # Close the loop properly.
         index += 1
     return out
 
 
-def get_numeric_value():
-    """Interprets the contents of the buffer as a number, returns the value."""
+def get_numeric_value() -> int:
+    """Interprets the contents of the buffer as a number, and returns its value."""
 
-    if buffer[0] == REF_CHAR:  # This might, no, *probably* will cause problems.
+    # This is the "label hack" trick.
+    if buffer[0] == REF_CHAR:  # This can, if used incorrectly, cause problems.
         return label_lookup()  # its effects are pretty cool, though. You can do @MY_CONST = >MY_OTHER_CONST
+    #                            ...so long as MY_OTHER_CONST is already defined. If not, RIP.
 
-    if buffer_index == 1: # it is a 1 digit decimal number
+    # If it is a 1 digit decimal number, just return it's value.
+    if buffer_index == 1:
         char = buffer[0]
         return char & 0xF
 
+    # Grab the second character to determine the encoding.
     second_char = buffer[1]
 
+    # If the second character is a number, it's decimal.
     if (second_char & 0x40) == 0:
         return get_value_base(10, 0)
 
@@ -647,8 +695,8 @@ def get_numeric_value():
         raise ValueError
 
 
-def label_lookup():
-    """Assumes the label to search for is in the heap, like [>,L,a,b,e,l]"""
+def label_lookup() -> int:
+    """Takes the label found in the heap (like [>,L,a,b,l,e]) and returns its value from the label table."""
     table_index = 0
 
     # Loop through the label table
@@ -676,12 +724,13 @@ def label_lookup():
 
                 loop_index += 1
 
+        # Navigate to the next entry in the label table.
         table_index += size
         table_index += 1
 
 
-def table_index_lookup(key, table, entry_size):
-    """Returns the index of the first entry in the table whose first field matches the key."""
+def table_index_lookup(key: int, table: list, entry_size: int) -> int:
+    """Returns the index of the first entry in 'table' whose first field is 'key.'"""
     index = 0
     while True:
         next_entry_key = table[index]
@@ -693,8 +742,8 @@ def table_index_lookup(key, table, entry_size):
         index += entry_size
 
 
-def goto_char(target):
-    """Reads from the input until it reaches the given character."""
+def goto_char(target: int) -> None:
+    """Reads from the input until it reaches the 'target' character."""
     char = read_input()
     while char != target:
         if char == STOP_CHAR:
@@ -702,8 +751,8 @@ def goto_char(target):
         char = read_input()
 
 
-def get_next_text():
-    """Reads the next viable sequence of characters from input into the buffer"""
+def get_next_text() -> None:
+    """Reads the next 'important' sequence of characters from input into the buffer"""
     global buffer_index
 
     # Look for the start of a viable sequence
@@ -769,7 +818,7 @@ def get_next_text():
             break
 
 
-def append_string_label():
+def append_string_label() -> None:
     """Adds the buffer to the label_table as a label, but does not assign it a value."""
     global label_table_index
     index = 1
@@ -785,8 +834,8 @@ def append_string_label():
         index += 1
 
 
-def hash_buffer():
-    """Treats the buffer as the input for the hash function."""
+def hash_buffer() -> int:
+    """Runs the buffer through the hash function."""
     out = 0
 
     temp = SEL(buffer[2], 6)
@@ -807,9 +856,10 @@ def hash_buffer():
     return out
 
 
-def assemble_next_mnemonic(table):
+def assemble_next_mnemonic(table: list) -> int:
     """
     Fetches and returns the value of the next mnemonic from the given table.
+
     CANNOT BE USED FOR INSTRUCTIONS.
     """
     global buffer_index
@@ -834,8 +884,8 @@ def assemble_next_mnemonic(table):
     return value
 
 
-def build_tables():
-    """The first pass through the file, we build the tables"""
+def build_tables() -> None:
+    """Does the first pass through the file, building the label table."""
     print("Building tables...")  # For debugging, this should be left in.
 
     global label_table_index
@@ -893,18 +943,23 @@ def build_tables():
             # Hash the instruction, and lookup how many strings we have to skip (unless it's CAL).
             hash_key = hash_buffer()
 
+            # Check if it's a special type of instruction with its own rules.
             if hash_key == CAL_HASH:
                 program_counter += 3
 
+            # Else, figure out the number of operands that are associated with it and skip over them.
             else:
                 program_counter += 1
                 index = table_index_lookup(hash_key, instructions_table, 3)
+
+                # Finds some typos in the first passthrough.
                 if index == NULL:
                     print_buffer()
                     print("INSTRUCTION NOT FOUND ERROR")
                     raise NameError
-                bmp_index = index + 2
-                bitmap = instructions_table[bmp_index]
+
+                index_of_bmp = index + 2
+                bitmap = instructions_table[index_of_bmp]
                 if SEL(bitmap, 2) != 0:
                     get_next_text()
                 if SEL(bitmap, 1) != 0:
@@ -917,8 +972,8 @@ def build_tables():
         write_output(program_counter)
 
 
-def assemble():
-    """The second pass through the file, the assembly is translated into machine code."""
+def assemble() -> None:
+    """Does the second pass through the file, translating assembly into machine code."""
     print("Assembling...")  # For debugging, this should be left in.
 
     while True:
@@ -1004,4 +1059,5 @@ def assemble():
                     write_output(out)
 
 
+# Begin this entire script by calling main.
 main()

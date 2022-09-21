@@ -43,7 +43,7 @@ ALI SUB RG0 1
 ZRO RG0
 LDI RG4 >LIST_SIZE
 
-#ForwLoop
+(#ForwLoop
 	/ j = previous i, then i++
 	MOV RG1 RG0
 	ALI ADD RG0 1
@@ -67,7 +67,7 @@ LDI RG4 >LIST_SIZE
 	/ After breaking, List[j+1] = key and loop
 	ALI ADD RG1 1; STR RG2 RG1 >List
 	JMP >ForwLoop
-#Done
+#Done)
 
 
 
