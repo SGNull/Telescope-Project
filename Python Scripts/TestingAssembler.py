@@ -175,6 +175,7 @@ CHAR_CHAR = ord("'")        # Character syntax works somewhat similar to how it 
 #                             it forces the assembler to take ANY *single* character and write it to the output.
 STRING_CHAR = ord('"')      # Places a series of characters in order in memory, followed by NULL.
 ARRAY_CHAR = ord('~')       # The number of zeros in the array follows this character *in decimal only*.
+NEGATIVE_CHAR = ord('-')
 STOP_CHAR = 0
 
 
@@ -197,7 +198,10 @@ generate_loadable = False  # Needs to be global because it effects the assembler
 def LDF_encode(value: int) -> str:
     """Returns the Logisim Drive Format encoding of value as a string."""
 
-    return hex(value)[2:]
+    if value >= 0:
+        return hex(value)[2:]
+    else:
+        return hex(2**16 + value)[2:]
 
 
 def main() -> None:
@@ -235,7 +239,7 @@ def main() -> None:
 
     # Check input file suffix
     input_file_path = sys.argv[1]
-    input_file_suffix = input_file_path.split('.')[1]
+    input_file_suffix = input_file_path.split('.')[-1]
 
     if input_file_suffix not in ACCEPTED_IN_SUFFIX:
         print("Error: Expected input file type to be one of " + str(ACCEPTED_IN_SUFFIX) + ", got a " +
@@ -243,13 +247,16 @@ def main() -> None:
         raise FileTypeError
 
     # Get output file location
-    input_file_name = input_file_path.split('.')[0]
+    input_dirs = input_file_path.split('\\')
+    input_file_name = input_dirs[-1].split('.')[0]
+
     if generate_loadable:
         suffix = LOADABLE_FILE_SUFFIX
     else:
         suffix = OUTPUT_SUFFIX
 
-    output_file_path = input_file_name + suffix
+    input_dirs.pop()
+    output_file_path = '\\'.join(input_dirs + [input_file_name + suffix])
 
     print("Done getting arguments.")
     print("")
@@ -639,7 +646,7 @@ def start_point() -> None:
 
 
 def get_value_base(base_num: int, starting_index: int) -> int:
-    """Get the value of the heap beginning at 'starting index' in base 'base_num.'"""
+    """Get the value of the heap beginning at 'starting index' in base 'base_num.' Also checks for negative."""
 
     # Set up the loop
     out = 0
@@ -660,34 +667,47 @@ def get_value_base(base_num: int, starting_index: int) -> int:
 
         # Close the loop properly.
         index += 1
+
+    if buffer[0] == NEGATIVE_CHAR:
+        out = -out
+
     return out
 
 
 def get_numeric_value() -> int:
     """Interprets the contents of the buffer as a number, and returns its value."""
+    first_char = buffer[0]
 
     # This is the "label hack" trick.
-    if buffer[0] == REF_CHAR:  # This can, if used incorrectly, cause problems.
+    if first_char == REF_CHAR:  # This can, if used incorrectly, cause problems.
         return label_lookup()  # its effects are pretty cool, though. You can do @MY_CONST = >MY_OTHER_CONST
     #                            ...so long as MY_OTHER_CONST is already defined. If not, RIP.
 
     # If it is a 1 digit decimal number, just return it's value.
     if buffer_index == 1:
-        char = buffer[0]
-        return char & 0xF
+        return first_char & 0xF
 
-    # Grab the second character to determine the encoding.
-    second_char = buffer[1]
+    # Check if this is a negative number
+    is_negative = 0
+    if first_char == NEGATIVE_CHAR:
+        is_negative = 1
+        first_char = buffer[1]
 
-    # If the second character is a number, it's decimal.
-    if (second_char & 0x40) == 0:
-        return get_value_base(10, 0)
+    # Check if this is a 1 digit negative decimal number.
+    if buffer_index == 2:
+        if is_negative:
+            return -(first_char & 0xF)
+
+    # Now check the second character to see which type of number this is.
+    second_char = buffer[1 + is_negative]
+    if (second_char & 0x40) == 0:   # If the second character is a number, it's decimal.
+        return get_value_base(10, 0 + is_negative)
 
     elif second_char == HEX_CHAR:
-        return get_value_base(16, 2)
+        return get_value_base(16, 2 + is_negative)
 
     elif second_char == BIN_CHAR:
-        return get_value_base(2, 2)
+        return get_value_base(2, 2 + is_negative)
 
     else:
         print_buffer()

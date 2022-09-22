@@ -1,13 +1,11 @@
 LATEST CHANGES:
 
-Went back and revised some comments/documentation to refresh myself on this project, and to make things (hopefully) much clearer.
+Fixed issues with custom n++ macros that the last commit caused.
 
-Resolved #48 - Made the bootloader machine that should have been made from the start. In retrospect, the original bootloader was a good test of TASL, but still, the solution was right there.
+Fixed issue with the Python assembler not handling directories with periods in them. Actually, in some spots, it wasn't really handling directories at all. Not sure how this didn't break sooner to be honest.
 
-Testing Assembler correctly uses warnings now.
+Resolved #26: Added support for negative numbers to both the Python and self-assembler.
 
-Created a much better drive imager script.
+Split test files into two seperate directories: Basic Tests, and Advanced Tests.
 
-Created a drive image inspector script for seeing what is inside each TSFS drive. Currently can only show the raw data of subdirectories, and is not configured to display actual text/instructions/etc. Still rather useful for seeing what types of files are stored in a drive.
-
-Resolved #49 - Created a button in N++ for the drive imager. This runs on the currently opened file's directory.
+Created the Negative Numbers Test.

@@ -116,6 +116,7 @@ JMP >StartPoint
 @CHAR = ''' /' / To make the Notepad++ UDL not do weird things, /' was used here.
 @ARRAY = '~'
 @STRING = '"'
+@NEGATIVE = '-'
 @STOP = 0  / Must stay 0
 
 
@@ -171,17 +172,18 @@ JMP >StartPoint
 )
 
 
-(#GetValueBase  / UNSAFE for RG1-3, RG0:multiplier, RG1:startIndex, returns value
+(#GetValueBase  / UNSAFE for RG0-3, RG0:multiplier, RG1:start_index, returns value
+
 	/ RG1 = index
 	/ RG2 = buffer_index (BuffIdx)
 	/ RG3 = next_char
 	
 	/ Get BuffIdx & setup the output
-	ALI AND RG2 0; LOD RG2 RG2 >BuffIdx
-	ALI AND OUT 0
+	ZRO RG2; LOD RG2 RG2 >BuffIdx
+	ZRO OUT
 	
-	/ If it's empty, just return 0.
-	AFN SUB RG1 RG2; JIF EQZ >GVB.Done
+	/ If the index is at or higher than the buffer size, just return 0.
+	CMP RG1 RG2; JGE >GVB.Done
 	
 	#GVB.FLoop  / do{
 		/ Get next character (at Buffer[index])
@@ -198,15 +200,21 @@ JMP >StartPoint
 		ALU MUL OUT RG0; ALU ADD OUT RG3
 		
 	/ }for(RG1; RG1 != RG2; RG1++)
-	ALI ADD RG1 1; AFN SUB RG1 RG2; JIF NEZ >GVB.FLoop
+	INC RG1; CMP RG1 RG2; JNE >GVB.FLoop
+	
+	/ Do negative check
+	ZRO RG0; LOD RG0 RG0 >Buffer
+	LDI RG1 >NEGATIVE; CMP RG1 RG0; JNE >GVB.Done
+		ALU NEG OUT OUT
 	
 	#GVB.Done; MOV PC RA  / Return
 )
 
 
 (#GetNumericValue  / UNSAFE for RG0-3, but ALL if buffer has a reference, returns value
-	/ RG0 = second_char & buffer_index
-	/ RG1 = buffer & comparison constants
+	/ RG0 = first_char & second_char
+	/ RG1 = buffer_index & comparison constants
+	/ RG2 = is_negative
 	
 	/ Check if we happen to have a reference
 	ZRO RG0; LOD RG0 RG0 >Buffer
@@ -214,29 +222,38 @@ JMP >StartPoint
 		JMP >LabelLookup  / Will return the value of the ref
 	#GNV.NotRef
 	
+	/ Check if it is a negative number.
+	ZRO RG2
+	LDI RG1 >NEGATIVE; CMP RG0 RG1; JNE >GNV.Pos
+		INC RG2
+	#GNV.Pos
+	
 	/ Get the BuffIdx
-	ZRO RG0; LOD RG0 RG0 >BuffIdx
+	ZRO RG1; LOD RG1 RG1 >BuffIdx
 	
 	/ Check if it is a 1 digit decimal number
-	AIN SUB RG0 1; JIF NEZ >GNV.0
-		ALI AND OUT 0; LOD OUT OUT >Buffer; ALI AND OUT 0xF
+	DEC RG1; ALF SUB RG1 RG2 JIF NEZ >GNV.More
+		ZRO OUT; ALU ADD OUT RG2; LOD OUT OUT >Buffer; ALI AND OUT 0xF
+		ALI MUL RG2 2; DEC RG2; ALU MUL OUT RG2; ALU NEG OUT OUT
 		RET
-	#GNV.0
+	#GNV.More
+	
+	/ Get the second_char
+	LDI RG0 1; ALU ADD RG0 RG2; LOD RG0 RG0 >Buffer
 
-	/ If Buffer[1] is a number, too.
-	/ If we conditionally set rg0 to either 1 or 2 here, we could check for negative numbers like we check for references above.
-	LDI RG0 1; LOD RG0 RG0 >Buffer; AIN SET RG0 6; JIF CAR >GNV.Char
-		LDI RG0 10; ZRO RG1; JMP >GetValueBase
+	/ Get & return the value. Note RG1 is conditionally set via addition.
+	AIN SET RG0 6; JIF CAR >GNV.Char  / If second_char is a number, too.
+		LDI RG0 10; ZRO RG1; ALU ADD RG1 RG2; JMP >GetValueBase
 	#GNV.Char
 	
 	/ if Buffer[1] is HEX
 	LDI RG1 >HEX; CMP RG0 RG1; JNE >GNV.NH
-		LDI RG0 16; LDI RG1 2; JMP >GetValueBase
+		LDI RG0 16; LDI RG1 2; ALU ADD RG1 RG2; JMP >GetValueBase
 	#GNV.NH
 	
 	/ if Buffer[1] is BIN
 	LDI RG1 >BIN; CMP RG0 RG1; JNE >GNV.Bad
-		LDI RG0 2; LDI RG1 2; JMP >GetValueBase
+		LDI RG0 2; LDI RG1 2; ALU ADD RG1 RG2; JMP >GetValueBase
 	#GNV.Bad
 	/ We shouldn't get here, because GetNumericValue is always called on a number.
 	
