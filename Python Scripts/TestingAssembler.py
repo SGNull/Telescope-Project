@@ -614,7 +614,14 @@ def is_char_important(char_num: int) -> bool:
 
     # This check includes uppercase, lowercase, and some other symbols that we may care about
     if char_num > 63:
-        return True
+        mod_char = char_num & ~0b100000
+
+        if mod_char < 91:  # It's a letter
+            return True
+        if mod_char < 94:  # It's something like {}, [], | or \
+            return False
+
+        return True  # It's either ^ ~ or _
 
     # Check if it's a reference character
     if char_num == REF_CHAR:

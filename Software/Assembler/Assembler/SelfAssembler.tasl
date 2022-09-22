@@ -119,11 +119,10 @@ JMP >StartPoint
 @NEGATIVE = '-'
 @STOP = 0  / Must stay 0
 
-
 @HEAP_SIZE = 4000
 
 @BUFFER_SIZE = 128
-#Buffer = (~BUFFER_SIZE)  / Will hold the next lexeme to be processed.
+#Buffer = [~BUFFER_SIZE]  / Will hold the next lexeme to be processed.
 #BuffIdx = 0  / Where the end point of the lexeme is in Buffer.
 
 #LblTblIdx = 0  / LblTblIdx is table_heap_pointer
@@ -336,8 +335,14 @@ JMP >StartPoint
 )
 
 
-(#IsCharImportant  / UNSAFE for RG3, RG0:char, returns NULL if important, 0 if not.
-	/IMPORTANT: Does not check for chars 64-127 in the table, GetNext checks for those already.
+(#IsCharImportant  / UNSAFE for RG1 and RG3, RG0:char, returns NULL if important, 0 if not.
+	
+	AIN SET RG0 6; JIF NCR >ICI.NotLetter
+		MOV RG3 RG0; ALI UST RG3 5
+		LDI RG1 91; CMP RG3 RG1; JLT >ICI.True 	/ It's a letter
+		LDI RG1 94; CMP RG3 RG1; JLT >ICI.False 	/ It's either [,],{,},|, or \
+		NUL OUT; RET 							/ It's either ^, _, or ~.
+	#ICI.NotLetter
 	
 	/ This check includes dash, dot, comment, and numbers
 	LDI RG3 44; CMP RG3 RG0; JGE >ICI.Small
@@ -394,24 +399,18 @@ JMP >StartPoint
 	/ "Look for the start of a viable sequence"
 	#GN.Loop1
 		MOV RG0 IO
+		CAL >IsCharImportant; PAS OUT; JIF EQZ >GN.Loop1
 		
-		/Quick check if we care about the character
-		AIN SET RG0 6; JIF CAR >GN.LoopSkip
+		AIN SET RG0 6; JIF CAR >GN.NotString
 		
 		LDI RA >GN.Loop1
-		
-		/ If multiline, goto multiline (already in RG0)
-		LDI RG1 >MULTILINE; CMP RG0 RG1; JEQ >GotoChar  
-
 		/ If comment, goto newline
 		LDI RG1 >COMMENT; CMP RG0 RG1; JNE >GN.NotCom
 			LDI RG0 >NEWLINE; JMP >GotoChar
 		#GN.NotCom
 		
-	/ Check if the character is important, and if not then loop.
-	CAL >IsCharImportant; PAS OUT; JIF EQZ >GN.Loop1
-	
-	#GN.LoopSkip
+		/ If multiline, goto multiline (already in RG0)
+		LDI RG1 >MULTILINE; CMP RG0 RG1; JEQ >GotoChar  
 	
 	/ If we hit a stop character, just put that in the buffer
 	LDI RG1 >STOP; CMP RG0 RG1; JNE >GN.NotStop
@@ -441,6 +440,8 @@ JMP >StartPoint
 		JMP >GN.Done
 	#GN.NotString
 	
+	ZRO RG4  / Just in case this was skipped over earlier
+	
 	/ Setting up RA for IsCharImportant
 	LDI RA >GN.LLRet
 	
@@ -450,12 +451,12 @@ JMP >StartPoint
 		STR RG0 RG4 >Buffer; INC RG4
 		MOV RG0 IO
 		
-		/ Basic check to see if the char is important
-		AIN SET RG0 6; JIF CAR >GN.Loop2
-		
 		/ If this is an unimportant character, break
 		JMP >IsCharImportant; #GN.LLRet
 		PAS OUT; JIF EQZ >GN.Loop2D
+		
+		/ Basic check to see if the char is none of the following
+		AIN SET RG0 6; JIF CAR >GN.Loop2
 		
 		/ If MULTILINE, skip the MULTILINE & break
 		LDI RG3 >MULTILINE; CMP RG0 RG3; JNE >GN.LL1  
@@ -487,13 +488,13 @@ JMP >StartPoint
 	
 	/ Get the LblTblIdx, and append the size+1 to the table
 	ZRO RG1; LOD RG1 RG1 >LblTblIdx
-	ZRO RG0; LOD RG0 RG0 >BuffIdx; STR RG0 RG1 >LabelTable; ALI ADD RG1 1
+	ZRO RG0; LOD RG0 RG0 >BuffIdx; STR RG0 RG1 >LabelTable; INC RG1
 	
 	/ for(index = 1; index != BuffIdx; index++) do LableTable.append(Buffer[index])
 	LDI RG2 1
 	#ASL.FLoop
-		LOD RG3 RG2 >Buffer; STR RG3 RG1 >LabelTable; ALI ADD RG1 1  
-	ALI ADD RG2 1; CMP RG2 RG0; JNE >ASL.FLoop
+		LOD RG3 RG2 >Buffer; STR RG3 RG1 >LabelTable; INC RG1  
+	INC RG2; CMP RG2 RG0; JNE >ASL.FLoop
 	
 	/ Update the label table index and return.
 	STR RG1 RG1 >LblTblIdx
@@ -508,7 +509,7 @@ JMP >StartPoint
 	/ Takes the bottom 5 bits of Buffer[2] Buffer[1] Buffer[0] and appends them in that order.
 	/ Bit 15 is the 5th bit of Buffer[2], which is 0 if it's a number, and 1 if it's a character. 
 	LDI RG1 0x1F
-	ALI AND OUT 0
+	ZRO OUT
 	
 	/ Bits 14-10
 	LDI RG0 2; LOD RG0 RG0 >Buffer; MOV OUT RG0

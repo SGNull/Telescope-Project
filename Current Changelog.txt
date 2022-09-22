@@ -1,11 +1,9 @@
 LATEST CHANGES:
 
-Fixed issues with custom n++ macros that the last commit caused.
+Renamed TAS Light v3 to TASL 4.
 
-Fixed issue with the Python assembler not handling directories with periods in them. Actually, in some spots, it wasn't really handling directories at all. Not sure how this didn't break sooner to be honest.
+Resolved #51: [, ], {, }, |, and \ are now ignored by both assemblers.
 
-Resolved #26: Added support for negative numbers to both the Python and self-assembler.
+Made some slight adjustments to the self-assembler, which may lead to slightly faster assembly times.
 
-Split test files into two seperate directories: Basic Tests, and Advanced Tests.
-
-Created the Negative Numbers Test.
+Made some progress on #52. Currently, the TASL 4 xml file is incomplete.

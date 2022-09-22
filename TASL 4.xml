@@ -1,5 +1,5 @@
 <NotepadPlus>
-    <UserLang name="TAS Light v3" ext="tasl tl rtl" udlVersion="2.1">
+    <UserLang name="TASL 4" ext="tasl tl rtl" udlVersion="2.1">
         <Settings>
             <Global caseIgnored="yes" allowFoldOfComments="no" foldCompact="no" forcePureLC="0" decimalSeparator="0" />
             <Prefix Keywords1="no" Keywords2="no" Keywords3="no" Keywords4="yes" Keywords5="no" Keywords6="no" Keywords7="no" Keywords8="yes" />
@@ -13,7 +13,7 @@
             <Keywords name="Numbers, suffix1"></Keywords>
             <Keywords name="Numbers, suffix2"></Keywords>
             <Keywords name="Numbers, range"></Keywords>
-            <Keywords name="Operators1">; , = : % * + &lt; ?</Keywords>
+            <Keywords name="Operators1">; , = : % * + &lt; ? [ ] { } | \</Keywords>
             <Keywords name="Operators2"></Keywords>
             <Keywords name="Folders in code1, open">(</Keywords>
             <Keywords name="Folders in code1, middle"></Keywords>
@@ -61,4 +61,15 @@
             <WordsStyle name="DELIMITERS8" fgColor="000000" bgColor="FFFFFF" fontStyle="0" nesting="0" />
         </Styles>
     </UserLang>
+	
+	<functionList>
+		<parser
+			displayName="TASL 4"
+			id="tasl_syntax_fl"
+			commentExpr="\/.*\n|\%(?:[^%]|\n)*\%"
+		>
+			<function
+				mainExpr=""
+			>
+	</functionList>
 </NotepadPlus>
