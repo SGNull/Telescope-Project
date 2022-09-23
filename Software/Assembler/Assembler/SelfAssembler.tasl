@@ -154,7 +154,7 @@ JMP >StartPoint
 )
 
 
-(#StartPoint  / The starting point for the assembler.
+#StartPoint = {  / The starting point for the assembler.
 	
 	/ Write 0 to the input
 	LDI FLG >INFLG; LDI IO 0
@@ -168,10 +168,10 @@ JMP >StartPoint
 	
 	/ Goto BuildTables
 	JMP >BuildTables
-)
+}
 
 
-(#GetValueBase  / UNSAFE for RG0-3, RG0:multiplier, RG1:start_index, returns value
+#GetValueBase = {  / UNSAFE for RG0-3, RG0:multiplier, RG1:start_index, returns value
 
 	/ RG1 = index
 	/ RG2 = buffer_index (BuffIdx)
@@ -207,10 +207,10 @@ JMP >StartPoint
 		ALU NEG OUT OUT
 	
 	#GVB.Done; MOV PC RA  / Return
-)
+}
 
 
-(#GetNumericValue  / UNSAFE for RG0-3, but ALL if buffer has a reference, returns value
+#GetNumericValue = {  / UNSAFE for RG0-3, but ALL if buffer has a reference, returns value
 	/ RG0 = first_char & second_char
 	/ RG1 = buffer_index & comparison constants
 	/ RG2 = is_negative
@@ -257,10 +257,10 @@ JMP >StartPoint
 	/ We shouldn't get here, because GetNumericValue is always called on a number.
 	
 	HLT; 0xFFF0; JMP >StartPoint  / Stop; error code; restart assembler.
-)
+}
 
 
-(#LabelLookup  / UNSAFE for ALL, returns label value
+#LabelLookup = {  / UNSAFE for ALL, returns label value
 	/ RG0 = index *of* (the 0th element of) the current entry in table
 	/ RG1 = table_heap_pointer
 	/ RG2 = size (of whole entry - 1 == size of string + 1 == what the buffer_index should be)
@@ -302,10 +302,10 @@ JMP >StartPoint
 	
 	#LL.Done
 	MOV PC RA
-)
+}
 
 
-(#TblLookup  / UNSAFE for RG4&5, RG0:key, RG1:table, RG2:entry_size, returns address of entry, and NULL if not found
+#TblLookup = { / UNSAFE for RG4&5, RG0:key, RG1:table, RG2:entry_size, returns address of entry, and NULL if not found
 	/ RG4 = next_entry_key
 	/ RG5 = TABLESTOP
 	
@@ -332,15 +332,15 @@ JMP >StartPoint
 	
 	#TbL.End
 		MOV OUT RG5; RET
-)
+}
 
 
-(#IsCharImportant  / UNSAFE for RG1 and RG3, RG0:char, returns NULL if important, 0 if not.
+#IsCharImportant = { / UNSAFE for RG1 and RG3, RG0:char, returns NULL if important, 0 if not.
 	
 	AIN SET RG0 6; JIF NCR >ICI.NotLetter
 		MOV RG3 RG0; ALI UST RG3 5
 		LDI RG1 91; CMP RG3 RG1; JLT >ICI.True 	/ It's a letter
-		LDI RG1 94; CMP RG3 RG1; JLT >ICI.False 	/ It's either [,],{,},|, or \
+		LDI RG1 94; CMP RG3 RG1; JLT >ICI.False / It's either [,],{,},|, or \
 		NUL OUT; RET 							/ It's either ^, _, or ~.
 	#ICI.NotLetter
 	
@@ -367,10 +367,10 @@ JMP >StartPoint
 	/ If it passed any of the checks, return true.
 	#ICI.True
 	NUL OUT; RET
-)
+}
 
 
-(#GotoChar  / UNSAFE for RG5-6, RG0:target, reads input until it reaches the target
+#GotoChar = {  / UNSAFE for RG5-6, RG0:target, reads input until it reaches the target
 	/ RG5 = char
 	/ RG6 = STOP_CHAR
 	LDI RG6 >STOP
@@ -382,10 +382,10 @@ JMP >StartPoint
 	
 	#GC.Done
 	MOV PC RA
-)
+}
 
 
-(#GetNext  / UNSAFE for ALL, stores next lexeme in the Buffer
+#GetNext = {  / UNSAFE for ALL, stores next lexeme in the Buffer
 	/ RG0 = char
 	/ RG1 = MULTILINE & COMMENT_CHAR
 	/ RG4 = buffer_index (BuffIdx)
@@ -477,10 +477,10 @@ JMP >StartPoint
 	/ Update buffer index and return.
 	STR RG4 RG4 >BuffIdx
 	LOD RA SP 0; POP 1; RET
-)
+}
 
 
-(#ApdStrLbl  / UNSAFE for RG0-3, appends the buffer's contents to the label table
+#ApdStrLbl = {  / UNSAFE for RG0-3, appends the buffer's contents to the label table
 	/ RG0 = BuffIdx
 	/ RG1 = LblTblIdx
 	/ RG2 = index
@@ -499,10 +499,10 @@ JMP >StartPoint
 	/ Update the label table index and return.
 	STR RG1 RG1 >LblTblIdx
 	RET
-)
+}
 
 
-(#HashBuff  / UNSAFE for RG0-1, returns the hash of the buffer's contents.
+#HashBuff = {  / UNSAFE for RG0-1, returns the hash of the buffer's contents.
 	/ RG0 = temp
 	/ RG1 = 0x1f (bottom 5 bit mask)
 	
@@ -528,10 +528,10 @@ JMP >StartPoint
 	ALU AND RG0 RG1; ALU OR OUT RG0
 	
 	RET
-)
+}
 
 
-(#AssembleNext  / UNSAFE for ALL, RG0: table, returns mnemonic's value
+#AssembleNext = {  / UNSAFE for ALL, RG0: table, returns mnemonic's value
 	/ Push table(RG0) and RA
 	ALI SUB SP 2; STR RG0 SP 0; STR RA SP 1
 	
@@ -561,10 +561,10 @@ JMP >StartPoint
 	
 	ALI ADD OUT 1; LOD OUT OUT 0 / OUT = table[Idx + 1]
 	LOD RA SP 1; ALI ADD SP 2; MOV PC RA / Pop from stack and return
-)
+}
 
 
-(#ShiftBuff  / UNSAFE for RG0-3, Shifts the buffer back by 1, clearing the first character
+#ShiftBuff = {  / UNSAFE for RG0-3, Shifts the buffer back by 1, clearing the first character
 	/ Initialize the registers
 	/   new      old       BuffIdx
 	ZRO RG0; LDI RG1 1; LOD RG2 RG0 >BuffIdx
@@ -580,10 +580,10 @@ JMP >StartPoint
 	/ Decrement the buffer index & return
 	DEC RG2; STR RG2 RG2 >BuffIdx
 	RET
-)
+}
 
 
-(#BuildTables  / First pass through the file, build label table.
+#BuildTables = {  / First pass through the file, build label table.
 
 	ZRO RG0 / program_counter(RG0) = 0
 	PSH 1; STR RG0 SP 0  / Push the program counter onto the stack.
@@ -721,10 +721,10 @@ JMP >StartPoint
 	
 	/ Pop the stack, reset input pointer, and go to the next step.
 	LDI IO 0; POP 1; JMP >Assemble
-)
+}
 
 
-(#Assemble  / Second pass through the file, do the actual assembling.
+#Assemble = {  / Second pass through the file, do the actual assembling.
 	/ GetNext
 	CAL >GetNext
 	
@@ -866,10 +866,10 @@ JMP >StartPoint
 	
 	LDI FLG >OUTFLG; MOV IO RG0; LDI FLG >INFLG
 	JMP >Assemble
-)
+}
 
 
-(#StopPoint  / Where control is passed to once the file has been assembled.
+#StopPoint = {  / Where control is passed to once the file has been assembled.
 	/ If the stack is not empty, something went seriously wrong.
 	ALI OR SP 0; JIF EQZ >StPt.OK
 		HLT; 0xFFF2; JMP >StartPoint
@@ -877,7 +877,7 @@ JMP >StartPoint
 	
 	/ We're done.
 	HLT; 0x0001; JMP >StartPoint
-)
+}
 
 
 #LabelTable

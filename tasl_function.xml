@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<NotepadPlus>
+	<functionList>
+		<parser
+			displayName="TASL"
+			id="tasl_function"
+		>
+			<function
+				mainExpr="#(?:\w|\.)+ *(?:%.*%)? *= *{|{#(?:\w|\.)+"
+			>
+				<functionName>
+					<nameExpr
+						expr="#(?:\w|\.)+"
+					>
+					</nameExpr>
+				</functionName>
+			</function>
+		</parser>
+	</functionList>
+</NotepadPlus>
