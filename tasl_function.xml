@@ -6,7 +6,7 @@
 			id="tasl_function"
 		>
 			<function
-				mainExpr="#(?:\w|\.)+ *(?:%.*%)? *= *{|{#(?:\w|\.)+"
+				mainExpr="#(?:\w|\.)+ *(?:%[^%]*%)? *= *\{|\{#(?:\w|\.)+"
 			>
 				<functionName>
 					<nameExpr

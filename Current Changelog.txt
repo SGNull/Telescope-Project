@@ -1,3 +1,5 @@
 LATEST CHANGES:
 
-Resolved #53: Modified the self-assembler and assembler computer to output error codes, instead of hiding them in the analysis menu.
+Fixed issue with function list xml file.
+
+Added function list info and TASL 4 info to the NtK guide.

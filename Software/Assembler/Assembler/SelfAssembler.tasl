@@ -172,7 +172,7 @@ JMP >StartPoint
 }
 
 
-#GetValueBase = {  / UNSAFE for RG0-3, RG0:multiplier, RG1:start_index, returns value
+#GetValueBase %(multiplier, start_index)% = {  / UNSAFE for RG0-3, returns value
 
 	/ RG1 = index
 	/ RG2 = buffer_index (BuffIdx)
@@ -307,7 +307,7 @@ JMP >StartPoint
 }
 
 
-#TblLookup = { / UNSAFE for RG4&5, RG0:key, RG1:table, RG2:entry_size, returns address of entry, and NULL if not found
+#TblLookup %(key, table, entry_size)% = {  / UNSAFE for RG4&5, RG0:key, RG1:table, RG2:entry_size, returns address of entry, and NULL if not found
 	/ RG4 = next_entry_key
 	/ RG5 = TABLESTOP
 	
@@ -336,8 +336,7 @@ JMP >StartPoint
 		MOV OUT RG5; RET
 }
 
-
-#IsCharImportant = { / UNSAFE for RG1 and RG3, RG0:char, returns NULL if important, 0 if not.
+#IsCharImportant = {  / UNSAFE for RG1 and RG3, RG0:char, returns NULL if important, 0 if not.
 	
 	AIN SET RG0 6; JIF NCR >ICI.NotLetter
 		MOV RG3 RG0; ALI UST RG3 5

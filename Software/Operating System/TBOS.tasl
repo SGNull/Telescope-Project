@@ -33,8 +33,8 @@ JMP >Init
 / ------------------------------------------------------------Data------------------------------------------------------------
 (/ ------- Hardware constants -------
 	/ Processor constants
-	@WORD_SIZE 		= 16  / Word size in bits (always must be 16)
-	@STATE_REG_COUNT 	= 12  / Number of registers which should be stored (always 12)
+	@WORD_SIZE 			= 16  / Word size in bits (always must be 16)
+	@STATE_REG_COUNT	= 12  / Number of registers which should be stored (always 12)
 
 	@DRIVE_IOP_GROUP     	= 0
 	@DRIVE_PTR_IOP_GROUP 	= 1
@@ -42,7 +42,7 @@ JMP >Init
 	@IOP_GROUP_SHIFT 		= 13
 	@IOP_DEVICE_MASK		= 0x1800
 	@IOP_DEVICE_SHIFT		= 11
-	@DRIVE_PTR_BIT 		= 13
+	@DRIVE_PTR_BIT 			= 13
 
 	@HI_SHIFT 	= 8
 	@LO_SHIFT	= >HI_SHIFT
@@ -59,7 +59,7 @@ JMP >Init
 
 	/ Computer determined hardware constants
 	@PC_STATUS_IOP 		= 0xF000
-	@RANDOM_IOP 			= >PC_STATUS_IOP
+	@RANDOM_IOP 		= >PC_STATUS_IOP
 	@COUNTER_START_IOP 	= 0xE000
 	@COUNTER_STOP_IOP 	= 0xE800
 
@@ -75,16 +75,16 @@ JMP >Init
 (/ ------- OS Properties & Data -------
 	/ Process = [1-bit Active] 000 [4-bit parent] [4-bit nextSib] [4-bit child]
 	/ NOTE: This could be modified to support 32 procs, but memory conflicts would be much more likely.
-	@MAX_PROC_COUNT 	= 16
+	@MAX_PROC_COUNT = 16
 	@PROC_WORDS		= 1		/ must be under 16
 	@PROC_CxPROC_W 	= 16	/ must be MAX_PROC_COUNT x PROC_WORDS
 	#ProcList 		= ~PROC_CxPROC_W
 
-	@PROC_ACTIVE_BIT 	= 15
+	@PROC_ACTIVE_BIT	= 15
 	@PARENT_MASK 		= 0xF00
-	@PARENT_SHIFT 	= 8
-	@SIB_MASK 		= 0xF0
-	@SIB_SHIFT 		= 4
+	@PARENT_SHIFT 		= 8
+	@SIB_MASK 			= 0xF0
+	@SIB_SHIFT 			= 4
 	@CHILD_MASK 		= 0xF
 
 	@ROOT_PROC_ID = 0				/ Must be 0
@@ -98,15 +98,15 @@ JMP >Init
 
 	/ EXA and CTD are constant, PC is in the OS, and IO doesn't make sense to store, so 12 words per state
 	/ Each state has the following format: RG0-7, FLG, SP, EPC, HLB
-	@PROC_CxSTATE_S 	= 192 / 16 max proc x 12 words per proc = 192
+	@PROC_CxSTATE_S = 192 / 16 max proc x 12 words per proc = 192
 	#StateList 		= ~PROC_CxSTATE_S
-	@FLG_OFFSET 		= 8
+	@FLG_OFFSET 	= 8
 	@SP_OFFSET 		= 9
-	@EPC_OFFSET 		= 10
-	@HLB_OFFSET 		= 11
+	@EPC_OFFSET 	= 10
+	@HLB_OFFSET 	= 11
 
-	@CHUNK_SIZE 	= 0x0400
-	@NUM_CHUNKS 	= 64		/ Must be (2^16)/CHUNK_SIZE
+	@CHUNK_SIZE = 0x0400
+	@NUM_CHUNKS = 64		/ Must be (2^16)/CHUNK_SIZE
 	@BMP_WORDS 	= 4			/ Must be NUM_CHUNKS/16, and under 16
 	#MallocBMPs = (~BMP_WORDS)
 
@@ -119,18 +119,18 @@ JMP >Init
 
 
 (/ ------- Status & Return Codes -------
-	@START_CODE 			= 1
+	@START_CODE 		= 1
 	@RUN_CODE 			= 2
 	@END_CODE 			= 0x600D
 
-	@BAD_START_ERROR 		= 0xFF00
+	@BAD_START_ERROR 	= 0xFF00
 	@UNKNOWN_EXC_ERROR 	= 0xFF01
 	
 	@SYS_SPAWN_PROG_GOOD	= 0x00A1
-	@SYS_SPAWN_PROG_MEM	= 0xF000
-	@SYS_SPAWN_PROG_MAX	= 0xF001
+	@SYS_SPAWN_PROG_MEM		= 0xF000
+	@SYS_SPAWN_PROG_MAX		= 0xF001
 	@SYS_SPAWN_PROG_PRIV	= 0xF002	/ Right now can occur for ALL processes, not just user
-	@SYS_SPAWN_PROG_FLG	= 0xF003
+	@SYS_SPAWN_PROG_FLG		= 0xF003
 )
 
 
@@ -139,8 +139,8 @@ JMP >Init
 
 
 
-/ Initializes the OS environment (may have to remove the bootloader)
-(#Init
+/ Initializes the OS environment
+{#Init
 	/ Set the status
 	LDI RG0 >START_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
 	
@@ -178,18 +178,18 @@ JMP >Init
 
 
 / Sets the status to RG0 and halts
-(#StatusHalt
+{#StatusHalt
 	LDI FLG >COUNTER_STOP_IOP
 	MOV IO RG0
 	LDI FLG >PC_STATUS_IOP
 	MOV IO RG0
 	HLT
-)
+}
 
 
 
 / The scheduler/dispatcher runs the next process (and checks for done/deadlock/etc.)
-(#Dispatcher
+{#Dispatcher
 	/ Check if we're done
 	ZRO RG0; LOD RG0 RG0 >ProcCount
 	PAS RG0; JIF EQZ >Dis.Done
@@ -232,12 +232,12 @@ JMP >Init
 	#Dis.Done
 	LDI RG0 >END_CODE
 	JMP >StatusHalt
-)
+}
 
 
 
 / Retires the previous process, then jumps to Dispatcher
-(#BurstOver	
+{#BurstOver	
 	/ Get current proc's actual state address in RG0
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; ALI MUL RG0 >STATE_REG_COUNT
 	LDI RG1 >StateList; ALU ADD RG0 RG1
@@ -263,12 +263,12 @@ JMP >Init
 	
 	/ Now return control to the dispatcher
 	JMP >Dispatcher
-)
+}
 
 
 
 / Resume the current process *NOT A FUNCTION*
-(#ResumeProc
+{#ResumeProc
 	/ Restore the temp state
 	LDI RG0 >TState
 	LOD SP RG0 >SP_OFFSET
@@ -284,12 +284,12 @@ JMP >Init
 	
 	/ Resume the process
 	RSM
-)
+}
 
 
 
 / Handles any exceptions that occur
-(#ExHandler
+{#ExHandler
 	/ Store off RG0-2 and FLG for CTDZ
 	STR RG0 RG0 >TState
 	LDI RG0 >TState
@@ -325,22 +325,22 @@ JMP >Init
 	/ Else, error
 	LDI RG0 >UNKNOWN_EXC_ERROR
 	JMP >StatusHalt
-)
+}
 
 
 
 / Calls terminate on the current process then returns to the dispatcher
-(#TerminateCurrent
+{#TerminateCurrent
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
 	LDI RA >Dispatcher; JMP >Terminate
-)
+}
 
 
 
 / (ProcNum, IsStart? 0=N) Deactivates, deallocates, and un-childs ProcNum and all its children
 / Modifies RG0-5 and FLG
 / When threads are added, assuming there is a parent, if parent HLB is equal, don't deallocate
-(#Terminate
+{#Terminate
 	PSH 1; STR RA SP 0
 	
 	/ Get the main word in RG3 (and actual index in RG2)
@@ -391,13 +391,13 @@ JMP >Init
 	/ Return
 	LOD RA SP 0; POP 1
 	RET
-)
+}
 
 
 
 / Loads the program, makes it a child thread, then resumes the current process, setting OUT accordingly.
 / IMPORTANT: THIS IS A SUBROUTINE, NOT A FUNCTION
-(#SysSpawnProg
+{#SysSpawnProg
 	/ Before doing anything, make sure we can actually spawn a process
 	ZRO RG0; LOD RG0 RG0 >ProcCount; LDI RG1 >MAX_PROC_COUNT
 	CMP RG0 RG1; JGE >SSP.MaxError
@@ -436,14 +436,14 @@ JMP >Init
 	#SSP.Finalize
 	LDI RG0 >TState; STR OUT RG0 6
 	JMP >ResumeProc
-)
+}
 
 
 
-/ (HLB) Creates child thread for current proc with current FLG, returns proc num
+/ Creates child thread for current proc with given HLB and FLG
 / Modifies RG0-5 and FLG
-(#MakeChildThread
-	PSH 2; STR RA SP 0; STR FLG SP 1
+#MakeChildThread %(rg0=HLB) w/ flg=FLG% = { /-> proc num
+	PSH 1; STR FLG SP 0
 	
 	/ Find inactive thread
 	NUL RG1
@@ -478,23 +478,23 @@ JMP >Init
 	STR RG3 RG2 >SP_OFFSET
 	
 	/ Set FLG and HLB
-	LOD RG3 SP 1
+	LOD RG3 SP 0
 	STR RG3 RG2 >FLG_OFFSET
 	STR RG0 RG2 >HLB_OFFSET
 	
 	
 	/ InsertChild(ThisProcNum) and return to RA
 	MOV RG0 RG1
-	MOV OUT RG0; LOD RA SP 0; POP 2
+	MOV OUT RG0; POP 1
 	JMP >InsertChild
-)
+}
 
 
 
 / Loads the program at IOP into memory, returns HLB or NULL if error
 / For now assumes program is at start of memory.
 / Modifies RG0-5, and FLG
-(#LoadProgram
+{#LoadProgram
 	PSH 1; STR RA SP 0
 	
 	/ Calculate the size of the program in RG0 (in chunks)
@@ -521,14 +521,13 @@ JMP >Init
 	/ Unless there was an error, then return NULL
 	#LoP.Error
 	NUL OUT; LOD RA SP 0; POP 1; RET
-)
+}
 
 
 
-/ (ProcNum) adds the given process as a child to the current process
-/ Does not modify proc's children
+/ Adds the given process as a child to the current process
 / Modifies RG1-4, and FLG
-(#InsertChild
+#InsertChild %(rg0=ProcNum)% = {
 	PAS RG0; JIF EQZ >InC.Skip
 	/ Get the main word of ProcNum in RG2 (and actual index in RG1)
 	MOV RG1 RG0; ALI MUL RG1 >PROC_WORDS; LOD RG2 RG1 >ProcList
@@ -565,14 +564,14 @@ JMP >Init
 	ALU OR RG2 RG3; STR RG2 RG1 >ProcList
 	#InC.Skip
 	RET
-)
+}
 
 
 
 / (ProcNum) removes the given process as a child from the process tree
 / Does not alter the proc's main word
 / Modifies RG1-4 and FLG
-(#RemoveChild
+{#RemoveChild
 	/ Case 1 - Proc is root, nothing to do
 	PAS RG0; JIF EQZ >ReC.Done
 	
@@ -614,14 +613,14 @@ JMP >Init
 	
 	#ReC.Done
 	RET
-)
+}
 
 
 
 / (Loadable Start, Memory Start) Loads a file at IOP into memory
 / IMPORTANT: DOES NOT MARK THE BITMAP
 / Modifies Rg0 Rg1 and FLG
-(#LoadFile
+{#LoadFile
 	/ Switch to the drive pointer and write to it
 	ALI SET FLG >DRIVE_PTR_BIT
 	MOV IO RG0
@@ -640,13 +639,13 @@ JMP >Init
 	/ Finally, return
 	#LoF.Done
 	RET
-)
+}
 
 
 
 / (Size), returns the number of the first 0 bit, or NULL if none are found
 / Modifies RG1-5, and FLG
-(#FindOpenMemory
+{#FindOpenMemory
 	/ RG1: Current bitwise index
 	/ RG2: Relative bitwise index to RG1
 	/ RG3: Current word
@@ -701,28 +700,28 @@ JMP >Init
 		
 	#FOM.NoSpace
 	NUL OUT; RET
-)
+}
 
 
 
 / (Start, Size), turns on bits Start through Start+Size-1 inclusive
 / Modifies RG1-5, and FLG
-(#MarkBits
+{#MarkBits
 	/ Setup and jump to ModifyBits
 	ZRO RG2; LOD RG2 RG2 >MarkInst; STR RG2 RG2 >MoB.ModBit
 	JMP >ModifyBits
-)
+}
 
 / (Start, Size), turns off bits Start through Start+Size
 / Modifies RG1-5, and FLG
-(#UnmarkBits
+{#UnmarkBits
 	/ Setup and jump to ModifyBits
 	ZRO RG2; LOD RG2 RG2 >UnmarkInst; STR RG2 RG2 >MoB.ModBit
 	JMP >ModifyBits
-)
+}
 
 / Shell function for UnmarkBits and MarkBits DO NOT CALL
-(#ModifyBits
+{#ModifyBits
 	/ RG2 is WORD_SIZE, RG3 is word num, RG4 is bits, RG5 is the word itself
 	LDI RG2 >WORD_SIZE
 	MOV RG3 RG0; ALU DIV RG3 RG2
@@ -732,7 +731,7 @@ JMP >Init
 	/ Now loop through the bitmap and unset bits
 	#MoB.Loop
 		/ Modify the bit
-		#MoB.ModBit:NOP
+		#MoB.ModBit:NOP  / ALU SET RG5 RG4 or ALU UST RG5 RG4
 		
 		/ Goto the next bit (unless we're at the end, or end of word)
 		INC RG4; DCC RG1; JIF EQZ >MoB.Done
@@ -747,7 +746,7 @@ JMP >Init
 	/ Now that we're done, update the last word and return
 	STR RG5 RG3 >MallocBMPs
 	RET
-)
+}
 
 
 
