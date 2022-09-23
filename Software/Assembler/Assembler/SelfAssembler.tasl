@@ -7,6 +7,7 @@ JMP >StartPoint
 
 @INFLG = 0
 @OUTFLG = 0x800
+@ERRFLG = 0xF800
 
 @TABLESTOP = 0xFFFF  / Must stay NULL.
 
@@ -254,9 +255,9 @@ JMP >StartPoint
 	LDI RG1 >BIN; CMP RG0 RG1; JNE >GNV.Bad
 		LDI RG0 2; LDI RG1 2; ALU ADD RG1 RG2; JMP >GetValueBase
 	#GNV.Bad
-	/ We shouldn't get here, because GetNumericValue is always called on a number.
-	
-	HLT; 0xFFF0; JMP >StartPoint  / Stop; error code; restart assembler.
+	/ We shouldn't get here, because GetNumericValue is always called on a number. Error!
+	LDI FLG >ERRFLG; LDI IO 0xFFF0
+	HLT; JMP >StartPoint
 }
 
 
@@ -276,7 +277,8 @@ JMP >StartPoint
 		/ Check if we're out of labels to search through.
 		AFN SUB RG0 RG1; JIF LTZ >LL.OK
 			/ We should never reach here, because every label searched should exist.
-			HLT; 0xFFF1; JMP >StartPoint  / Halt, error code, restart assembler.
+			LDI FLG >ERRFLG; LDI IO 0xFFF1
+			HLT; JMP >StartPoint
 		#LL.OK
 		
 		/ Check if the label is the right size.
@@ -556,7 +558,8 @@ JMP >StartPoint
 	
 	/ If TblLookup returns NULL, then the operand was not found.
 	AIN ADD OUT 1; JIF NCR >AN.OpOK
-		HLT; 0xFFF4; JMP >StartPoint
+		LDI FLG >ERRFLG; LDI IO 0xFFF4
+		HLT; JMP >StartPoint
 	#AN.OpOK
 	
 	ALI ADD OUT 1; LOD OUT OUT 0 / OUT = table[Idx + 1]
@@ -685,7 +688,8 @@ JMP >StartPoint
 		
 		/ If we get NULL from TblLookup, the instruction was not found.
 		AIN ADD OUT 1; JIF NCR >BT.InOK
-			HLT; 0xFFF3; JMP >StartPoint
+			LDI FLG >ERRFLG; LDI IO 0xFFF3
+			HLT; JMP >StartPoint
 		#BT.InOK
 		
 		/ Grab the instruction bitmap into RG0, and read input based on that.
@@ -872,11 +876,13 @@ JMP >StartPoint
 #StopPoint = {  / Where control is passed to once the file has been assembled.
 	/ If the stack is not empty, something went seriously wrong.
 	ALI OR SP 0; JIF EQZ >StPt.OK
-		HLT; 0xFFF2; JMP >StartPoint
+		LDI FLG >ERRFLG; LDI IO 0xFFF2
+		HLT; JMP >StartPoint
 	#StPt.OK
 	
 	/ We're done.
-	HLT; 0x0001; JMP >StartPoint
+	LDI FLG >ERRFLG, LDI IO 1
+	HLT; JMP >StartPoint
 }
 
 

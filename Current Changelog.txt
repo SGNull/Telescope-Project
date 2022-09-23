@@ -1,14 +1,3 @@
 LATEST CHANGES:
 
-Now (), {}, and [] count as foldable sections of code.
-
-Resolved #52: Took forever to realize that at some point in development, N++ changed how it handled the function list. Functions can be defined in two ways in TASL. The first way is a slight modification of what we're already doing; instead of (#MyFunc \n .... \n ), do {#MyFunc \n .... \n }. The second way is, in my opinion, much more elegant and will no-doubt be more familiar to many coders: #MyFunc = { \n ... \n }. You can also put %arg1, arg2, arg3, ...% between #MyFunc and = to specify what arguments it takes. You could also add \->output after = { to specify what the output is.
-
-	To set up the function list, copy the tasl_function.xml file into your N++ MAIN DIRECTORY, not necessarily the %APPDATA% one. Specifically, copy it into the \Function List\ directory. While still in \Function List\, add these two lines to the overrideMap.xml file:
-			<association id= "tasl_function.xml"	userDefinedLangName="TASL"/>
-			<association id= "tasl_function.xml"	ext=".tasl"/>
-	The second one is what activated it for me, but the first one should also work. I'd put both in, just to be safe.
-
-Added an important step to the "Setting Up the Mini-IDE" section of the NtK guide.
-
-Updating the important characters list image.
+Resolved #53: Modified the self-assembler and assembler computer to output error codes, instead of hiding them in the analysis menu.
