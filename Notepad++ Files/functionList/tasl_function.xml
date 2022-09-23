@@ -3,7 +3,7 @@
 	<functionList>
 		<parser
 			displayName="TASL"
-			id="tasl_function"
+			id="tasl_function.xml"
 		>
 			<function
 				mainExpr="#(?:\w|\.)+ *(?:%[^%]*%)? *= *\{|\{#(?:\w|\.)+"

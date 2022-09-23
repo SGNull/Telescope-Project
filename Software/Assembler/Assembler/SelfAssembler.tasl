@@ -166,7 +166,6 @@ JMP >StartPoint
 	/ "Clear" the label table
 	STR SP SP >LblTblIdx
 	
-	
 	/ Goto BuildTables
 	JMP >BuildTables
 }

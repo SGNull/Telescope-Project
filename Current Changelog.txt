@@ -1,5 +1,11 @@
 LATEST CHANGES:
 
-Fixed issue with function list xml file.
+Renamed the TASL function list parser's id to function_list.xml.
 
-Added function list info and TASL 4 info to the NtK guide.
+Moved all N++ files into the Notepad++ Files folder.
+
+Added the plugins to the N++ files.
+
+Greatly simplified the N++ mini-IDE setup process.
+
+Updated NtK guide's mini-IDE walkthrough and port 31 on the TCS.

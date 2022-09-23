@@ -1,0 +1,17 @@
+In C:\Program Files\Notepad++
+	copy plugins into it
+	copy functionList into it (will alter overrideMap in case you have other langs)
+
+In %APPDATA%\Notepad++
+	copy userDefineLangs into it
+	go into the plugins folder
+		copy config into it
+
+
+
+If you do not see the custom TASL buttons:
+	Open N++ and click "Plugins" -> "Customize Toolbar" -> "Custom Buttons"
+
+If you do not see .tasl file language highlighting:
+	Open N++ and click "Language" -> "User Defined Language" -> "Define Your Language" -> "Import"
+	In the project directory, import "Notepad++ Files\userDefineLangs\TASL 4.xml"
