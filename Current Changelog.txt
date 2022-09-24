@@ -1,11 +1,15 @@
 LATEST CHANGES:
 
-Renamed the TASL function list parser's id to function_list.xml.
+ - Added function declaration comment to the Function List panel. See OS source code for example.
 
-Moved all N++ files into the Notepad++ Files folder.
+ - TCS's cycle counter stops when halting.
 
-Added the plugins to the N++ files.
+ - Fixed Python assembler output in all modes.
 
-Greatly simplified the N++ mini-IDE setup process.
+For #45 and #44: (No changes to the functionality of syscalls YET)
 
-Updated NtK guide's mini-IDE walkthrough and port 31 on the TCS.
+ - LoadFile now takes the file size as an input (not all files are in loadable format)
+	
+ - New SysHandler function. Currently just jumps to SysSpawnProg.
+	
+ - New SpawnProgTSFS function. Like the original SpawnProg function, but for TSFS.

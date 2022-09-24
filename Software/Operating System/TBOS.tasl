@@ -27,7 +27,11 @@ JMP >Init
 		OOB: Terminates the current process and all of its children.
   
    v1.0 is especially minimalist, and future versions will modify 1.0 to achieve higher functions.
-   IMPORTANT: In TBOS v1, a program's heap & stack space may start as non-zero.
+   IMPORTANT: In TBOS, a program's heap & stack space may start as non-zero.
+   
+   v1.1 Works with the TSFS file system, and splits the original 1.0 syscall into two:
+   RG0 == 0 -> The original syscall
+   RG0 == 1 -> File system spawn program. RG1 contains the file number
 %)
 
 / ------------------------------------------------------------Data------------------------------------------------------------
@@ -118,6 +122,11 @@ JMP >Init
 )
 
 
+(/ Constants for other things
+	@TSFS_ENTRY_SIZE = 2
+)
+
+
 (/ ------- Status & Return Codes -------
 	@START_CODE 		= 1
 	@RUN_CODE 			= 2
@@ -140,7 +149,7 @@ JMP >Init
 
 
 / Initializes the OS environment
-{#Init
+#Init  %!Fn% = {
 	/ Set the status
 	LDI RG0 >START_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
 	
@@ -173,12 +182,12 @@ JMP >Init
 	
 	/ Send control off to the dispatcher
 	JMP >Dispatcher
-)
+}
 
 
 
 / Sets the status to RG0 and halts
-{#StatusHalt
+#StatusHalt  %!Fn% = {
 	LDI FLG >COUNTER_STOP_IOP
 	MOV IO RG0
 	LDI FLG >PC_STATUS_IOP
@@ -189,7 +198,7 @@ JMP >Init
 
 
 / The scheduler/dispatcher runs the next process (and checks for done/deadlock/etc.)
-{#Dispatcher
+#Dispatcher  %!Fn% = {
 	/ Check if we're done
 	ZRO RG0; LOD RG0 RG0 >ProcCount
 	PAS RG0; JIF EQZ >Dis.Done
@@ -237,7 +246,7 @@ JMP >Init
 
 
 / Retires the previous process, then jumps to Dispatcher
-{#BurstOver	
+#BurstOver  %!Fn% = {
 	/ Get current proc's actual state address in RG0
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; ALI MUL RG0 >STATE_REG_COUNT
 	LDI RG1 >StateList; ALU ADD RG0 RG1
@@ -268,7 +277,7 @@ JMP >Init
 
 
 / Resume the current process *NOT A FUNCTION*
-{#ResumeProc
+#ResumeProc  %!Fn% = {
 	/ Restore the temp state
 	LDI RG0 >TState
 	LOD SP RG0 >SP_OFFSET
@@ -289,7 +298,7 @@ JMP >Init
 
 
 / Handles any exceptions that occur
-{#ExHandler
+#ExHandler  %!Fn% = {
 	/ Store off RG0-2 and FLG for CTDZ
 	STR RG0 RG0 >TState
 	LDI RG0 >TState
@@ -320,7 +329,7 @@ JMP >Init
 	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
 	
 	/ Check for Syscall
-	CMI RG0 >EXC_SYS; JEQ >SysSpawnProg
+	CMI RG0 >EXC_SYS; JEQ >SysHandler
 	
 	/ Else, error
 	LDI RG0 >UNKNOWN_EXC_ERROR
@@ -330,17 +339,17 @@ JMP >Init
 
 
 / Calls terminate on the current process then returns to the dispatcher
-{#TerminateCurrent
+#TerminateCurrent  %!Fn% = {
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
 	LDI RA >Dispatcher; JMP >Terminate
 }
 
 
 
-/ (ProcNum, IsStart? 0=N) Deactivates, deallocates, and un-childs ProcNum and all its children
+/ Deactivates, deallocates, and un-childs ProcNum and all its children
 / Modifies RG0-5 and FLG
 / When threads are added, assuming there is a parent, if parent HLB is equal, don't deallocate
-{#Terminate
+#Terminate  %ProcNum, IsStart?% = {
 	PSH 1; STR RA SP 0
 	
 	/ Get the main word in RG3 (and actual index in RG2)
@@ -395,9 +404,16 @@ JMP >Init
 
 
 
+/ Syscall handler.
+#SysHandler  %!Fn% = {
+	JMP >SysSpawnProg
+}
+
+
+
 / Loads the program, makes it a child thread, then resumes the current process, setting OUT accordingly.
 / IMPORTANT: THIS IS A SUBROUTINE, NOT A FUNCTION
-{#SysSpawnProg
+#SysSpawnProg  %!Fn% = {
 	/ Before doing anything, make sure we can actually spawn a process
 	ZRO RG0; LOD RG0 RG0 >ProcCount; LDI RG1 >MAX_PROC_COUNT
 	CMP RG0 RG1; JGE >SSP.MaxError
@@ -442,7 +458,7 @@ JMP >Init
 
 / Creates child thread for current proc with given HLB and FLG
 / Modifies RG0-5 and FLG
-#MakeChildThread %(rg0=HLB) w/ flg=FLG% = { /-> proc num
+#MakeChildThread  %NewHLB w/ FLG > ProcNum% = {
 	PSH 1; STR FLG SP 0
 	
 	/ Find inactive thread
@@ -491,44 +507,13 @@ JMP >Init
 
 
 
-/ Loads the program at IOP into memory, returns HLB or NULL if error
-/ For now assumes program is at start of memory.
-/ Modifies RG0-5, and FLG
-{#LoadProgram
-	PSH 1; STR RA SP 0
-	
-	/ Calculate the size of the program in RG0 (in chunks)
-	MOV RG0 IO
-	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; ALI ADD RG0 2
-	
-	/ Check memory to see where it will fit
-	CAL >FindOpenMemory
-	AIN ADD OUT 1; JIF CAR >LoP.Error
-	
-	/ Calculate HLB then do MarkBits(FindOpenMemory(), Size)
-	MOV RG1 RG0; MOV RG0 OUT
-	
-	LDI RG2 >CHUNK_SIZE; ALU MUL OUT RG2; ALI SRB OUT >LO_SHIFT
-	MOV RG3 RG1; ALU MUL RG3 RG2; ALU OR OUT RG3
-	
-	CAL >MarkBits
-	
-	/ Load program into memory using LoadFile(0, CHUNK_SIZE * size in chunks)
-	MOV RG1 RG0; ZRO RG0
-	LDI RG2 >CHUNK_SIZE; ALU MUL RG1 RG2
-	LOD RA SP 0; POP 1; JMP >LoadFile	/ This is the last function call, so return to RA
-	
-	/ Unless there was an error, then return NULL
-	#LoP.Error
-	NUL OUT; LOD RA SP 0; POP 1; RET
-}
-
-
-
 / Adds the given process as a child to the current process
 / Modifies RG1-4, and FLG
-#InsertChild %(rg0=ProcNum)% = {
+#InsertChild  %ProcNum% = {
+
+	/ Quick check if it's root
 	PAS RG0; JIF EQZ >InC.Skip
+	
 	/ Get the main word of ProcNum in RG2 (and actual index in RG1)
 	MOV RG1 RG0; ALI MUL RG1 >PROC_WORDS; LOD RG2 RG1 >ProcList
 	
@@ -571,7 +556,8 @@ JMP >Init
 / (ProcNum) removes the given process as a child from the process tree
 / Does not alter the proc's main word
 / Modifies RG1-4 and FLG
-{#RemoveChild
+#RemoveChild  %ProcNum% = {
+
 	/ Case 1 - Proc is root, nothing to do
 	PAS RG0; JIF EQZ >ReC.Done
 	
@@ -617,24 +603,103 @@ JMP >Init
 
 
 
-/ (Loadable Start, Memory Start) Loads a file at IOP into memory
+/ Loads the program file at IOP into memory. Returns HLB, NULL if no space, or 0 no file.
+/ Modifies RG0-5, and FLG
+#LoadProgramTSFS  %FileNum w/ IOP > NewHLB|NULL|0% = {
+
+	PSH 2; STR RA SP 0
+	
+	
+	% Unused drive format check code:
+	
+	/ First, check if it's TSFS (These checks really don't take much time thanks to how IO is handled)
+	
+	/ Quick "parity check"
+	MOV RG2 IO; AIN MOD RG2 >TSFS_ENTRY_SIZE; JIF NEZ >LPF.TSFSError
+	
+	/ Longer, "zero check"
+	#LPF.ZLoop
+		/ Get the pointer to the end of the drive.
+		ALI SUB RG2 >TSFS_ENTRY_SIZE
+		ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2; ALI UST FLG >DRIVE_PTR_BIT
+		MOV RG1 IO; PAS RG1; JIF EQZ >LPF.ZLoop
+	/ Got the address for end of memory.
+	MOV RG2 RG1
+	
+	/ Just make sure this actually is the pointer.
+	PAS IO; JIF NEZ >LPF.TSFSError
+	
+	/ Now check to see if it's (probably) the end of memory.
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2; ALI UST FLG >DRIVE_PTR_BIT
+	PAS IO; JIF NEZ >LPF.TSFSError
+	%
+	
+	
+	/ Check if the given file number actually exists
+	ALI MUL RG0 >TSFS_ENTRY_SIZE
+	ZRO RG1; ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG1; ALI UST FLG >DRIVE_PTR_BIT
+	MOV RG1 IO; CMP RG0 RG1; JGE >LPF.FileError
+	
+	/ Check if the file is empty
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT
+	MOV RG0 IO; PAS IO; JIF EQZ >LPF.FileError
+	
+	/ Tell LoadProgram where to load this file.
+	STR RG0 SP 1; JMP >LoP.LPFSkip
+	
+	
+	#LPF.FileError
+	ZRO OUT; POP 2; RET
+	
+	
+/ LPF, but for .tload drives
+#LoadProgram  %w/ IOP > NewHLB|NULL% = {
+
+	PSH 2; STR RA SP 0; ZRO RG0; STR RG0 SP 1
+	#LoP.LPFSkip
+	
+	/ Calculate the size of the program in RG0 (in chunks)
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT;
+	MOV RG0 IO
+	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; ALI ADD RG0 2
+	
+	/ Check memory to see where it will fit
+	CAL >FindOpenMemory  / = FirstChunk
+	AIN ADD OUT 1; JIF CAR >LoP.Error
+	
+	/ Calculate HLB then do MarkBits(FirstChunk, Size)
+	MOV RG1 RG0; MOV RG0 OUT
+	
+	LDI RG2 >CHUNK_SIZE; ALU MUL OUT RG2; ALI SRB OUT >LO_SHIFT
+	MOV RG3 RG1; ALU MUL RG3 RG2; ALU OR OUT RG3
+	
+	CAL >MarkBits
+	
+	/ Load program into memory using LoadFile(CHUNK_SIZE * FirstChunk, Size)
+	LOD RG1 SP 1
+	LDI RG2 >CHUNK_SIZE; ALU MUL RG0 RG2
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG1; ALI UST FLG >DRIVE_PTR_BIT; MOV RG1 IO
+	
+	LOD RA SP 0; POP 2; JMP >LoadFile	/ This is the last function call, so return to RA
+	
+	/ Unless there was an error, then return NULL
+	#LoP.Error
+	NUL OUT; LOD RA SP 0; POP 2; RET
+}}
+
+
+
+/ Loads a file at IOP into memory
 / IMPORTANT: DOES NOT MARK THE BITMAP
 / Modifies Rg0 Rg1 and FLG
-{#LoadFile
-	/ Switch to the drive pointer and write to it
-	ALI SET FLG >DRIVE_PTR_BIT
-	MOV IO RG0
-	
-	/ Now load the size of the file into RG0
-	ALI UST FLG >DRIVE_PTR_BIT
-	MOV RG0 IO
-	
-	/ Then write the file to memory
-	PAS RG0; JIF EQZ >LoF.Done
+#LoadFile  %MemStart, Size w/ IOP & DrivePTR% = {
+
+	/ Write the file to memory
+	PAS RG1; JIF EQZ >LoF.Done
 	#LoF.LoadLoop
-		STR IO RG1 0
-		INC RG1
-	DCC RG0; JIF NEZ >LoF.LoadLoop
+		STR IO RG0 0
+		INC RG0
+	DCC RG1; JIF NEZ >LoF.LoadLoop
 	
 	/ Finally, return
 	#LoF.Done
@@ -643,9 +708,9 @@ JMP >Init
 
 
 
-/ (Size), returns the number of the first 0 bit, or NULL if none are found
+/ Returns the number of the first 0 bit, or NULL if none are found
 / Modifies RG1-5, and FLG
-{#FindOpenMemory
+#FindOpenMemory  %Size > FirstChunkNum|NULL% = {
 	/ RG1: Current bitwise index
 	/ RG2: Relative bitwise index to RG1
 	/ RG3: Current word
@@ -704,24 +769,24 @@ JMP >Init
 
 
 
-/ (Start, Size), turns on bits Start through Start+Size-1 inclusive
+/ Turns on bits Start through Start+Size-1 inclusive
 / Modifies RG1-5, and FLG
-{#MarkBits
+#MarkBits  %Start, Size% = {
 	/ Setup and jump to ModifyBits
 	ZRO RG2; LOD RG2 RG2 >MarkInst; STR RG2 RG2 >MoB.ModBit
 	JMP >ModifyBits
 }
 
-/ (Start, Size), turns off bits Start through Start+Size
+/ Turns off bits Start through Start+Size-1 inclusive
 / Modifies RG1-5, and FLG
-{#UnmarkBits
+#UnmarkBits  %Start, Size% = {
 	/ Setup and jump to ModifyBits
 	ZRO RG2; LOD RG2 RG2 >UnmarkInst; STR RG2 RG2 >MoB.ModBit
 	JMP >ModifyBits
 }
 
 / Shell function for UnmarkBits and MarkBits DO NOT CALL
-{#ModifyBits
+#ModifyBits  %!Fn% = {
 	/ RG2 is WORD_SIZE, RG3 is word num, RG4 is bits, RG5 is the word itself
 	LDI RG2 >WORD_SIZE
 	MOV RG3 RG0; ALU DIV RG3 RG2

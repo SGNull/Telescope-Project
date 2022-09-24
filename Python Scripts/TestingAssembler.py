@@ -256,7 +256,7 @@ def main() -> None:
         suffix = OUTPUT_SUFFIX
 
     input_dirs.pop()
-    output_file_path = '\\'.join(input_dirs + [input_file_name + suffix])
+    output_file_path = '\\'.join(input_dirs + [input_file_name])
 
     print("Done getting arguments.")
     print("")
@@ -285,7 +285,7 @@ def main() -> None:
     if compress:
         print("")
         print("Compression enabled, starting compressor...")
-        compress_file(input_file_name + COMPRESSED_FILE_SUFFIX)
+        compress_file(output_file_path + COMPRESSED_FILE_SUFFIX)
         print("Compressor finished.")
 
     # If in debug mode, just write the debug outputs
@@ -301,12 +301,12 @@ def main() -> None:
         build_tables()
 
         # Now print the label table
-        make_table_file(input_file_name + TABLE_FILE_SUFFIX)
+        make_table_file(output_file_path + TABLE_FILE_SUFFIX)
 
         print("")
 
         # Now make the RTL file
-        write_RTL(input_file_name + REDUCED_FILE_SUFFIX)
+        write_RTL(output_file_path + REDUCED_FILE_SUFFIX)
 
     # Else, just assemble the file
     else:
@@ -325,6 +325,7 @@ def main() -> None:
             out = LDF_encode(val)
             output_lines.append(out + "\n")
 
+        output_file_path = output_file_path + suffix
         with open(output_file_path, 'w') as out_file:
             out_file.writelines(output_lines)
 

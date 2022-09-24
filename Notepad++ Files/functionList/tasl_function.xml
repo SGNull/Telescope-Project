@@ -6,11 +6,11 @@
 			id="tasl_function.xml"
 		>
 			<function
-				mainExpr="#(?:\w|\.)+ *(?:%[^%]*%)? *= *\{|\{#(?:\w|\.)+"
+				mainExpr="#(?:\w|\.)+\s*(?:%[^%]*%)?\s*=\s*\{|\{#(?:\w|\.)+\s*(?:%[^%]*%)?"
 			>
 				<functionName>
 					<nameExpr
-						expr="#(?:\w|\.)+"
+						expr="#(?:\w|\.)+\s*(?:%[^%]*%)?"
 					>
 					</nameExpr>
 				</functionName>
