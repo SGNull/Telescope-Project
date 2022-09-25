@@ -24,19 +24,27 @@ JMP >Init
 
 @DRIVE2 	= 0b0001000000000000
 @DRIVE1 	= 0b0000100000000000
-@TNET2	= 0b1001000000000000
+@TNET2		= 0b1001000000000000
+
+@SYSCODE_LOADABLE = 0
+@SYSCODE_FILE_LOAD = 1
+@SYSCODE_WAIT = 2
 
 
 / ------- Code -------
 
 (#Init
 	/ Spawn threads
+	LDI RG0 >SYSCODE_LOADABLE  / Assuming they're loadable drives
+	
 	LDI FLG >DRIVE1; SYS  / Reader
 	LDI FLG >DRIVE2; SYS  / Writer
 	
 	/ Wait on TNET 3
+	LDI RG0 >SYSCODE_WAIT
 	LDI FLG >TNET2
-	#I.Wait: JIF PNW >I.Wait
+	#I.Wait:
+	SYS; JIF PNW >I.Wait
 	
 	/ Halt when given a signal
 	HLT

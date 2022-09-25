@@ -1,15 +1,4 @@
+
 LATEST CHANGES:
 
- - Added function declaration comment to the Function List panel. See OS source code for example.
-
- - TCS's cycle counter stops when halting.
-
- - Fixed Python assembler output in all modes.
-
-For #45 and #44: (No changes to the functionality of syscalls YET)
-
- - LoadFile now takes the file size as an input (not all files are in loadable format)
-	
- - New SysHandler function. Currently just jumps to SysSpawnProg.
-	
- - New SpawnProgTSFS function. Like the original SpawnProg function, but for TSFS.
+Theoretically completed the code for #44 and #45. However, it still needs to be tested (in other words: the OS is broken for now).

@@ -29,16 +29,21 @@ JMP >Init
    v1.0 is especially minimalist, and future versions will modify 1.0 to achieve higher functions.
    IMPORTANT: In TBOS, a program's heap & stack space may start as non-zero.
    
+   
    v1.1 Works with the TSFS file system, and splits the original 1.0 syscall into two:
-   RG0 == 0 -> The original syscall
-   RG0 == 1 -> File system spawn program. RG1 contains the file number
+		RG0 == 0 -> The original syscall
+		RG0 == 1 -> File system spawn program. RG1 contains the file number
+   
+   Additionally, there is a "give up turn" syscall:
+		Rg0 == 2 -> OS switches control to the next program
+   
+   Note that the OS still looks for a loadable root drive.
 %)
 
 / ------------------------------------------------------------Data------------------------------------------------------------
 (/ ------- Hardware constants -------
 	/ Processor constants
 	@WORD_SIZE 			= 16  / Word size in bits (always must be 16)
-	@STATE_REG_COUNT	= 12  / Number of registers which should be stored (always 12)
 
 	@DRIVE_IOP_GROUP     	= 0
 	@DRIVE_PTR_IOP_GROUP 	= 1
@@ -54,6 +59,8 @@ JMP >Init
 
 	@EXC_MASK 	= 0x0700
 	@EXC_SHIFT 	= 8
+	
+	@UE_PU_SHIFT = 3
 	
 	@EXC_CTDZ 	= 4
 	@EXC_SYS 	= 5
@@ -76,7 +83,7 @@ JMP >Init
 )
 
 
-(/ ------- OS Properties & Data -------
+(/ ------- OS Data Properties -------
 	/ Process = [1-bit Active] 000 [4-bit parent] [4-bit nextSib] [4-bit child]
 	/ NOTE: This could be modified to support 32 procs, but memory conflicts would be much more likely.
 	@MAX_PROC_COUNT = 16
@@ -96,18 +103,17 @@ JMP >Init
 
 	#ProcCount 		= 0		/ Number of running processes
 	#CurrentProcID 	= 0	/ Current running process
-	
-	@CTD_VAL = 0x0020
 
 
 	/ EXA and CTD are constant, PC is in the OS, and IO doesn't make sense to store, so 12 words per state
 	/ Each state has the following format: RG0-7, FLG, SP, EPC, HLB
-	@PROC_CxSTATE_S = 192 / 16 max proc x 12 words per proc = 192
-	#StateList 		= ~PROC_CxSTATE_S
-	@FLG_OFFSET 	= 8
-	@SP_OFFSET 		= 9
-	@EPC_OFFSET 	= 10
-	@HLB_OFFSET 	= 11
+	@STATE_REG_COUNT	= 12  / Number of registers which should be stored (always 12)
+	@PROC_CxSTATE_S 	= 192 / 16 max proc x 12 words per proc = 192
+	#StateList 			= ~PROC_CxSTATE_S
+	@FLG_OFFSET 		= 8
+	@SP_OFFSET 			= 9
+	@EPC_OFFSET 		= 10
+	@HLB_OFFSET 		= 11
 
 	@CHUNK_SIZE = 0x0400
 	@NUM_CHUNKS = 64		/ Must be (2^16)/CHUNK_SIZE
@@ -122,8 +128,14 @@ JMP >Init
 )
 
 
-(/ Constants for other things
+(/ ------- OS External Constants -------
+	@CTD_VAL = 0x0020
+	
 	@TSFS_ENTRY_SIZE = 2
+	
+	@SYSCODE_LOAD 		= 0
+	@SYSCODE_LOADTSFS 	= 1
+	@SYSCODE_GIVEUPTURN = 2
 )
 
 
@@ -132,14 +144,16 @@ JMP >Init
 	@RUN_CODE 			= 2
 	@END_CODE 			= 0x600D
 
-	@BAD_START_ERROR 	= 0xFF00
-	@UNKNOWN_EXC_ERROR 	= 0xFF01
+	@BAD_START_ERROR 		= 0xFF00
+	@UNKNOWN_EXC_ERROR 		= 0xFF01
+	@UNKNOWN_SYSCODE_ERROR 	= 0xFF02
 	
 	@SYS_SPAWN_PROG_GOOD	= 0x00A1
 	@SYS_SPAWN_PROG_MEM		= 0xF000
 	@SYS_SPAWN_PROG_MAX		= 0xF001
-	@SYS_SPAWN_PROG_PRIV	= 0xF002	/ Right now can occur for ALL processes, not just user
+	@SYS_SPAWN_PROG_PRIV	= 0xF002
 	@SYS_SPAWN_PROG_FLG		= 0xF003
+	@SYS_SPAWN_PROG_MISSING = 0xF004
 )
 
 
@@ -245,6 +259,33 @@ JMP >Init
 
 
 
+/ Handles any exceptions that occur
+#ExHandler  %!Fn% = {
+	/ Store off RG0-2 and FLG for CTDZ
+	STR RG0 RG0 >TState
+	LDI RG0 >TState
+	STR RG1 RG0 1
+	STR RG2 RG0 2
+	STR FLG RG0 >FLG_OFFSET
+	
+	/ Check if it's CTDZ
+	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
+	CMI RG0 >EXC_CTDZ; JEQ >BurstOver
+	
+	/ Check if it's unrecoverable
+	CMI RG0 >EXC_PRIV; JEQ >TerminateCurrent
+	CMI RG0 >EXC_OOB; JEQ >TerminateCurrent
+	
+	/ Check for Syscall
+	CMI RG0 >EXC_SYS; JEQ >SysHandler
+	
+	/ Else, error
+	LDI RG0 >UNKNOWN_EXC_ERROR
+	JMP >StatusHalt
+}
+
+
+
 / Retires the previous process, then jumps to Dispatcher
 #BurstOver  %!Fn% = {
 	/ Get current proc's actual state address in RG0
@@ -272,68 +313,6 @@ JMP >Init
 	
 	/ Now return control to the dispatcher
 	JMP >Dispatcher
-}
-
-
-
-/ Resume the current process *NOT A FUNCTION*
-#ResumeProc  %!Fn% = {
-	/ Restore the temp state
-	LDI RG0 >TState
-	LOD SP RG0 >SP_OFFSET
-	LOD FLG RG0 >FLG_OFFSET
-	LOD RG7 RG0 7
-	LOD RG6 RG0 6
-	LOD RG5 RG0 5
-	LOD RG4 RG0 4
-	LOD RG3 RG0 3
-	LOD RG2 RG0 2
-	LOD RG1 RG0 1
-	LOD RG0 RG0 0
-	
-	/ Resume the process
-	RSM
-}
-
-
-
-/ Handles any exceptions that occur
-#ExHandler  %!Fn% = {
-	/ Store off RG0-2 and FLG for CTDZ
-	STR RG0 RG0 >TState
-	LDI RG0 >TState
-	STR RG1 RG0 1
-	STR RG2 RG0 2
-	STR FLG RG0 >FLG_OFFSET
-	
-	/ Check if it's CTDZ
-	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
-	CMI RG0 >EXC_CTDZ; JEQ >BurstOver
-	
-	/ Check if it's unrecoverable
-	CMI RG0 >EXC_PRIV; JEQ >TerminateCurrent
-	CMI RG0 >EXC_OOB; JEQ >TerminateCurrent
-	
-	/Store off the rest of the registers
-	LDI RG0 >TState
-	STR RG3 RG0 3
-	STR RG4 RG0 4
-	STR RG5 RG0 5
-	STR RG6 RG0 6
-	STR RG7 RG0 7
-	/ FLG is already stored
-	STR SP RG0 >SP_OFFSET
-	ZRO SP
-	
-	/ Get EXC again
-	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
-	
-	/ Check for Syscall
-	CMI RG0 >EXC_SYS; JEQ >SysHandler
-	
-	/ Else, error
-	LDI RG0 >UNKNOWN_EXC_ERROR
-	JMP >StatusHalt
 }
 
 
@@ -406,14 +385,39 @@ JMP >Init
 
 / Syscall handler.
 #SysHandler  %!Fn% = {
-	JMP >SysSpawnProg
+
+	/ Get the proc's RG0 and RG1
+	LDI RG2 >TState; LOD RG1 RG2 0; LOD RG0 RG2 1
+	
+	/ Check if it's GiveUpTurn
+	CMI RG1 >SYSCODE_GIVEUPTURN; JEQ >BurstOver
+	
+	/Store off the rest of the registers
+	LDI RG0 >TState
+	STR RG3 RG0 3
+	STR RG4 RG0 4
+	STR RG5 RG0 5
+	STR RG6 RG0 6
+	STR RG7 RG0 7
+	/ FLG is already stored
+	STR SP RG0 >SP_OFFSET
+	ZRO SP
+	
+	/ Check if it's one of the load syscalls
+	CMI RG1 >SYSCODE_LOADTSFS; JEQ >SysSpawnProg
+	CMI RG1 >SYSCODE_LOAD; JEQ >SysSpawnProg
+	
+	/ Else, return SYSCODE_ERROR
+	LDI RG1 >SYSCODE_ERROR; STR RG1 RG0 6; JMP >ResumeProc
 }
 
 
 
 / Loads the program, makes it a child thread, then resumes the current process, setting OUT accordingly.
-/ IMPORTANT: THIS IS A SUBROUTINE, NOT A FUNCTION
+/ RG1 needs to be the sys code, and RG0 needs to be the file number (if necessary)
 #SysSpawnProg  %!Fn% = {
+	MOV RG4 RG1; MOV RG5 RG0
+	
 	/ Before doing anything, make sure we can actually spawn a process
 	ZRO RG0; LOD RG0 RG0 >ProcCount; LDI RG1 >MAX_PROC_COUNT
 	CMP RG0 RG1; JGE >SSP.MaxError
@@ -424,12 +428,23 @@ JMP >Init
 	CMI RG2 >DRIVE_IOP_GROUP; JNE >SSP.FLGError
 
 	/ Check if FLG is looking at the root drive
-	AIN SRB RG1 >IOP_DEVICE_SHIFT; JIF EQZ >SSP.PrivError
+	AIN SRB RG1 >IOP_DEVICE_SHIFT; JIF NEZ >SSP.NotPriv
+		/ Check if this is a user process
+		MOV RG3 FLG; ALI AND RG3 >EXC_MASK; AIF SRB RG3 >UE_PU_SHIFT
+		JIF EQZ >SSP.PrivError
+	#SSP.NotPriv
 	
 	
-	/ Set FLG and load the program
-	ZRO RG0; MOV FLG RG1; CAL >LoadProgram
+	/ Check which load function we're calling, and set FLG then jump
+	CMI RG4 >SYSCODE_LOADTSFS; JNE >SSP.NotTSFS
+		LDI RA >SSP.Ret; MOV RG0 RG5; MOV FLG RG1; JMP >LoadProgramTSFS
+	#SSP.NotTSFS
+		/ Else, it's just the normal loadprogram syscode
+		MOV FLG RG1; CAL >LoadProgram
+	#SSP.Ret
+	
 	AIN ADD OUT 1; JIF CAR >SSP.MemError
+	AIN SUB OUT 1; JIF LTZ >SSP.FileMissingError
 	
 	/ Now spawn the thread for the program-turned-process
 	LDI FLG >USER_PROC_FLG
@@ -446,12 +461,35 @@ JMP >Init
 	#SSP.MemError
 	LDI OUT >SYS_SPAWN_PROG_MEM; JMP >SSP.Finalize
 	#SSP.FLGError
-	LDI OUT >SYS_SPAWN_PROG_FLG
+	LDI OUT >SYS_SPAWN_PROG_FLG; JMP >SSP.Finalize
+	#SSP.FileMissingError
+	LDI OUT >SYS_SPAWN_PROG_MISSING
 	
 	/ Set current proc's OUT accordingly & resume it
 	#SSP.Finalize
 	LDI RG0 >TState; STR OUT RG0 6
 	JMP >ResumeProc
+}
+
+
+
+/ Resume the current process *NOT A FUNCTION*
+#ResumeProc  %!Fn% = {
+	/ Restore the temp state
+	LDI RG0 >TState
+	LOD SP RG0 >SP_OFFSET
+	LOD FLG RG0 >FLG_OFFSET
+	LOD RG7 RG0 7
+	LOD RG6 RG0 6
+	LOD RG5 RG0 5
+	LOD RG4 RG0 4
+	LOD RG3 RG0 3
+	LOD RG2 RG0 2
+	LOD RG1 RG0 1
+	LOD RG0 RG0 0
+	
+	/ Resume the process
+	RSM
 }
 
 
@@ -604,6 +642,7 @@ JMP >Init
 
 
 / Loads the program file at IOP into memory. Returns HLB, NULL if no space, or 0 no file.
+/ Does not create the thread for said program, but does basically everything else.
 / Modifies RG0-5, and FLG
 #LoadProgramTSFS  %FileNum w/ IOP > NewHLB|NULL|0% = {
 
@@ -659,7 +698,7 @@ JMP >Init
 	#LoP.LPFSkip
 	
 	/ Calculate the size of the program in RG0 (in chunks)
-	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT;
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT
 	MOV RG0 IO
 	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; ALI ADD RG0 2
 	

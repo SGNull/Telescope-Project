@@ -14,6 +14,8 @@ JMP >Init
 @TNET2 		= 0b1001000000000000
 @STOP_CHAR 	= '$'
 
+@SYSCODE_WAIT = 2
+
 / ------- Code -------
 
 (#Init
@@ -21,15 +23,19 @@ JMP >Init
 	
 	/ Wait for keyboard input
 	#I.SetupWait
+	LDI RG0 >SYSCODE_WAIT
 	LDI FLG >KEYBOARD1
-	#I.Wait: JIF PNW >I.Wait
+	#I.Wait: 
+	SYS; JIF PNW >I.Wait
 	
 	/ Check if it's the terminating character
 	MOV RG0 IO; CMP RG0 RG1; JEQ >I.Done
 	LDI FLG >TNET1; MOV IO RG0
 	
 	/ Then wait for character to be read by Writer
-	#I.WaitAgain: JIF PNR >I.WaitAgain
+	LDI RG0 >SYSCODE_WAIT
+	#I.WaitAgain: 
+	SYS; JIF PNR >I.WaitAgain
 	JMP >I.SetupWait
 	
 	/ Write to TNET2 and loop forever
