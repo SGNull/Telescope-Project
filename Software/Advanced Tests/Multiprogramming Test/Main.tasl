@@ -35,12 +35,12 @@ JMP >Init
 
 (#Init
 	/ Spawn threads
-	LDI RG0 >SYSCODE_LOADABLE  / Assuming they're loadable drives
+	LDI RG0 >SYSCODE_FILE_LOAD; LDI FLG >DRIVE1
 	
-	LDI FLG >DRIVE1; SYS  / Reader
-	LDI FLG >DRIVE2; SYS  / Writer
+	LDI RG1 1; SYS  / Reader
+	INC RG1; SYS    / Writer
 	
-	/ Wait on TNET 3
+	/ Wait on TNET 2
 	LDI RG0 >SYSCODE_WAIT
 	LDI FLG >TNET2
 	#I.Wait:

@@ -1,4 +1,26 @@
 
 LATEST CHANGES:
 
-Theoretically completed the code for #44 and #45. However, it still needs to be tested (in other words: the OS is broken for now).
+ - TBOS 1.1 is complete.
+ 
+ - Resolved #44: There is now a syscall for giving up the rest of a process's cycles.
+ 
+ - Resolved #45: The OS supports programs loading from files, but root is still configured to be loadable (changing this is trivial).
+ 
+ - Modified and optimized multiprogramming test for TBOS 1.1.
+
+ - Fixed another issue with periods in the Python assembler's input/output files.
+ 
+ - Major restructuring of the python scripts to all go through "HexInterface" to read/write .hex files.
+ 
+ - Added file inspector shortcut to IDE.
+ 
+ - Renamed shortcuts to make more sense and to be up-to-date.
+ 
+ - Fixed error in the drive imager script where it counted ignored files as non-ignored files.
+ 
+ - Renamed the ASCII Hex Encoder script to what it actually is.
+ 
+ - Fixed strange indexing error in TSFS inspector.
+ 
+ - Changed TSFS output to be .hex, so that it can be used in the simulation.

@@ -8,6 +8,7 @@ It will create the output file if the one specified is not found, or if only the
 
 # Module imports
 import sys  # For file arguments
+from HexInterface import write_data_to_hex as write_data
 
 # File name constants
 CONVERTER_FILE_NAME = "FTLV1.py"
@@ -22,17 +23,14 @@ CLI_EXIT_CODE = 2
 GEN_EXIT_CODE = 1
 GOOD_EXIT_CODE = 0
 
+# Output file constants
+WORDS_PER_LINE = 8
+FULL_WORD_OUTPUT = True  # Makes output look like this: 0034 10B3 000A instead of 34 10B3 A
+
 # List of characters to replace:
 REPLACE_CHARS = {
 
 }
-
-
-def char_to_output(char, output_list):
-    """Appends a character to the output in the correct format"""
-    ascii_value = ord(char)
-    formatted_char = hex(ascii_value)[2:]
-    output_list.append(formatted_char + "\n")
 
 
 def validate_args():
@@ -43,18 +41,28 @@ def validate_args():
         exit(CLI_EXIT_CODE)
 
 
-def file_translator(input_file, output_list):
-    """The actual file translator. Sends the translation to the output list."""
+def lines_to_int(input_file) -> [int]:
+    """Returns the list of integers representing the characters in the given file."""
+
+    output = []
+
+    # Read file character by character
     char = input_file.read(1)
     while char:
-        if char in REPLACE_CHARS:  # Replace the character
+
+        # Append the replacement
+        if char in REPLACE_CHARS:
             for sub_char in REPLACE_CHARS[char]:
-                char_to_output(sub_char, output_list)
-        else:  # Translate the character
-            char_to_output(char, output_list)
+                output.append(ord(sub_char))
+
+        # Translate the character
+        else:
+            output.append(ord(char))
 
         # Go to next character
         char = input_file.read(1)
+
+    return output
 
 
 def main():
@@ -69,19 +77,10 @@ def main():
     else:
         output_file_path = input_file_path + OUTPUT_FILE_TYPE
 
-    # Open the files at the same time to avoid errors
-    with open(input_file_path, 'r') as input_file, open(output_file_path, 'w') as output_file:
-        # Create the output_list
-        output_list = [LOGISIM_FILE_HEADER + "\n"]
-
-        # Translate the input_file
-        file_translator(input_file, output_list)
-
-        # Append EOF to the output_list
-        output_list.append(OUTPUT_EOF + "\n")
-
-        # Now write the values in output_list to the output_file
-        output_file.writelines(output_list)
+    # Then send the data to the output
+    with open(input_file_path, 'r') as input_file:
+        data = lines_to_int(input_file)
+        write_data(data, output_file_path)
 
 
 # Run main()

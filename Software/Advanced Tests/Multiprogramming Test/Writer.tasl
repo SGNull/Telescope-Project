@@ -14,14 +14,21 @@ JMP >Init
 / ------- Code -------
 
 (#Init
-	/ Wait on TNET1
+	/ Ready the WAIT syscall
 	LDI RG0 >SYSCODE_WAIT
+	
+	/ Wait on TNET1 (unless something is already there)
+	#I.Loop
 	LDI FLG >TNET1
+	JIF PWT >I.WaitSkip
+	
 	#I.Wait: 
 	SYS; JIF PNW >I.Wait
 	
+	#I.WaitSkip
+	
 	/ Write to terminal and loop
-	MOV RG0 IO
-	LDI FLG >TERMINAL1; MOV IO RG0
-	JMP >Init
+	MOV RG1 IO
+	LDI FLG >TERMINAL1; MOV IO RG1
+	JMP >I.Loop
 )

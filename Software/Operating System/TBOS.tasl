@@ -129,7 +129,7 @@ JMP >Init
 
 
 (/ ------- OS External Constants -------
-	@CTD_VAL = 0x0020
+	@CTD_VAL = 0x0200
 	
 	@TSFS_ENTRY_SIZE = 2
 	
@@ -272,12 +272,12 @@ JMP >Init
 	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
 	CMI RG0 >EXC_CTDZ; JEQ >BurstOver
 	
+	/ Check for Syscall
+	CMI RG0 >EXC_SYS; JEQ >SysHandler
+	
 	/ Check if it's unrecoverable
 	CMI RG0 >EXC_PRIV; JEQ >TerminateCurrent
 	CMI RG0 >EXC_OOB; JEQ >TerminateCurrent
-	
-	/ Check for Syscall
-	CMI RG0 >EXC_SYS; JEQ >SysHandler
 	
 	/ Else, error
 	LDI RG0 >UNKNOWN_EXC_ERROR
@@ -288,6 +288,7 @@ JMP >Init
 
 / Retires the previous process, then jumps to Dispatcher
 #BurstOver  %!Fn% = {
+	
 	/ Get current proc's actual state address in RG0
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; ALI MUL RG0 >STATE_REG_COUNT
 	LDI RG1 >StateList; ALU ADD RG0 RG1
@@ -393,22 +394,21 @@ JMP >Init
 	CMI RG1 >SYSCODE_GIVEUPTURN; JEQ >BurstOver
 	
 	/Store off the rest of the registers
-	LDI RG0 >TState
-	STR RG3 RG0 3
-	STR RG4 RG0 4
-	STR RG5 RG0 5
-	STR RG6 RG0 6
-	STR RG7 RG0 7
+	STR RG3 RG2 3
+	STR RG4 RG2 4
+	STR RG5 RG2 5
+	STR RG6 RG2 6
+	STR RG7 RG2 7
 	/ FLG is already stored
-	STR SP RG0 >SP_OFFSET
+	STR SP RG2 >SP_OFFSET
 	ZRO SP
 	
 	/ Check if it's one of the load syscalls
-	CMI RG1 >SYSCODE_LOADTSFS; JEQ >SysSpawnProg
 	CMI RG1 >SYSCODE_LOAD; JEQ >SysSpawnProg
+	CMI RG1 >SYSCODE_LOADTSFS; JEQ >SysSpawnProg
 	
 	/ Else, return SYSCODE_ERROR
-	LDI RG1 >SYSCODE_ERROR; STR RG1 RG0 6; JMP >ResumeProc
+	LDI RG1 >UNKNOWN_SYSCODE_ERROR; STR RG1 RG0 6; JMP >ResumeProc
 }
 
 
@@ -416,6 +416,7 @@ JMP >Init
 / Loads the program, makes it a child thread, then resumes the current process, setting OUT accordingly.
 / RG1 needs to be the sys code, and RG0 needs to be the file number (if necessary)
 #SysSpawnProg  %!Fn% = {
+
 	MOV RG4 RG1; MOV RG5 RG0
 	
 	/ Before doing anything, make sure we can actually spawn a process
@@ -673,8 +674,7 @@ JMP >Init
 	PAS IO; JIF NEZ >LPF.TSFSError
 	%
 	
-	
-	/ Check if the given file number actually exists
+	/ Check if the given file number actually exists (within the index)
 	ALI MUL RG0 >TSFS_ENTRY_SIZE
 	ZRO RG1; ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG1; ALI UST FLG >DRIVE_PTR_BIT
 	MOV RG1 IO; CMP RG0 RG1; JGE >LPF.FileError

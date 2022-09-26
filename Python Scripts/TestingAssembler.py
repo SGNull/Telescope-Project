@@ -10,6 +10,7 @@
 
 import sys
 from warnings import warn
+from HexInterface import write_data_to_hex as write_data
 
 # --------------------------------------Simulation Constants/Globals---------------------------------------
 # Args constants
@@ -27,13 +28,10 @@ LOADABLE_FILE_SUFFIX = ".tload.hex"
 
 ACCEPTED_IN_SUFFIX = ["tasl", "tl"]
 
-LOGISIM_FILE_HEADER = "v2.0 raw"
 RTL_HEADER = "NOTE: DESPITE THEIR APPEARANCE, RTL FILES CANNOT BE ASSEMBLED"
 
 
 # Hardware simulation:
-output_lines = []  # Should be in Logisim Drive Format.
-
 input_ROM = []     # Should be characters.
 input_pointer = 0  # Would be a physical counter attached to the input_ROM.
 output_ROM = []    # Should be 16-bit instructions.
@@ -174,7 +172,7 @@ REF_CHAR = ord('>')         # References replace the following label with the va
 CHAR_CHAR = ord("'")        # Character syntax works somewhat similar to how it works in python. However,
 #                             it forces the assembler to take ANY *single* character and write it to the output.
 STRING_CHAR = ord('"')      # Places a series of characters in order in memory, followed by NULL.
-ARRAY_CHAR = ord('~')       # The number of zeros in the array follows this character *in decimal only*.
+ARRAY_CHAR = ord('~')       # The number of zeros in the array follows this character.
 NEGATIVE_CHAR = ord('-')
 STOP_CHAR = 0
 
@@ -195,13 +193,6 @@ generate_loadable = False  # Needs to be global because it effects the assembler
 
 
 # ------------------------------------------The Simulation--------------------------------------------------
-def LDF_encode(value: int) -> str:
-    """Returns the Logisim Drive Format encoding of value as a string."""
-
-    if value >= 0:
-        return hex(value)[2:]
-    else:
-        return hex(2**16 + value)[2:]
 
 
 def main() -> None:
@@ -248,7 +239,7 @@ def main() -> None:
 
     # Get output file location
     input_dirs = input_file_path.split('\\')
-    input_file_name = input_dirs[-1].split('.')[0]
+    input_file_name = '.'.join(input_dirs[-1].split('.')[0:-1])
 
     if generate_loadable:
         suffix = LOADABLE_FILE_SUFFIX
@@ -319,15 +310,8 @@ def main() -> None:
 
         # Send the assembler's results to the output file.
         print("Sending the output ROM contents to the output file...")
-        output_lines.append(LOGISIM_FILE_HEADER + "\n")
-
-        for val in output_ROM:
-            out = LDF_encode(val)
-            output_lines.append(out + "\n")
-
         output_file_path = output_file_path + suffix
-        with open(output_file_path, 'w') as out_file:
-            out_file.writelines(output_lines)
+        write_data(output_ROM, output_file_path)
 
         print("Contents written to output.")
 

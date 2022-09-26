@@ -20,26 +20,27 @@ JMP >Init
 
 (#Init
 	LDI RG1 >STOP_CHAR
-	
-	/ Wait for keyboard input
-	#I.SetupWait
 	LDI RG0 >SYSCODE_WAIT
+	
+	/ Wait for keyboard input (except if it's already there).
+	#I.SetupWait
 	LDI FLG >KEYBOARD1
-	#I.Wait: 
-	SYS; JIF PNW >I.Wait
+	JIF PWT >I.WaitSkip
+	
+	#I.Wait: SYS; JIF PNW >I.Wait
+	
+	#I.WaitSkip
 	
 	/ Check if it's the terminating character
-	MOV RG0 IO; CMP RG0 RG1; JEQ >I.Done
-	LDI FLG >TNET1; MOV IO RG0
+	MOV RG2 IO; CMP RG2 RG1; JEQ >I.Done
+	LDI FLG >TNET1; MOV IO RG2
 	
-	/ Then wait for character to be read by Writer
-	LDI RG0 >SYSCODE_WAIT
-	#I.WaitAgain: 
-	SYS; JIF PNR >I.WaitAgain
+	/ Then wait for character to be read by Writer (we need to wait here)
+	#I.WaitAgain: SYS; JIF PNR >I.WaitAgain
 	JMP >I.SetupWait
 	
 	/ Write to TNET2 and loop forever
 	#I.Done
-	LDI FLG >TNET2; MOV IO RG0
-	#I.Forever: JMP >I.Forever
+	LDI FLG >TNET2; MOV IO RG2
+	#I.Forever: SYS; JMP >I.Forever
 )

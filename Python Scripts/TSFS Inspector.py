@@ -4,6 +4,8 @@
 from sys import argv
 from os.path import isfile
 from enum import IntEnum, unique
+from HexInterface import read_data_from_hex as read_data
+from HexInterface import format_data
 
 
 @unique
@@ -38,7 +40,7 @@ signature_names = {
     FileSignature.ANYTHING: "Non-Empty"
 }
 
-TSFS_FILE_EXTENSION = ".tsfs"
+TSFS_FILE_EXTENSION = ".tsfs.hex"
 
 ENTRY_SIZE = 2
 ENTRY_ADDR = 0
@@ -47,6 +49,8 @@ ENTRY_SIG = 1
 TOTAL_ARGS = 2
 
 exit_strings = ["exit", "quit", "stop", "end", "q"]
+
+WORDS_PER_OUT_LINE = 8  # For printing file contents
 
 
 def main() -> None:
@@ -68,18 +72,17 @@ def main() -> None:
         print("Error: Not a TSFS file.")
         raise TypeError
 
-    with open(drive_image_path, 'r') as drive_image:
-        drive_image_lines = drive_image.readlines()
+    drive_image_data = read_data(drive_image_path)
 
-    if len(drive_image_lines) == 0 or len(drive_image_lines) == 1:
+    if len(drive_image_data) == 0:
         print("Read nothing from drive image.")
         exit(0)
 
-    drive_image_lines.pop(0)
-    index_size = get_entry(drive_image_lines, 0)[ENTRY_ADDR]
-    drive_index = drive_image_lines[:index_size]
-    drive_data = drive_image_lines[index_size:]
+    index_size = get_entry(drive_image_data, 0)[ENTRY_ADDR]
+    drive_index = drive_image_data[:index_size]
+    drive_files = drive_image_data[index_size:]
 
+    # Print the index contents, and begin the UI
     print_index(drive_index)
     print("")
     print("--------------------")
@@ -105,10 +108,18 @@ def main() -> None:
             else:
                 next_entry = get_entry(drive_index, int(entry_num) + 1)
                 print("Printing file data...")
+                print("")
                 file_start_index = entry[ENTRY_ADDR] - index_size
                 file_end_index = next_entry[ENTRY_ADDR] - index_size
+
+                buffer = []
                 for i in range(file_start_index, file_end_index):
-                    print(drive_data[i][:-1])
+                    buffer.append(format_data(drive_files[i]))
+                    if len(buffer) == WORDS_PER_OUT_LINE:
+                        print_list(buffer)
+                        buffer = []
+                if len(buffer) != 0:
+                    print_list(buffer)
 
         print("")
 
@@ -118,18 +129,27 @@ def print_index(drive_index: list) -> None:
     print("Printing drive index...")
     print("")
 
+    if len(drive_index) % ENTRY_SIZE != 0:
+        print("Error: Bad drive index size.")
+        raise ValueError
+
     num_entries = int(len(drive_index) / ENTRY_SIZE)
     for index in range(num_entries):
         entry = get_entry(drive_index, index)
         print("Entry " + str(index) + ": " + signature_names[entry[ENTRY_SIG]] + ",  " + hex(entry[ENTRY_ADDR]))
 
 
-def get_entry(drive_index: list, entry_num: int) -> tuple:
+def get_entry(drive_index: [int], entry_num: int) -> (int, int):
     """Returns the given numbered entry in the given drive index."""
-    entry_pt1 = int(drive_index[entry_num * ENTRY_SIZE], 16)
-    entry_pt2 = int(drive_index[entry_num * ENTRY_SIZE + 1], 16)
+    entry_pt1 = drive_index[entry_num * ENTRY_SIZE]
+    entry_pt2 = drive_index[entry_num * ENTRY_SIZE + 1]
     entry = (entry_pt1, entry_pt2)
     return entry
+
+
+def print_list(my_list: list) -> None:
+    """Prints the list cleanly."""
+    print(str(my_list)[1:-1].translate({ord("'"): None, ord(','): None}))
 
 
 # Start the program

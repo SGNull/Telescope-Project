@@ -5,7 +5,8 @@ from sys import argv
 from os import listdir
 from os.path import isfile, isdir
 from enum import IntEnum, unique
-from warnings import warn
+from HexInterface import read_data_from_hex as read_data
+from HexInterface import write_data_to_hex as write_data
 
 
 @unique
@@ -39,13 +40,12 @@ full_ext_types = {
     "tl.hex": FileSignature.COMPRESSED_CODE
 }
 accepted_exts = ["hex"]  # For now, all input files must be .hex files.
-ignored_exts = ["tasl", "table", "txt", "rtl", "tsfs"]
+ignored_exts = ["tasl", "table", "txt", "rtl"]
 
 
 # Input & output
 TOTAL_ARGS = 2
-HEX_FILE_HEADER = "v2.0 raw\n"
-TSFS_EXTENSION = ".tsfs"
+TSFS_EXTENSION = ".tsfs.hex"
 
 
 # Drive image settings
@@ -91,28 +91,28 @@ def main() -> None:
 
     print("Input directory good, beginning imaging...")
     print("")
-    main_directory_lines = [HEX_FILE_HEADER] + import_directory_as_TSFS(main_directory)
+    main_directory_data = import_directory_as_TSFS(main_directory)
     print("")
     print("Imaging done, writing to output...")
 
     # Place the output inside the main directory.
     directory_name = main_directory.split('\\')[-1]
     output_file_path = main_directory + "\\." + directory_name + TSFS_EXTENSION
-    with open(output_file_path, 'w') as output_file:
-        output_file.writelines(main_directory_lines)
+
+    write_data(main_directory_data, output_file_path)
 
 
 def append_to_index(drive_index: list, entry: tuple) -> None:
     """Appends the entry to drive index properly."""
 
-    signature_out = hex(entry[ENTRY_SIG])[2:]
-    file_addr_out = hex(entry[ENTRY_ADDR])[2:]
+    signature_out = entry[ENTRY_SIG]
+    file_addr_out = entry[ENTRY_ADDR]
 
-    drive_index.append(file_addr_out + '\n')
-    drive_index.append(signature_out + '\n')
+    drive_index.append(int(file_addr_out))
+    drive_index.append(int(signature_out))
 
 
-def file_signature_of(file_path: str) -> FileSignature | None:
+def file_signature_of(file_path: str) -> FileSignature:
     """Returns the file signature of the given file."""
 
     # If this is a directory, return DIRECTORY.
@@ -122,8 +122,8 @@ def file_signature_of(file_path: str) -> FileSignature | None:
     # If the file's extension is not supported, warn the user and return nothing.
     path_parts = file_path.split('.')
     if path_parts[-1] not in accepted_exts:
-        warn("Error: '" + file_path + "' has an unsupported file extension. Not adding to drive image.")
-        return None
+        print("Error: '" + file_path + "' has an unsupported file extension.")
+        raise TypeError
 
     # If the file lacks a supported full extension, return ANYTHING.
     full_ext = path_parts[-2] + '.' + path_parts[-1]
@@ -134,7 +134,7 @@ def file_signature_of(file_path: str) -> FileSignature | None:
     return full_ext_types[full_ext]
 
 
-def import_directory_as_TSFS(directory_path: str) -> list:
+def import_directory_as_TSFS(directory_path: str) -> [int]:
     """
     Returns TSFS formatted data of the given directory and its subdirectories.
 
@@ -152,7 +152,8 @@ def import_directory_as_TSFS(directory_path: str) -> list:
     print("Imaging directory: " + directory_path)
 
     # Create the variables for generating TSFS lines.
-    starting_file_address = (len(file_names) + 1 + EXTRA_INDEX_SPACE) * ENTRY_SIZE
+    actual_files = 0  # ...for now
+    starting_file_address = 0  # ...for now
     drive_index = []
     drive_file_data = []
 
@@ -162,57 +163,42 @@ def import_directory_as_TSFS(directory_path: str) -> list:
         # Get the file's full path
         file = directory_path + "\\" + file_name
 
-        if not file_name.split('.')[-1] in ignored_exts:
+        if not file_name.split('.')[-1] in ignored_exts and not file_name.endswith(TSFS_EXTENSION):
+            actual_files += 1
+
             # Get the file's signature.
             signature = file_signature_of(file)
-            if signature is None:
-                print("Error: '" + file + "' is not a valid file type.")
-                raise TypeError
 
             # Add file information to the directory.
             file_entry = (starting_file_address, signature)
             append_to_index(drive_index, file_entry)
             file_as_data = data_lines_of(file)
 
-            if file_as_data is not None:
+            if len(file_as_data) != 0:
                 drive_file_data = drive_file_data + file_as_data
 
                 # Increase the file address.
                 starting_file_address += len(file_as_data)
+        else:
+            print("Ignoring: " + file_name)
 
     # Add the final entry into the index and trailing empty entries.
     append_to_index(drive_index, (starting_file_address, FileSignature.EMPTY))
+
     for _ in range(EXTRA_INDEX_SPACE):
         append_to_index(drive_index, EMPTY_TUPLE)
 
+    for entry in range(actual_files + 1):
+        drive_index[entry * ENTRY_SIZE + ENTRY_ADDR] += len(drive_index)
+
     # Add trailing 0's to the file data
-    drive_file_data + ['0'] * EXTRA_FILE_SPACE
+    drive_file_data + [0] * EXTRA_FILE_SPACE
 
     # Return the full directory image
     return drive_index + drive_file_data
 
 
-def import_hex_lines(file_path: str) -> list:
-    """
-    Returns the lines of the given hex file.
-
-    Raises:
-        FileNotFoundError: The given file does not exist.
-    """
-    if not isfile(file_path):
-        print("Error: '" + file_path + "' is not a file.")
-        raise FileNotFoundError
-
-    file_name = file_path.split('\\')[-1]
-    print("Imaging file: " + file_name)
-    with open(file_path, 'r') as input_file:
-        lines = input_file.readlines()[1:]
-        if not lines[-1].endswith('\n'):
-            lines[-1] = lines[-1] + '\n'
-        return lines
-
-
-def data_lines_of(path: str) -> list | None:
+def data_lines_of(path: str) -> [int]:
     """
     Returns the data at the given path as a list of lines.
 
@@ -226,10 +212,7 @@ def data_lines_of(path: str) -> list | None:
     if isfile(path):
         file_ext = path.split('.')[-1]
         if file_ext == "hex":
-            return import_hex_lines(path)
-        elif file_ext in ignored_exts:
-            print("Ignoring file: '" + path + "'")
-            return None
+            return read_data(path)
         else:
             print("Error: Unsupported file type: '" + file_ext + "'")
             raise TypeError
