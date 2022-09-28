@@ -101,8 +101,9 @@ JMP >Init
 	@ROOT_PROC_ID = 0				/ Must be 0
 	@NULL_PROC_ID = >ROOT_PROC_ID	/ Must be ROOT_PROC_ID
 
-	#ProcCount 		= 0		/ Number of running processes
-	#CurrentProcID 	= 0	/ Current running process
+	#ProcCount 			= 0		/ Number of running processes
+	#CurrentProcID 		= 0		/ Current running process
+	#CurrentStatePtr	= 0		/ The address of the current proc's state
 
 
 	/ EXA and CTD are constant, PC is in the OS, and IO doesn't make sense to store, so 12 words per state
@@ -119,9 +120,6 @@ JMP >Init
 	@NUM_CHUNKS = 64		/ Must be (2^16)/CHUNK_SIZE
 	@BMP_WORDS 	= 4			/ Must be NUM_CHUNKS/16, and under 16
 	#MallocBMPs = (~BMP_WORDS)
-
-	/ Where (some of) the state of the CPU is immediately stored at.
-	#TState = (~STATE_REG_COUNT)
 
 	#MarkInst: ALU SET RG5 RG4
 	#UnmarkInst: ALU UST RG5 RG4
@@ -232,8 +230,11 @@ JMP >Init
 	/ Store the new current process
 	STR RG0 RG0 >CurrentProcID
 	
-	/ Load the process' state and resume it.
+	/ Find the process state and store it's address
 	ALI MUL RG0 >STATE_REG_COUNT; LDI RG1 >StateList; ALU ADD RG0 RG1
+	STR RG0 RG0 >CurrentStatePtr
+	
+	/ Load the state and RSM the process
 	LOD EPC RG0 >EPC_OFFSET
 	LDI EXA >ExHandler
 	LDI CTD >CTD_VAL
@@ -259,18 +260,34 @@ JMP >Init
 
 
 
-/ Handles any exceptions that occur
+/ The return point for all programs. Handles any exceptions that occur.
 #ExHandler  %!Fn% = {
-	/ Store off RG0-2 and FLG for CTDZ
-	STR RG0 RG0 >TState
-	LDI RG0 >TState
+	/ Get the current proc's state address in RG0
+	STR RG0 RG0 >ExH.TempRG0
+	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr
+	
+	/ Now store the temp register into the proc's state
 	STR RG1 RG0 1
+	ZRO RG1; LOD RG1 RG1 >ExH.TempRG0; STR RG1 RG0 0
+	
+	/ Finally, store off the rest of the registers
 	STR RG2 RG0 2
+	STR RG3 RG0 3
+	STR RG4 RG0 4
+	STR RG5 RG0 5
+	STR RG6 RG0 6
+	STR RG7 RG0 7
+	STR SP RG0 >SP_OFFSET
+	STR EPC RG0 >EPC_OFFSET
 	STR FLG RG0 >FLG_OFFSET
+	
+	/ Ready the stack for the OS
+	ZRO SP
+	
 	
 	/ Check if it's CTDZ
 	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
-	CMI RG0 >EXC_CTDZ; JEQ >BurstOver
+	CMI RG0 >EXC_CTDZ; JEQ >Dispatcher
 	
 	/ Check for Syscall
 	CMI RG0 >EXC_SYS; JEQ >SysHandler
@@ -283,38 +300,7 @@ JMP >Init
 	LDI RG0 >UNKNOWN_EXC_ERROR
 	JMP >StatusHalt
 }
-
-
-
-/ Retires the previous process, then jumps to Dispatcher
-#BurstOver  %!Fn% = {
-	
-	/ Get current proc's actual state address in RG0
-	ZRO RG0; LOD RG0 RG0 >CurrentProcID; ALI MUL RG0 >STATE_REG_COUNT
-	LDI RG1 >StateList; ALU ADD RG0 RG1
-	
-	/ Put TState's address in RG1
-	LDI RG1 >TState
-	
-	/ Copy (what's currently in) TState to the current state
-	LOD RG2 RG1 0; STR RG2 RG0 0
-	LOD RG2 RG1 1; STR RG2 RG0 1
-	LOD RG2 RG1 2; STR RG2 RG0 2
-	LOD RG2 RG1 >FLG_OFFSET; STR RG2 RG0 >FLG_OFFSET
-	
-	/ Now copy the rest of the registers to the current state
-	/ Note: HLB is constant
-	STR RG3 RG0 3
-	STR RG4 RG0 4
-	STR RG5 RG0 5
-	STR RG6 RG0 6
-	STR RG7 RG0 7
-	STR SP RG0 >SP_OFFSET
-	STR EPC RG0 >EPC_OFFSET
-	
-	/ Now return control to the dispatcher
-	JMP >Dispatcher
-}
+#ExH.TempRG0 = 0
 
 
 
@@ -386,22 +372,12 @@ JMP >Init
 
 / Syscall handler.
 #SysHandler  %!Fn% = {
-
-	/ Get the proc's RG0 and RG1
-	LDI RG2 >TState; LOD RG1 RG2 0; LOD RG0 RG2 1
+	/ Get the proc's RG0 and RG1 (in the opposite register for convenience)
+	ZRO RG2; LOD RG2 RG2 >CurrentStatePtr
+	LOD RG1 RG2 0; LOD RG0 RG2 1
 	
 	/ Check if it's GiveUpTurn
-	CMI RG1 >SYSCODE_GIVEUPTURN; JEQ >BurstOver
-	
-	/Store off the rest of the registers
-	STR RG3 RG2 3
-	STR RG4 RG2 4
-	STR RG5 RG2 5
-	STR RG6 RG2 6
-	STR RG7 RG2 7
-	/ FLG is already stored
-	STR SP RG2 >SP_OFFSET
-	ZRO SP
+	CMI RG1 >SYSCODE_GIVEUPTURN; JEQ >Dispatcher
 	
 	/ Check if it's one of the load syscalls
 	CMI RG1 >SYSCODE_LOAD; JEQ >SysSpawnProg
@@ -424,7 +400,7 @@ JMP >Init
 	CMP RG0 RG1; JGE >SSP.MaxError
 	
 	/ Get FLG and check if it's configured properly
-	LDI RG0 >TState; LOD RG1 RG0 >FLG_OFFSET
+	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr; LOD RG1 RG0 >FLG_OFFSET
 	LDI RG2 >IOP_GROUP_MASK; ALU AND RG2 RG1; ALI SRB RG2 >IOP_GROUP_SHIFT
 	CMI RG2 >DRIVE_IOP_GROUP; JNE >SSP.FLGError
 
@@ -468,7 +444,7 @@ JMP >Init
 	
 	/ Set current proc's OUT accordingly & resume it
 	#SSP.Finalize
-	LDI RG0 >TState; STR OUT RG0 6
+	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr; STR OUT RG0 6
 	JMP >ResumeProc
 }
 
@@ -476,8 +452,8 @@ JMP >Init
 
 / Resume the current process *NOT A FUNCTION*
 #ResumeProc  %!Fn% = {
-	/ Restore the temp state
-	LDI RG0 >TState
+	/ Restore the state
+	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr
 	LOD SP RG0 >SP_OFFSET
 	LOD FLG RG0 >FLG_OFFSET
 	LOD RG7 RG0 7
