@@ -1,0 +1,91 @@
+JMP >Init
+(% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+
+	Shift Carry.tasl
+	
+	An error was detected in the ALU's shift carry logic.
+	The bit shifters technically take a 5-bit input.
+	However, the carry calculating shifters only use the bottom 4.
+	Additionally, the way they use the bottom four seems to be 1 bit off.
+	
+	This program will check for these two errors.
+	
+	If both errors are not found, it will write 10101 to the output.
+	If the right shifter's logic isn't configured correctly, it will write 2
+	If the left shifter's logic isn't configured correctly, it will write -2
+	If the 5-bit error occurs when shifting right, it will write 1
+	If the 5-bit occurs when shifting left, it will write -1
+	
+ % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %)
+
+/--------Data----------
+
+/ Test calculation values
+@TEST_DATA_WORK = 0xFFFF
+@SHIFT_AMOUNT_WORK = 0
+
+@TEST_DATA_R = 0x8000
+@TEST_DATA_L = 1
+@SHIFT_AMOUNT_5BIT = 16
+
+/ Result codes
+@GOOD_CODE = 10101
+@FAIL_RIGHT = 1
+@FAIL_LEFT = -1
+@FAIL_WORK_L = -2
+@FAIL_WORK_R = 2
+
+/ OS constants (just in case this is running in TBOS)
+@GPIO1 = 0b0110100000000000
+
+/--------Code----------
+#Init = {
+
+	/ In case it's running in TBOS
+	LDI FLG >GPIO1
+	
+	/ Setup registers
+	LDI RG0 >SHIFT_AMOUNT_WORK; LDI RG1 >TEST_DATA_WORK
+	
+	/ Do the test calculation
+	AFN SRB RG1 RG0
+	
+	/ Now branch accordingly
+	JIF CAR >FailWorkRight
+	
+	/ Do it again, but in the other direction.
+	AFN SLB RG1 RG0
+	JIF CAR >FailWorkLeft
+
+	/ Now do the second test
+	LDI RG0 >SHIFT_AMOUNT_5BIT; LDI RG1 >TEST_DATA_R
+	AFN SRB RG1 RG0
+	JIF NCR >FailRight
+	
+	/ Do the test, but in the other direction
+	LDI RG0 >TEST_DATA_L
+	AFN SLB RG1 RG0
+	JIF NCR >FailLeft
+	
+	/ If we made it this far, it succeeded.
+	LDI IO >GOOD_CODE
+	HLT
+}
+
+(/ Fail code (send code to IO and halt)
+#FailRight
+	LDI IO >FAIL_RIGHT
+	HLT
+
+#FailLeft
+	LDI IO >FAIL_LEFT
+	HLT
+
+#FailWorkLeft
+	LDI IO >FAIL_WORK_L
+	HLT
+	
+#FailWorkRight
+	LDI IO >FAIL_WORK_R
+	HLT
+)

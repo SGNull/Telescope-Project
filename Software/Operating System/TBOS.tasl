@@ -138,6 +138,8 @@ JMP >Init
 
 
 (/ ------- Status & Return Codes -------
+	
+	/ Status codes
 	@START_CODE 		= 1
 	@RUN_CODE 			= 2
 	@END_CODE 			= 0x600D
@@ -146,6 +148,7 @@ JMP >Init
 	@UNKNOWN_EXC_ERROR 		= 0xFF01
 	@UNKNOWN_SYSCODE_ERROR 	= 0xFF02
 	
+	/ Return codes
 	@SYS_SPAWN_PROG_GOOD	= 0x00A1
 	@SYS_SPAWN_PROG_MEM		= 0xF000
 	@SYS_SPAWN_PROG_MAX		= 0xF001

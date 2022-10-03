@@ -1,4 +1,7 @@
-
 LATEST CHANGES:
 
-TBOS now handles exceptions much nicer in the source code. Before it was a bit of a mess, but now, right after the exception, all registers are stored off. Before it just stored a few, and then a few more, and so on, over time and across multiple functions/subroutines. The OS code should be much more maintainable now.
+Bit shifting *carry logic* now supports 5-bit inputs, handles inputs greater than 16 properly, and now actually works correctly. No, it apparently did not work correctly before this fix, all shifts had 1 added to them.
+
+Wrote test script for detecting shift carry logic issues.
+
+The TBOS Testing sandbox now has the shifter logic check running by default.
