@@ -1,7 +1,3 @@
 LATEST CHANGES:
 
-Bit shifting *carry logic* now supports 5-bit inputs, handles inputs greater than 16 properly, and now actually works correctly. No, it apparently did not work correctly before this fix, all shifts had 1 added to them.
-
-Wrote test script for detecting shift carry logic issues.
-
-The TBOS Testing sandbox now has the shifter logic check running by default.
+Small but important change in the names of the CPU's control circuits. It is now the CISC Controller and the RISC Decoder. The CISC unit handles a number of functions involving state controls and instruction execution (like a controller), while the RISC unit only decodes the information provided by the CISC unit into control signals (like a decoder). I believe the confusion comes from my much older architectures, where the CU was actually just a decoder, and the CPUs took instructions directly from ROM.

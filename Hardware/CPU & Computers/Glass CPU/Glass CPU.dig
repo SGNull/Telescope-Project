@@ -24,16 +24,6 @@
       <pos x="820" y="320"/>
     </visualElement>
     <visualElement>
-      <elementName>GCPU CISC Decoder.dig</elementName>
-      <elementAttributes/>
-      <pos x="-460" y="440"/>
-    </visualElement>
-    <visualElement>
-      <elementName>GCPU RISC Controller.dig</elementName>
-      <elementAttributes/>
-      <pos x="-100" y="440"/>
-    </visualElement>
-    <visualElement>
       <elementName>GCPU Flags.dig</elementName>
       <elementAttributes/>
       <pos x="820" y="0"/>
@@ -865,6 +855,16 @@ It must be held down for at least 2 full clock cycles to work.</string>
         </entry>
       </elementAttributes>
       <pos x="1360" y="140"/>
+    </visualElement>
+    <visualElement>
+      <elementName>GCPU CISC Controller.dig</elementName>
+      <elementAttributes/>
+      <pos x="-460" y="440"/>
+    </visualElement>
+    <visualElement>
+      <elementName>GCPU RISC Decoder.dig</elementName>
+      <elementAttributes/>
+      <pos x="-100" y="440"/>
     </visualElement>
   </visualElements>
   <wires>
