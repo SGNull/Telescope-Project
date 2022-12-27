@@ -1,10 +1,16 @@
 """The assembler for the Telescope Assembly Light language"""
 
+# Takes one to two arguments: input file path (necessary), mode (optional)
+# mode = nothing -> normal assembling mode (generate TLO file)
+# mode = -d      -> debug mode (generate RTL and TABL files)
+# mode = -c      -> compress mode (generate TL file)
+# mode = -l      -> loadable mode (generate TLOAD file) [RECOMMENDED]
+
 # A lot of time is wasted assembling files without an assembler.
 # While this project is about doing things from scratch, wasting time is not fun.
 # This assembler was used to write another assembler in the TASL language itself.
 
-# This is also a simulation of the assembler that will be written.
+# This is also a simulation of an assembler that functions very similar to the self-assembler.
 # As a result, there are some odd code style choices that were made throughout this program.
 # This was done to make this source code as close to the TASL source code as possible.
 
@@ -215,11 +221,11 @@ def main() -> None:
         raise ArgCountError
 
     # Check if we're in debug mode.
-    in_debug_mode = False
+    debug = False
     compress = False
     if len(sys.argv) == 3:
         if sys.argv[2] == DEBUG_ARG:
-            in_debug_mode = True
+            debug = True
         elif sys.argv[2] == COMPRESS_ARG:
             compress = True
         elif sys.argv[2] == LOADABLE_ARG:
@@ -280,7 +286,7 @@ def main() -> None:
         print("Compressor finished.")
 
     # If in debug mode, just write the debug outputs
-    elif in_debug_mode:
+    elif debug:
         print("")
         print("Running debug functions")
         print("")
@@ -323,7 +329,7 @@ def read_input() -> int:
     """
     Returns the next input char, and increments the input pointer.
 
-    In the hardware, the input's pointer increments automatically when the input is read.
+    This simulates reading from the input ROM at the hardware level.
     """
     global input_pointer
     next_val = input_ROM[input_pointer]
