@@ -1,3 +1,3 @@
 LATEST CHANGES:
 
-Small but important change in the names of the CPU's control circuits. It is now the CISC Controller and the RISC Decoder. The CISC unit handles a number of functions involving state controls and instruction execution (like a controller), while the RISC unit only decodes the information provided by the CISC unit into control signals (like a decoder). I believe the confusion comes from my much older architectures, where the CU was actually just a decoder, and the CPUs took instructions directly from ROM.
+Removed old documentation. Finally resolves #50
