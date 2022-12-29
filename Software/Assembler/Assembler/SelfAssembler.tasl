@@ -14,7 +14,7 @@ JMP >StartPoint
 @CALHASH = 0xb023
 
 / Instruction table entries: (mnemonic_hash, translation, operand_bitmap)
-#InstTable = (0xd9ed, 0x3000, 0b0011,  / MOV
+#InstTable = [0xd9ed, 0x3000, 0b0011,  / MOV
               0x992a, 0x4000, 0b0100,  / JIF
               0xa48c, 0x5000, 0b0010,  / LDI
               0x91ec, 0x6000, 0b0011,  / LOD
@@ -47,10 +47,10 @@ JMP >StartPoint
 			  0xd188, 0x0000, 0b0000,  / HLT
 			  0xc1ee, 0xF000, 0b0000,  / NOP
               >TABLESTOP
-              )
+              ]
 
 / Register table entries: (mnemonic_hash, translation)
-#RegTable = (0x40F2, 0x0,  / RG0
+#RegTable = [0x40F2, 0x0,  / RG0
 			 0x44F2, 0x1,  / RG1
 			 0x48F2, 0x2,  / RG2
 		     0x4CF2, 0x3,  / RG3
@@ -69,10 +69,10 @@ JMP >StartPoint
 			 0x8E05, 0xE,  / EPC
 			 0x8705, 0xF,  / EXA
 			 >TABLESTOP
-			 )
+			 ]
 
 / Modifier table entries: (mnemonic_hash, translation)
-#ModTable = (0xD1EE, 0x0,  / NOT
+#ModTable = [0xD1EE, 0x0,  / NOT
 			 0x91C1, 0x1,  / AND
 			 0x024F, 0x2,  / OR
 			 0x8993, 0x4,  / SLB
@@ -103,7 +103,7 @@ JMP >StartPoint
 			 0x8853, 0xC,  / SBB
 			 0x91ED, 0xF,  / MOD
 			 >TABLESTOP
-			 )
+			 ]
 
 @COMMENT = '/'
 @NEWLINE = '
@@ -131,31 +131,12 @@ JMP >StartPoint
 )
 
 / --------------------------------------- The Assembler -------------------------------------
-/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.
+/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.\
 
 
-(/ Currently unused functions. Should be implemented to easily switch to file system.
-	(#GetInput  / Returns next input value.
-		LDI FLG >INFLG
-		MOV OUT IO
-		MOV PC RA
-	)
 
-	(#ResetInput  / Resets the input to the beginning.
-		LDI FLG >INFLG
-		LDI IO 0
-		MOV PC RA
-	)
-
-	(#WriteOutput  / Writes RG0 to the output.
-		LDI FLG >OUTFLG
-		MOV IO RG0
-		MOV PC RA
-	)
-)
-
-
-#StartPoint = {  / The starting point for the assembler.
+/ The starting point for the assembler.
+#StartPoint %!Fn% = {
 	
 	/ Write 0 to the input
 	LDI FLG >INFLG; LDI IO 0
@@ -171,7 +152,10 @@ JMP >StartPoint
 }
 
 
-#GetValueBase %(multiplier, start_index)% = {  / UNSAFE for RG0-3, returns value
+
+/ Returns the value of the buffer contents, assuming the buffer contains some sort of number.
+/ Modifies RG0-3 
+#GetValueBase %Multiplier, StartIndex > NumberValue% = {
 
 	/ RG1 = index
 	/ RG2 = buffer_index (BuffIdx)
@@ -210,7 +194,11 @@ JMP >StartPoint
 }
 
 
-#GetNumericValue = {  / UNSAFE for RG0-3, but ALL if buffer has a reference, returns value
+
+/ Returns the numeric value of the buffer contents.
+/ Mostly a wrapper function for GetValueBase.
+/ Modifies RG0-3
+#GetNumericValue %> Value% = {
 	/ RG0 = first_char & second_char
 	/ RG1 = buffer_index & comparison constants
 	/ RG2 = is_negative
@@ -260,7 +248,10 @@ JMP >StartPoint
 }
 
 
-#LabelLookup = {  / UNSAFE for ALL, returns label value
+
+/ Returns the value of the label in Buffer
+/ Modifies RG0-5
+#LabelLookup %> LabelValue% = {
 	/ RG0 = index *of* (the 0th element of) the current entry in table
 	/ RG1 = table_heap_pointer
 	/ RG2 = size (of whole entry - 1 == size of string + 1 == what the buffer_index should be)
@@ -306,7 +297,10 @@ JMP >StartPoint
 }
 
 
-#TblLookup %(key, table, entry_size)% = {  / UNSAFE for RG4&5, RG0:key, RG1:table, RG2:entry_size, returns address of entry, and NULL if not found
+
+/ Returns the given entry address, or NULL if not found
+/ Modifies RG4 and RG5
+#TblLookup %Key, Table, EntrySize > EntryAddres|NULL% = {
 	/ RG4 = next_entry_key
 	/ RG5 = TABLESTOP
 	
@@ -335,7 +329,12 @@ JMP >StartPoint
 		MOV OUT RG5; RET
 }
 
-#IsCharImportant = {  / UNSAFE for RG1 and RG3, RG0:char, returns NULL if important, 0 if not.
+
+
+/ Instead of searching through a table of imortant characters, this function is used.
+/ Returns NULL if important, 0 if not.
+/ Modifies RG1 and RG3
+#IsCharImportant %Char > NULL|0% = {
 	
 	AIN SET RG0 6; JIF NCR >ICI.NotLetter
 		MOV RG3 RG0; ALI UST RG3 5
@@ -370,7 +369,10 @@ JMP >StartPoint
 }
 
 
-#GotoChar = {  / UNSAFE for RG5-6, RG0:target, reads input until it reaches the target
+
+/ Reads input until it reaches the target character.
+/ Modifies RG5-6
+#GotoChar %Target% = {
 	/ RG5 = char
 	/ RG6 = STOP_CHAR
 	LDI RG6 >STOP
@@ -385,7 +387,10 @@ JMP >StartPoint
 }
 
 
-#GetNext = {  / UNSAFE for ALL, stores next lexeme in the Buffer
+
+/ Stores next lexeme in the Buffer.
+/ Modifies RG0-5.
+#GetNext = {
 	/ RG0 = char
 	/ RG1 = MULTILINE & COMMENT_CHAR
 	/ RG4 = buffer_index (BuffIdx)
@@ -480,7 +485,10 @@ JMP >StartPoint
 }
 
 
-#ApdStrLbl = {  / UNSAFE for RG0-3, appends the buffer's contents to the label table
+
+/ Just appends the buffer's contents to the label table.
+/ Modifies RG0-3.
+#ApdStrLbl = {
 	/ RG0 = BuffIdx
 	/ RG1 = LblTblIdx
 	/ RG2 = index
@@ -502,7 +510,10 @@ JMP >StartPoint
 }
 
 
-#HashBuff = {  / UNSAFE for RG0-1, returns the hash of the buffer's contents.
+
+/ Returns the hash of the buffer's contents.
+/ Modifies RG0-1
+#HashBuff %> Hash% = {
 	/ RG0 = temp
 	/ RG1 = 0x1f (bottom 5 bit mask)
 	
@@ -531,7 +542,9 @@ JMP >StartPoint
 }
 
 
-#AssembleNext = {  / UNSAFE for ALL, RG0: table, returns mnemonic's value
+
+/ Modifies RG0-5.
+#AssembleNext %Table > MnemonicValue% = {
 	/ Push table(RG0) and RA
 	ALI SUB SP 2; STR RG0 SP 0; STR RA SP 1
 	
@@ -565,7 +578,10 @@ JMP >StartPoint
 }
 
 
-#ShiftBuff = {  / UNSAFE for RG0-3, Shifts the buffer back by 1, clearing the first character
+
+/ Shifts the buffer back by 1, clearing the first character
+/ Modifies RG0-3
+#ShiftBuff = {
 	/ Initialize the registers
 	/   new      old       BuffIdx
 	ZRO RG0; LDI RG1 1; LOD RG2 RG0 >BuffIdx
@@ -584,7 +600,9 @@ JMP >StartPoint
 }
 
 
-#BuildTables = {  / First pass through the file, build label table.
+
+/ First pass through the file, build label table.
+#BuildTables %!Fn% = {
 
 	ZRO RG0 / program_counter(RG0) = 0
 	PSH 1; STR RG0 SP 0  / Push the program counter onto the stack.
@@ -726,7 +744,9 @@ JMP >StartPoint
 }
 
 
-#Assemble = {  / Second pass through the file, do the actual assembling.
+
+/ Second pass through the file, do the actual assembling.
+#Assemble %!Fn% = {
 	/ GetNext
 	CAL >GetNext
 	
@@ -871,7 +891,9 @@ JMP >StartPoint
 }
 
 
-#StopPoint = {  / Where control is passed to once the file has been assembled.
+
+/ Where control is passed to once the file has been assembled.
+#StopPoint %!Fn% = {
 	/ If the stack is not empty, something went seriously wrong.
 	ALI OR SP 0; JIF EQZ >StPt.OK
 		LDI FLG >ERRFLG; LDI IO 0xFFF2
@@ -882,6 +904,7 @@ JMP >StartPoint
 	LDI FLG >ERRFLG, LDI IO 1
 	HLT; JMP >StartPoint
 }
+
 
 
 #LabelTable

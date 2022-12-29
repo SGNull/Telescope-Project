@@ -133,7 +133,7 @@ JMP >StartPoint
 / FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.
 
 
-(/ Currently unused functions. Should be implemented to easily switch to file system.
+(/ I/O functions
 	(#ReadInput  / Returns next input value.
 		LDI FLG >INFLG
 		MOV OUT IO
