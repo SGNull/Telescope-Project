@@ -1,6 +1,6 @@
 # Telescope Project
 
-This is a personal project of mine that is still being developed as of October of 2022, and probably will be for quite some time given how well it has turned out.
+This is a personal project of mine that is still being developed as of January of 2023, and probably will be for quite some time given how well it has turned out.
 
 I had a lot of different, rather big goals for this project. Here are just a few of them:
 1. Design a CPU with a simple yet robust ISA capable of running a simple OS in ~~[Logisim](https://www.cburch.com/logisim/)~~ [Digital](https://github.com/hneemann/Digital).
@@ -39,15 +39,15 @@ On top of the CPU is the bootloader, which will automatically load a program in 
 
 Finally, on top of the bootloader is the TCS, or Telescope Computing System. It comes with a few different types of I/O, and a relatively easy-to-use pin layout. It also has a few features that the CPU is lacking, like a computer status code, random number generator, cycle counter, and kernel restrictions on I/O devices ending in 00. One port of the TCS says it's for the operating system, but it's really for any program you want the bootloader to run first to control the computer.
 
-The OS, called TBOS or Telescope Basic OS, is the shrunk down and simplified version of [PandOS](https://wiki.virtualsquare.org/#!education/pandos.md). TBOS will, as of October 7th 2022, load and run the program from drive 0 as a User process. It supports loading a "Loadable" formatted program from the given I/O port (SYS 0), loading a program from the file system at the given I/O port (SYS 1 w/ RG1 = file number), ending the current process's CPU burst early (SYS 2), and terminating the current process (HLT as a User process, user interrupts, and any exception not yet supported). If everything runs correctly, the computer will stop with the code 0x600D.
+The OS, called TBOS or Telescope Basic OS, is the shrunk down and simplified version of [PandOS](https://wiki.virtualsquare.org/#!education/pandos.md). TBOS will, as of January 2023, load and run the program from drive 0 as a User process. It supports loading a "Loadable" formatted program from the given I/O port (SYS 0), loading a program from the file system at the given I/O port (SYS 1 w/ RG1 = file number), ending the current process's CPU burst early (SYS 2), and terminating the current process (HLT as a User process, user interrupts, and any exception not yet supported). If everything runs correctly, the computer will stop with the code 0x600D.
 
-The assembly language at the heart of this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations over the course of development, and will probably continue to do so (though hopefully not as frequently). The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and it's User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with some easy to use buttons, is why I often refer to the them together as the N++ Mini-IDE.
+The assembly language at the heart of this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations over the course of development, and will probably continue to do so (though hopefully not as frequently). The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and it's User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with some easy to use buttons, is why I often refer to them together as the N++ Mini-IDE.
 
 It is important to note that the bootloader and OS can only load "Loadable" machine code files into RAM. Loadable files begin with their file size, allowing loaders to pull them into memory correctly and efficiently.
 
 ## Documentation
 
-All of the main documentation can be found on [Google Drive](https://drive.google.com/drive/folders/1KU3_15fWw5ZkAqqLl0eGuVECFLYhDBbg?usp=sharing). As of October 7, 2022, the documentation is scattered about various files like the Need-To-Know, the TBOS description, source-code comments, hardware comments, and some random text files. I think it goes without saying that this is not good. It necessarily cannot be kept up-to-date when I'm not even sure where all references to a given feature are. This, on top of the confusion it undoubtedly causes for people new to the project, is why I'm beginning to localize and organize all documentation in the [Google Drive project folder](https://drive.google.com/drive/folders/1KU3_15fWw5ZkAqqLl0eGuVECFLYhDBbg?usp=sharing). It's also why I'm including dates with certain things I say about critical features.
+All of the main documentation can be found on [Google Drive](https://drive.google.com/drive/folders/1KU3_15fWw5ZkAqqLl0eGuVECFLYhDBbg?usp=sharing). Originally, documentation was located within the project files themself, split across multiple directories. However, this became not just confusing, but unsustainable. This is why all documentation can be found on the Google Drive public directory (or within code comments).
 
 ## Github Workflow
 
