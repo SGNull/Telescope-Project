@@ -6,6 +6,7 @@ JMP >Init
    All will stop when the $ character is seen
    
    More technically speaking...
+   Reader and writer are in drive1, in a TSFS drive image.
    
    Reader will read keyboard 1, then write the result to TNET 1
    TNET 1 will be connected to itself to make a shared register
@@ -26,26 +27,26 @@ JMP >Init
 @DRIVE1 	= 0b0000100000000000
 @TNET2		= 0b1001000000000000
 
-@SYSCODE_LOADABLE = 0
-@SYSCODE_FILE_LOAD = 1
-@SYSCODE_WAIT = 2
-
+@SYSCODE_LOAD_PROGRAM 	= 0  / FileNo, IsKernel? > Status Return
+@SYSCODE_TERMINATE		= 2  / 
+@SYSCODE_GIVE_UP_TURN 	= 3  /
 
 / ------- Code -------
 
 (#Init
-	/ Spawn threads
-	LDI RG0 >SYSCODE_FILE_LOAD; LDI FLG >DRIVE1
+	/ Spawn child procs
+	LDI RG0 >SYSCODE_LOAD_PROGRAM; LDI FLG >DRIVE1; ZRO RG2
 	
+	/ Main is file 0
 	LDI RG1 1; SYS  / Reader
 	INC RG1; SYS    / Writer
 	
 	/ Wait on TNET 2
-	LDI RG0 >SYSCODE_WAIT
+	LDI RG0 >SYSCODE_GIVE_UP_TURN
 	LDI FLG >TNET2
 	#I.Wait:
 	SYS; JIF PNW >I.Wait
 	
-	/ Halt when given a signal
-	HLT
+	/ Terminate when given a signal
+	LDI RG0 >SYSCODE_TERMINATE; SYS
 )	

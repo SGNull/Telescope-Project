@@ -14,7 +14,7 @@ JMP >Init
 @TNET2 		= 0b1001000000000000
 @STOP_CHAR 	= '$'
 
-@SYSCODE_WAIT = 2
+@SYSCODE_WAIT = 3
 
 / ------- Code -------
 

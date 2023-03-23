@@ -131,7 +131,7 @@ JMP >StartPoint
 )
 
 / --------------------------------------- The Assembler -------------------------------------
-/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.\
+/ FLG is always set to INFLG. FLG is only set to OUTFLG when writing to output, and *only* then.
 
 
 

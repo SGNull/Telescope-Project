@@ -9,7 +9,7 @@ A light compiler with support for simple loops, function calls, variables, and +
 
 Parallel processing with dual read memory.
 
-Integration of the QT Project with the Telescope Computer? QPU as a coprocessor? How would this even work?
+Integration of the QT Project with the Telescope Computer? QPU as a coprocessor? How would this even work? (Not sure about this after QPUX)
 
 VRAM using a TLB microcontroller which can be controlled via some I/O device (possibly part of the internal expansion IO group).
 

@@ -1,50 +1,60 @@
 JMP >Init
-(% TBOS v1.0
-   ---------
-  
-   TSOS is a small-scale operating system for the Telescope Computer System.
-   It will intentionally be written with as few "magic numbers" as possible for maximum versatility.
-   It would be very difficult to let empty arrays be defined using labels in TASL, so instead comments are added for clarification.
-  
-   v1.0 Adds the foundations for the operating system, which includes:
-		Program starting and memory allocation.
-		Process stopping and memory deallocation.
-		Multiprogramming (though not multithreading).
-		Process family tree.
-  
-   With the specs:
-		16 max processes.
-		Round robin process scheduling.
-		First open spot is allocated in memory.
-		Memory allocation/deallocation via 4-word bitmap.
-		Memory allocation bitmap includes OS occupied chunks (stack + code).
 
-   Here is how exceptions are handled:
-		Interrupts: Not supported (OS will error)
-		CTDZ: Pauses the current process and runs the next one.
-		SYS: Tries to spawn a process as a child of the current one. See Status & Return Codes for return codes.
-		PRIV: Terminates the current process and all of its children.
-		OOB: Terminates the current process and all of its children.
+(% 	TBOS v2.0
+	---------
   
-   v1.0 is especially minimalist, and future versions will modify 1.0 to achieve higher functions.
-   IMPORTANT: In TBOS, a program's heap & stack space may start as non-zero.
-   
-   
-   v1.1 Works with the TSFS file system, and splits the original 1.0 syscall into two:
-		RG0 == 0 -> The original syscall
-		RG0 == 1 -> File system spawn program. RG1 contains the file number
-   
-   Additionally, there is a "give up turn" syscall:
-		Rg0 == 2 -> OS switches control to the next program
-   
-   Note that the OS still looks for a loadable root drive.
+	TSOS is a small-scale operating system for the Telescope Computer System.
+	It will intentionally be written with as few "magic numbers" as possible for maximum versatility.
+	
+	TBOS v2.0 is a complete overhall of TBOS, fullfilling most of the features that PandOS does at phases 2 and 3.
+	Because of this, TBOS begins to stand out as its own operating system.
+	The following are all true for v2.0:
+		All interrupts are supported.
+			- TICK can be waited on by procs using the WAIT_TICK syscall.
+			- PAUS calls the PauseMenu function (just pauses the comptuer, will definitely improve in the future).
+			- PVIO just returns an error code to the user process.
+			- STOP calls the Shutdown function (terminates root, might improve in the future).
+		
+		The following syscalls are implemented (K means it requires Kernel, and the parentheses denote extra args):
+		
+		0 K LOAD_PROGRAM(fileNumber, Kernel?) w/ IOP: 
+			- Requires IOP to be looking at the drive. 
+			- Takes a file number and whether the thread should be kernel.
+				* If file number is -1, reads file as loadable.
+			- Possible results: No space available, max threads, success
+		1 SPAWN_THREAD(function, SP, Kernel?):
+			- Needs three things: PC, SP, and whether the thread should be kernel.
+			- Possible results: Max threads, success
+		2 TERMINATE():
+			- Terminates the current process (self)
+		3 GIVE_UP_TURN():
+			- Stops the thread's current burst here.
+		4 PASSEREN(semAdd):
+			- Wait
+			- Possible results: address OOB, success
+		5 VERHOGEN(semAdd):
+			- Signal
+			- Possible results: address OOB, success
+		6 IO_MUTEX() w/ IOP:
+			- Passeren the given IOP's mutex semaphore.
+			- Possible results: privileged I/O, success
+		7 IO_RELEASE() w/ IOP:
+			- IO_WAIT, but with VERHOGEN
+			- Possible results: privileged I/O, success
+		8 WAIT_TICK()
+			- Passeren the TICK semaphore.
+			- When TICK occurs, all procs waiting will be unblocked.
 %)
 
 / ------------------------------------------------------------Data------------------------------------------------------------
 (/ ------- Hardware constants -------
 	/ Processor constants
-	@WORD_SIZE 			= 16  / Word size in bits (always must be 16)
+	@WORD_SIZE 		 		= 16  / Word size in bits (always must be 16)
+	@IO_DEVICE_COUNT 		= 32
+	@OUT_REG_NUM			= 6
+	@RA_REG_NUM				= 7
 
+	@IOP_SHIFT				= 11
 	@DRIVE_IOP_GROUP     	= 0
 	@DRIVE_PTR_IOP_GROUP 	= 1
 	@IOP_GROUP_MASK 		= 0xE000
@@ -52,16 +62,25 @@ JMP >Init
 	@IOP_DEVICE_MASK		= 0x1800
 	@IOP_DEVICE_SHIFT		= 11
 	@DRIVE_PTR_BIT 			= 13
+	@MAX_UNPROT_IOP_NUM		= 23
 
-	@HI_SHIFT 	= 8
-	@LO_SHIFT	= >HI_SHIFT
-	@LO_MASK 	= 0x00FF
+	@HI_SHIFT 		= 8
+	@HI_MASK		= 0xFF00
+	@LO_SHIFT		= >HI_SHIFT
+	@LO_MASK 		= 0x00FF
 
-	@EXC_MASK 	= 0x0700
-	@EXC_SHIFT 	= 8
+	@EXC_MASK 		= 0x0700
+	@EXC_SHIFT 		= 8
 	
-	@UE_PU_SHIFT = 3
+	@UE_PU_SHIFT 	= 3
 	
+	/ EXC defined by TCS
+	@EXC_TICK 	= 0
+	@EXC_PAUS 	= 1
+	@EXC_PVIO 	= 2
+	@EXC_STOP 	= 3
+	
+	/ EXC defined by processor
 	@EXC_CTDZ 	= 4
 	@EXC_SYS 	= 5
 	@EXC_PRIV 	= 6
@@ -69,58 +88,82 @@ JMP >Init
 
 
 	/ Computer determined hardware constants
-	@PC_STATUS_IOP 		= 0xF000
-	@RANDOM_IOP 		= >PC_STATUS_IOP
+	@COMP_STATUS_IOP 	= 0xF000
+	@RANDOM_IOP 		= >COMP_STATUS_IOP
 	@COUNTER_START_IOP 	= 0xE000
 	@COUNTER_STOP_IOP 	= 0xE800
 
 
 	/ OS determined hardware constants
-	@USER_PROC_FLG = 0x000C			/ Exceptions enabled and user mode enabled
-	@ROOT_PROC_FLG = >USER_PROC_FLG	/ Currently, root proc has same privs as users
+	@KERNEL_PROC_FLG 	= 0x0004 			/ Exceptions enabled, user mode disabled.
+	@USER_PROC_FLG 		= 0x000C			/ Exceptions enabled, user mode enabled.
+	@ROOT_PROC_FLG 		= >KERNEL_PROC_FLG	/ Currently, root proc has same privs as Kernel
 
-	@ROOT_DRIVE_IOP = 0x0000	/ 0th drive
+	@ROOT_DRIVE_IOP 	= 0x0000	/ 0th drive
 )
 
 
 (/ ------- OS Data Properties -------
-	/ Process = [1-bit Active] 000 [4-bit parent] [4-bit nextSib] [4-bit child]
-	/ NOTE: This could be modified to support 32 procs, but memory conflicts would be much more likely.
-	@MAX_PROC_COUNT = 16
-	@PROC_WORDS		= 1		/ must be under 16
-	@PROC_CxPROC_W 	= 16	/ must be MAX_PROC_COUNT x PROC_WORDS
-	#ProcList 		= ~PROC_CxPROC_W
+
+	/ ---- PROCESSES ----
+	/ Offset:		0			1				2
+	/ Process = MainWord, BlockingSemAdd, BlockingSemNo
+	/
+	/ MainWord = [1-bit Active] [5-bit parent] [5-bit nextSib] [5-bit child]
+
+	@MAX_PROC_COUNT 	= 32
+	@NUM_PROC_WORDS		= 3		/ must be under 16
+	@PROC_CxPROC_W 		= 96	/ must be MAX_PROC_COUNT x NUM_PROC_WORDS
+	#ProcList 			= [~PROC_CxPROC_W]
+	@SEMADD_OFFSET		= 1
+	@SEMNO_OFFSET		= 2
 
 	@PROC_ACTIVE_BIT	= 15
-	@PARENT_MASK 		= 0xF00
-	@PARENT_SHIFT 		= 8
-	@SIB_MASK 			= 0xF0
-	@SIB_SHIFT 			= 4
-	@CHILD_MASK 		= 0xF
+	@PARENT_MASK 		= 0x7C00
+	@PARENT_SHIFT 		= 10
+	@SIB_MASK 			= 0x03E0
+	@SIB_SHIFT 			= 5
+	@CHILD_MASK 		= 0x001F
 
-	@ROOT_PROC_ID = 0				/ Must be 0
-	@NULL_PROC_ID = >ROOT_PROC_ID	/ Must be ROOT_PROC_ID
+	@ROOT_PROC_ID 		= 0				/ Must be 0
+	@NULL_PROC_ID 		= >ROOT_PROC_ID	/ Must be ROOT_PROC_ID
 
 	#ProcCount 			= 0		/ Number of running processes
 	#CurrentProcID 		= 0		/ Current running process
 	#CurrentStatePtr	= 0		/ The address of the current proc's state
-
-
+	
+	
+	/ ---- STATES ----
 	/ EXA and CTD are constant, PC is in the OS, and IO doesn't make sense to store, so 12 words per state
 	/ Each state has the following format: RG0-7, FLG, SP, EPC, HLB
-	@STATE_REG_COUNT	= 12  / Number of registers which should be stored (always 12)
-	@PROC_CxSTATE_S 	= 192 / 16 max proc x 12 words per proc = 192
-	#StateList 			= ~PROC_CxSTATE_S
+	@NUM_STATE_REGS		= 12  / Number of registers which should be stored (always 12)
+	@PROC_CxSTATE_S 	= 384 / 32 max proc x 12 words per proc state = 384
+	#StateList 			= [~PROC_CxSTATE_S]
 	@FLG_OFFSET 		= 8
 	@SP_OFFSET 			= 9
 	@EPC_OFFSET 		= 10
 	@HLB_OFFSET 		= 11
-
-	@CHUNK_SIZE = 0x0400
-	@NUM_CHUNKS = 64		/ Must be (2^16)/CHUNK_SIZE
-	@BMP_WORDS 	= 4			/ Must be NUM_CHUNKS/16, and under 16
-	#MallocBMPs = (~BMP_WORDS)
-
+	
+	
+	/ ---- MEMORY ----
+	@CHUNK_SIZE 		= 0x0400
+	@NUM_CHUNKS 		= 64		/ Must be (2^16)/CHUNK_SIZE
+	@BMP_WORDS 			= 4			/ Must be NUM_CHUNKS/16, and under 16
+	#MallocBMPs 		= [~BMP_WORDS]
+	
+	
+	/ ---- SEMAPHORES ----
+	/ All OS semaphores must be between SEM_START and SEM_END
+	#SEM_START
+		#IOMutexSem 	= [~IO_DEVICE_COUNT]
+		/ #IOWaitSem 	= [~IO_DEVICE_COUNT ~IO_DEVICE_COUNT]	/ Doubled for seperate read and write waiting.
+		#TickWaitSem 	= 0
+	#SEM_END
+	
+	#SoftBlockCount 	= 0		/ Number of procs waiting on I/O
+	
+	
+	/ ---- MISC ----
 	#MarkInst: ALU SET RG5 RG4
 	#UnmarkInst: ALU UST RG5 RG4
 )
@@ -131,42 +174,62 @@ JMP >Init
 	
 	@TSFS_ENTRY_SIZE = 2
 	
-	@SYSCODE_LOAD 		= 0
-	@SYSCODE_LOADTSFS 	= 1
-	@SYSCODE_GIVEUPTURN = 2
+	/ Syscode name		   SysNo   Arguments
+	
+	@SYSCODE_LOAD_PROGRAM 	= 0  / FileNo, IsKernel? > Status Return
+	@SYSCODE_MAKE_THREAD 	= 1  / PC, SP, IsKernel? > Status Return
+	@SYSCODE_TERMINATE		= 2  / 
+	@SYSCODE_GIVE_UP_TURN 	= 3  / 
+	@SYSCODE_PASSEREN		= 4  / SemAdd > Status Return
+	@SYSCODE_VERHOGEN		= 5  / SemAdd > Status Return
+	@SYSCODE_IO_MUTEX		= 6  / IOP set to correct I/O
+	@SYSCODE_IO_RELEASE		= 7  / IOP set to correct I/O
+	@SYSCODE_WAIT_TICK		= 8  / 
+	
+	/ Still need to figure out how to handle these.
+	/ We can get mutex, but we still need to, in some way, simulate interrupts.
+	/SYSCODE_IO_WAIT_WRITE
+	/SYSCODE_IO_WAIT_READ
 )
 
 
 (/ ------- Status & Return Codes -------
 	
 	/ Status codes
-	@START_CODE 		= 1
-	@RUN_CODE 			= 2
-	@END_CODE 			= 0x600D
-
-	@BAD_START_ERROR 		= 0xFF00
-	@UNKNOWN_EXC_ERROR 		= 0xFF01
-	@UNKNOWN_SYSCODE_ERROR 	= 0xFF02
+	@START_CODE 			= 1		  / The OS has been loaded into the computer's memory.
+	@RUN_CODE 				= 2		  / The OS has successfully set up the environment and is now running processes.
+	@MANUAL_PAUSE_CODE		= 0x1000
+	@PAUSE_CODE				= 0x1111  / All procs are currently waiting, some are waiting for I/O devices. (or PAUS interrupt)
+	@END_CODE 				= 0x600D  / The OS has successfully come to a stop.
+	@DEADLOCK_CODE			= 0xDEAD  / All procs are waiting on semaphores that will never be signaled.
+	@BAD_START_ERROR 		= 0xFF00  / The OS has encountered a critical error attempting to set up the environment.
+	@UNKNOWN_EXC_ERROR 		= 0xFF01  / The OS has encountered a critical error where EXC is not 3 bit.
 	
-	/ Return codes
-	@SYS_SPAWN_PROG_GOOD	= 0x00A1
-	@SYS_SPAWN_PROG_MEM		= 0xF000
-	@SYS_SPAWN_PROG_MAX		= 0xF001
-	@SYS_SPAWN_PROG_PRIV	= 0xF002
-	@SYS_SPAWN_PROG_FLG		= 0xF003
-	@SYS_SPAWN_PROG_MISSING = 0xF004
+	/ Base return codes
+	@UNKNOWN_SYSCODE_ERROR 	= 0xFF02  / User proc invoked an unknown syscode.
+	@PVIO_ERROR				= 0xFF03  / User proc attempted to read/write a protected device.
+	
+	/ Syscall return codes 
+	@SYS_SUCCESSFUL			= 1		  / The operation was successful.
+	@SYS_MAX_PROCS			= 0xF000  / There is no room for another proc.
+	@SYS_OUT_OF_MEM			= 0xF001  / There is not enough room in memory.
+	@SYS_MISSING_FILE		= 0xF002  / The file in question is missing.
+	@SYS_BAD_IOP			= 0xF003  / IOP was not set correctly for this operation.
+	@SYS_ATTEMPTED_OOB		= 0xF004  / The user process attempted to work with addresses out-of-bounds.
+	@SYS_ATTEMPTED_PRIV		= 0xF005  / The user process attempted a privileged operation.
+	@SYS_ATTEMPTED_OS		= 0xF006  / The process attempted to alter/access the OS directly.
 )
 
 
 
-/ ------------------------------------------------------------Code------------------------------------------------------------
+/ ----------------------------------------------------------Base Code---------------------------------------------------------
 
 
 
 / Initializes the OS environment
 #Init  %!Fn% = {
 	/ Set the status
-	LDI RG0 >START_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
+	LDI RG0 >START_CODE; LDI FLG >COMP_STATUS_IOP; MOV IO RG0
 	
 	/ Start the cycle counter
 	LDI FLG >COUNTER_START_IOP; MOV IO RG0
@@ -180,7 +243,7 @@ JMP >Init
 	CAL >MarkBits
 	
 	/ Load the root program
-	LDI FLG >ROOT_DRIVE_IOP; CAL >LoadProgram
+	LDI FLG >ROOT_DRIVE_IOP; CAL >LoadProgLoadable
 	AIN ADD OUT 1; JIF NCR >Ini.OK
 		LDI RG0 >BAD_START_ERROR; JMP >StatusHalt
 	#Ini.OK
@@ -190,7 +253,7 @@ JMP >Init
 	CAL >MakeChildThread
 	
 	/ Set the new status
-	LDI RG0 >RUN_CODE; LDI FLG >PC_STATUS_IOP; MOV IO RG0
+	LDI RG0 >RUN_CODE; LDI FLG >COMP_STATUS_IOP; MOV IO RG0
 	
 	/ Make sure the dispatcher runs root first
 	NUL RG0; STR RG0 RG0 >CurrentProcID
@@ -205,9 +268,12 @@ JMP >Init
 #StatusHalt  %!Fn% = {
 	LDI FLG >COUNTER_STOP_IOP
 	MOV IO RG0
-	LDI FLG >PC_STATUS_IOP
+	LDI FLG >COMP_STATUS_IOP
 	MOV IO RG0
-	HLT
+	
+	/ Force permanent HLT. Maybe allow reboots in the future?
+	#StH.HLT
+	HLT; JMP >StH.HLT
 }
 
 
@@ -219,22 +285,30 @@ JMP >Init
 	PAS RG0; JIF EQZ >Dis.Done
 	
 	/ If not, get the next process ID in RG0
-	ZRO RG0; LOD RG0 RG0 >CurrentProcID
+	/ We also store this ProcID off to check if we've done 1 cycle through the ProcList
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID; MOV RG6 RG0
 	#Dis.GetNext
 		INC RG0
 		LDI RG1 >MAX_PROC_COUNT; ALU MOD RG0 RG1
 		
-		/ Then get its main word in RG1
-		MOV RG1 RG0; LDI RG2 >PROC_WORDS; ALU MUL RG1 RG2
+		/ Check if we've looped
+		CMP RG0 RG6; JEQ >Dis.MaybeDeadlock
+		
+		/ Then check if it's active
+		MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS
 		LOD RG1 RG1 >ProcList
-	/ Now run it if it's active
-	AIN SET RG1 >PROC_ACTIVE_BIT; JIF NCR >Dis.GetNext
+		AIN SET RG1 >PROC_ACTIVE_BIT; JIF NCR >Dis.GetNext
+		
+		/ Now check whether it has a valid SemAdd (meaning it's blocked)
+		/ NOTE: This is a primitive check. In the future, we might need to simulate I/O interrupts.
+		MOV RG2 RG1; ALI ADD RG2 >SEMADD_OFFSET; LOD RG2 RG2 >ProcList
+		PAS RG2; JIF NEZ >Dis.GetNext
 	
 	/ Store the new current process
 	STR RG0 RG0 >CurrentProcID
 	
 	/ Find the process state and store it's address
-	ALI MUL RG0 >STATE_REG_COUNT; LDI RG1 >StateList; ALU ADD RG0 RG1
+	ALI MUL RG0 >NUM_STATE_REGS; LDI RG1 >StateList; ALU ADD RG0 RG1
 	STR RG0 RG0 >CurrentStatePtr
 	
 	/ Load the state and RSM the process
@@ -259,6 +333,20 @@ JMP >Init
 	#Dis.Done
 	LDI RG0 >END_CODE
 	JMP >StatusHalt
+	
+	#Dis.MaybeDeadlock
+	/ Check if SoftBlockCount is 0 (deadlock)
+	ZRO RG0; LOD RG0 RG0 >SoftBlockCount
+	PAS RG0; JIF EQZ >Dis.Deadlock
+	
+	/ If not, pause the machine and write the pause code to CompStatus
+	LDI FLG >COMP_STATUS_IOP; LDI IO >PAUSE_CODE
+	HLT
+	LDI IO >RUN_CODE; JMP >Dispatcher
+	
+	#Dis.Deadlock
+	LDI RG0 >DEADLOCK_CODE
+	JMP >StatusHalt
 }
 
 
@@ -269,11 +357,12 @@ JMP >Init
 	STR RG0 RG0 >ExH.TempRG0
 	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr
 	
-	/ Now store the temp register into the proc's state
+	/ Now store the old RG0 (the temp reg) into the proc state's RG0
 	STR RG1 RG0 1
 	ZRO RG1; LOD RG1 RG1 >ExH.TempRG0; STR RG1 RG0 0
 	
 	/ Finally, store off the rest of the registers
+	/ Before trying to optimize this: having considered all ramifications, this is the optimal place to do this.
 	STR RG2 RG0 2
 	STR RG3 RG0 3
 	STR RG4 RG0 4
@@ -288,8 +377,10 @@ JMP >Init
 	ZRO SP
 	
 	
-	/ Check if it's CTDZ
+	/ Get EXC in RG0
 	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
+	
+	/ Check if the proc's CPU burst is up.
 	CMI RG0 >EXC_CTDZ; JEQ >Dispatcher
 	
 	/ Check for Syscall
@@ -299,7 +390,20 @@ JMP >Init
 	CMI RG0 >EXC_PRIV; JEQ >TerminateCurrent
 	CMI RG0 >EXC_OOB; JEQ >TerminateCurrent
 	
-	/ Else, error
+	/ Check if it's from the computer's user
+	CMI RG0 >EXC_PAUS; JEQ >PauseMenu
+	CMI RG0 >EXC_STOP; JEQ >Shutdown
+	
+	/ Check if it's from the computer
+	CMI RG0 >EXC_TICK; JEQ >UnblockAllTick
+	CMI RG0 >EXC_PVIO; JNE >ExH.UnknownEXC
+		/ If the process tried to access a privileged I/O device, give it an error output and skip it.
+		ZRO RG0; LOD RG0 RG0 >CurrentStatePtr
+		LDI RG1 >PVIO_ERROR; STR RG1 RG0 >OUT_REG_NUM
+		JMP >Dispatcher
+	
+	/ Else the OS has errored in some way (EXC must be one of the above), so halt.
+	#ExH.UnknownEXC
 	LDI RG0 >UNKNOWN_EXC_ERROR
 	JMP >StatusHalt
 }
@@ -307,153 +411,7 @@ JMP >Init
 
 
 
-/ Calls terminate on the current process then returns to the dispatcher
-#TerminateCurrent  %!Fn% = {
-	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
-	LDI RA >Dispatcher; JMP >Terminate
-}
-
-
-
-/ Deactivates, deallocates, and un-childs ProcNum and all its children
-/ Modifies RG0-5 and FLG
-/ When threads are added, assuming there is a parent, if parent HLB is equal, don't deallocate
-#Terminate  %ProcNum, IsStart?% = {
-	PSH 1; STR RA SP 0
-	
-	/ Get the main word in RG3 (and actual index in RG2)
-	MOV RG2 RG0; ALI MUL RG2 >PROC_WORDS
-	LOD RG3 RG2 >ProcList
-	
-	/ If not start, try to call Terminate on sibling
-	PAS RG1; JIF EQZ >Ter.Start
-		/ Call Terminate on sibling procs (if they exist)
-		LDI RG4 >SIB_MASK; ALF AND RG4 RG3; JIF EQZ >Ter.Start
-			PSH 2; STR RG2 SP 0; STR RG3 SP 1
-			ALI SRB RG4 >SIB_SHIFT; MOV RG0 RG4; CAL >Terminate
-			LOD RG2 SP 0; LOD RG3 SP 1; POP 2
-	#Ter.Start
-	
-	/ If start remove process from family tree (RG1 is STILL accurate!)
-	PAS RG1; JIF NEZ >Ter.NotStart
-		CAL >RemoveChild
-	#Ter.NotStart
-	
-	/ Call Terminate on child procs (if they exist)
-	LDI RG4 >CHILD_MASK; ALF AND RG4 RG3; JIF EQZ >Ter.NoChild
-		PSH 2; STR RG2 SP 0; STR RG3 SP 1
-		MOV RG0 RG4; NUL RG1; CAL >Terminate
-		LOD RG2 SP 0; LOD RG3 SP 1; POP 2
-	#Ter.NoChild
-	
-	/ Deactivate the proc
-	ALI UST RG3 >PROC_ACTIVE_BIT; STR RG3 RG2 >ProcList
-	
-	/ Get HLB
-	ALI DIV RG2 >PROC_WORDS
-	ALI MUL RG2 >STATE_REG_COUNT; ALI ADD RG2 >HLB_OFFSET
-	LOD RG0 RG2 >StateList
-	
-	/ Get size & start bit in the BMP
-	LDI RG3 >CHUNK_SIZE
-	MOV RG1 RG0; ALU DIV RG1 RG3  / HI -> size
-	LDI RG2 >LO_MASK; ALU AND RG0 RG2; ALI SLB RG0 >LO_SHIFT; ALU DIV RG0 RG3  / LO -> start
-	
-	/ Call UnmarkBits(Start, Size)
-	CAL >UnmarkBits
-	
-	/ Decrement ProcCount
-	ZRO RG0; LOD RG0 RG0 >ProcCount
-	DEC RG0; STR RG0 RG0 >ProcCount
-	
-	/ Return
-	LOD RA SP 0; POP 1
-	RET
-}
-
-
-
-/ Syscall handler.
-#SysHandler  %!Fn% = {
-	/ Get the proc's RG0 and RG1 (in the opposite register for convenience)
-	ZRO RG2; LOD RG2 RG2 >CurrentStatePtr
-	LOD RG1 RG2 0; LOD RG0 RG2 1
-	
-	/ Check if it's GiveUpTurn
-	CMI RG1 >SYSCODE_GIVEUPTURN; JEQ >Dispatcher
-	
-	/ Check if it's one of the load syscalls
-	CMI RG1 >SYSCODE_LOAD; JEQ >SysSpawnProg
-	CMI RG1 >SYSCODE_LOADTSFS; JEQ >SysSpawnProg
-	
-	/ Else, return SYSCODE_ERROR
-	LDI RG1 >UNKNOWN_SYSCODE_ERROR; STR RG1 RG0 6; JMP >ResumeProc
-}
-
-
-
-/ Loads the program, makes it a child thread, then resumes the current process, setting OUT accordingly.
-/ RG1 needs to be the sys code, and RG0 needs to be the file number (if necessary)
-#SysSpawnProg  %!Fn% = {
-
-	MOV RG4 RG1; MOV RG5 RG0
-	
-	/ Before doing anything, make sure we can actually spawn a process
-	ZRO RG0; LOD RG0 RG0 >ProcCount; LDI RG1 >MAX_PROC_COUNT
-	CMP RG0 RG1; JGE >SSP.MaxError
-	
-	/ Get FLG and check if it's configured properly
-	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr; LOD RG1 RG0 >FLG_OFFSET
-	LDI RG2 >IOP_GROUP_MASK; ALU AND RG2 RG1; ALI SRB RG2 >IOP_GROUP_SHIFT
-	CMI RG2 >DRIVE_IOP_GROUP; JNE >SSP.FLGError
-
-	/ Check if FLG is looking at the root drive
-	AIN SRB RG1 >IOP_DEVICE_SHIFT; JIF NEZ >SSP.NotPriv
-		/ Check if this is a user process
-		MOV RG3 FLG; ALI AND RG3 >EXC_MASK; AIF SRB RG3 >UE_PU_SHIFT
-		JIF EQZ >SSP.PrivError
-	#SSP.NotPriv
-	
-	
-	/ Check which load function we're calling, and set FLG then jump
-	CMI RG4 >SYSCODE_LOADTSFS; JNE >SSP.NotTSFS
-		LDI RA >SSP.Ret; MOV RG0 RG5; MOV FLG RG1; JMP >LoadProgramTSFS
-	#SSP.NotTSFS
-		/ Else, it's just the normal loadprogram syscode
-		MOV FLG RG1; CAL >LoadProgram
-	#SSP.Ret
-	
-	AIN ADD OUT 1; JIF CAR >SSP.MemError
-	AIN SUB OUT 1; JIF LTZ >SSP.FileMissingError
-	
-	/ Now spawn the thread for the program-turned-process
-	LDI FLG >USER_PROC_FLG
-	MOV RG0 OUT
-	CAL >MakeChildThread
-	
-	/ Success
-	LDI OUT >SYS_SPAWN_PROG_GOOD; JMP >SSP.Finalize
-	/ Fails
-	#SSP.MaxError
-	LDI OUT >SYS_SPAWN_PROG_MAX; JMP >SSP.Finalize
-	#SSP.PrivError
-	LDI OUT >SYS_SPAWN_PROG_PRIV; JMP >SSP.Finalize
-	#SSP.MemError
-	LDI OUT >SYS_SPAWN_PROG_MEM; JMP >SSP.Finalize
-	#SSP.FLGError
-	LDI OUT >SYS_SPAWN_PROG_FLG; JMP >SSP.Finalize
-	#SSP.FileMissingError
-	LDI OUT >SYS_SPAWN_PROG_MISSING
-	
-	/ Set current proc's OUT accordingly & resume it
-	#SSP.Finalize
-	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr; STR OUT RG0 6
-	JMP >ResumeProc
-}
-
-
-
-/ Resume the current process *NOT A FUNCTION*
+/ Resume the current process
 #ResumeProc  %!Fn% = {
 	/ Restore the state
 	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr
@@ -474,243 +432,14 @@ JMP >Init
 
 
 
-/ Creates child thread for current proc with given HLB and FLG
-/ Modifies RG0-5 and FLG
-#MakeChildThread  %NewHLB w/ FLG > ProcNum% = {
-	PSH 1; STR FLG SP 0
-	
-	/ Find inactive thread
-	NUL RG1
-	#MCT.Search
-		INC RG1
-		MOV RG2 RG1; ALI MUL RG2 >PROC_WORDS; LOD RG3 RG2 >ProcList
-	AIN SET RG3 >PROC_ACTIVE_BIT; JIF CAR >MCT.Search
-	
-	/ Activate and zero out thread number RG1
-	ZRO RG3; ALI SET RG3 >PROC_ACTIVE_BIT; STR RG3 RG2 >ProcList
-	
-	/ Increment ProcCount
-	ZRO RG2; LOD RG2 RG2 >ProcCount
-	INC RG2; STR RG2 RG2 >ProcCount
-	
-	
-	/ Get the location of its state in RG2
-	MOV RG2 RG1; ALI MUL RG2 >STATE_REG_COUNT
-	LDI RG3 >StateList; ALU ADD RG2 RG3
-	
-	/ Zero out all registers except FLG and HLB
-	ZRO RG3
-	STR RG3 RG2 0
-	STR RG3 RG2 1
-	STR RG3 RG2 2
-	STR RG3 RG2 3
-	STR RG3 RG2 4
-	STR RG3 RG2 5
-	STR RG3 RG2 6
-	STR RG3 RG2 7
-	STR RG3 RG2 >EPC_OFFSET
-	STR RG3 RG2 >SP_OFFSET
-	
-	/ Set FLG and HLB
-	LOD RG3 SP 0
-	STR RG3 RG2 >FLG_OFFSET
-	STR RG0 RG2 >HLB_OFFSET
-	
-	
-	/ InsertChild(ThisProcNum) and return to RA
-	MOV RG0 RG1
-	MOV OUT RG0; POP 1
-	JMP >InsertChild
-}
-
-
-
-/ Adds the given process as a child to the current process
-/ Modifies RG1-4, and FLG
-#InsertChild  %ProcNum% = {
-
-	/ Quick check if it's root
-	PAS RG0; JIF EQZ >InC.Skip
-	
-	/ Get the main word of ProcNum in RG2 (and actual index in RG1)
-	MOV RG1 RG0; ALI MUL RG1 >PROC_WORDS; LOD RG2 RG1 >ProcList
-	
-	/ Zero out the parent and sib
-	LDI RG3 >SIB_MASK; ALU NOT RG3 RG3; ALU AND RG2 RG3
-	LDI RG3 >PARENT_MASK; ALU NOT RG3 RG3; ALU AND RG2 RG3
-	
-	/ Set parent to CurrentProcID and store the main word
-	ZRO RG3; LOD RG3 RG3 >CurrentProcID
-	MOV RG4 RG3; ALI SLB RG4 >PARENT_SHIFT
-	ALU OR RG2 RG4; STR RG2 RG1 >ProcList
-	
-	/ Get the current proc's main word in RG2 (and actual index in RG3) (RG1&4 are not set)
-	ALI MUL RG3 >PROC_WORDS; LOD RG2 RG3 >ProcList
-	
-	/ Check if current proc has children
-	LDI RG1 >CHILD_MASK; ALF AND RG1 RG2; JIF NEZ >InC.FindLastSib
-		/ Case 1: current proc has no children
-		ALU OR RG2 RG0; STR RG2 RG3 >ProcList
-		RET
-		
-	/ Case 2: current proc has children
-	/ Loop through siblings to find the endpoint
-	#InC.FindLastSib
-		/ Actual index in RG1, main word in RG2
-		ALI MUL RG1 >PROC_WORDS; LOD RG2 RG1 >ProcList
-		LDI RG3 >SIB_MASK; ALF AND RG3 RG2; JIF EQZ >InC.FoundLast
-		ALI SRB RG3 >SIB_SHIFT; MOV RG1 RG3; JMP >InC.FindLastSib
-	#InC.FoundLast
-	
-	/ Set proc as sibling of last sib and we're done
-	MOV RG3 RG0; ALI SLB RG3 >SIB_SHIFT
-	ALU OR RG2 RG3; STR RG2 RG1 >ProcList
-	#InC.Skip
-	RET
-}
-
-
-
-/ (ProcNum) removes the given process as a child from the process tree
-/ Does not alter the proc's main word
-/ Modifies RG1-4 and FLG
-#RemoveChild  %ProcNum% = {
-
-	/ Case 1 - Proc is root, nothing to do
-	PAS RG0; JIF EQZ >ReC.Done
-	
-	/ Get the process word in RG1
-	MOV RG1 RG0; ALI MUL RG1 >PROC_WORDS; LOD RG1 RG1 >ProcList
-	
-	/ Get the parent's main word in RG3 (and actual index in RG2)
-	LDI RG2 >PARENT_MASK; ALU AND RG2 RG1; ALI SRB RG2 >PARENT_SHIFT
-	ALI MUL RG2 >PROC_WORDS; LOD RG3 RG2 >ProcList
-	
-	/ Check if the process is the first child
-	LDI RG4 >CHILD_MASK; ALU AND RG4 RG3
-	CMP RG4 RG0; JNE >ReC.IsSibling
-		
-		/ Case 2 - Proc is the first child, set parent's child id to proc's sib id
-		LDI RG4 >CHILD_MASK; ALU NOT RG4 RG4; ALU AND RG3 RG4
-		LDI RG4 >SIB_MASK; ALU AND RG4 RG1; ALI SRB RG4 >SIB_SHIFT  / Get child in RG4
-		ALU OR RG3 RG4; STR RG3 RG2 >ProcList
-		RET
-		
-	#ReC.IsSibling
-	/ Case 3 - Proc is a sibling, "bridge" over the process
-	
-	/ Get the main word of the sibling in RG3 (and actual index in RG2)
-	LDI RG2 >CHILD_MASK
-	
-	#ReC.SibLoop
-		ALU AND RG2 RG3
-		ALI MUL RG2 >PROC_WORDS; LOD RG3 RG2 >ProcList
-		LDI RG4 >SIB_MASK; ALU AND RG4 RG3; ALI SRB RG4 >SIB_SHIFT
-		CMP RG4 RG0; JEQ >ReC.FoundSib
-		MOV RG2 RG4; JMP >ReC.SibLoop
-	#ReC.FoundSib
-	
-	/ Found the sibling, bridge over the process
-	LDI RG4 >SIB_MASK; ALU AND RG1 RG4; ALI SRB RG1 >SIB_SHIFT
-	ALU NOT RG4 RG4; ALU AND RG3 RG4
-	ALU OR RG3 RG1; STR RG3 RG2 >ProcList
-	
-	#ReC.Done
-	RET
-}
-
-
-
-/ Loads the program file at IOP into memory. Returns HLB, NULL if no space, or 0 no file.
-/ Does not create the thread for said program, but does basically everything else.
-/ Modifies RG0-5, and FLG
-#LoadProgramTSFS  %FileNum w/ IOP > NewHLB|NULL|0% = {
-
-	PSH 2; STR RA SP 0
-	
-	
-	% Unused drive format check code:
-	
-	/ First, check if it's TSFS (These checks really don't take much time thanks to how IO is handled)
-	
-	/ Quick "parity check"
-	MOV RG2 IO; AIN MOD RG2 >TSFS_ENTRY_SIZE; JIF NEZ >LPF.TSFSError
-	
-	/ Longer, "zero check"
-	#LPF.ZLoop
-		/ Get the pointer to the end of the drive.
-		ALI SUB RG2 >TSFS_ENTRY_SIZE
-		ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2; ALI UST FLG >DRIVE_PTR_BIT
-		MOV RG1 IO; PAS RG1; JIF EQZ >LPF.ZLoop
-	/ Got the address for end of memory.
-	MOV RG2 RG1
-	
-	/ Just make sure this actually is the pointer.
-	PAS IO; JIF NEZ >LPF.TSFSError
-	
-	/ Now check to see if it's (probably) the end of memory.
-	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2; ALI UST FLG >DRIVE_PTR_BIT
-	PAS IO; JIF NEZ >LPF.TSFSError
-	%
-	
-	/ Check if the given file number actually exists (within the index)
-	ALI MUL RG0 >TSFS_ENTRY_SIZE
-	ZRO RG1; ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG1; ALI UST FLG >DRIVE_PTR_BIT
-	MOV RG1 IO; CMP RG0 RG1; JGE >LPF.FileError
-	
-	/ Check if the file is empty
-	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT
-	MOV RG0 IO; PAS IO; JIF EQZ >LPF.FileError
-	
-	/ Tell LoadProgram where to load this file.
-	STR RG0 SP 1; JMP >LoP.LPFSkip
-	
-	
-	#LPF.FileError
-	ZRO OUT; POP 2; RET
-	
-	
-/ LPF, but for .tload drives
-#LoadProgram  %w/ IOP > NewHLB|NULL% = {
-
-	PSH 2; STR RA SP 0; ZRO RG0; STR RG0 SP 1
-	#LoP.LPFSkip
-	
-	/ Calculate the size of the program in RG0 (in chunks)
-	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT
-	MOV RG0 IO
-	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; ALI ADD RG0 2
-	
-	/ Check memory to see where it will fit
-	CAL >FindOpenMemory  / = FirstChunk
-	AIN ADD OUT 1; JIF CAR >LoP.Error
-	
-	/ Calculate HLB then do MarkBits(FirstChunk, Size)
-	MOV RG1 RG0; MOV RG0 OUT
-	
-	LDI RG2 >CHUNK_SIZE; ALU MUL OUT RG2; ALI SRB OUT >LO_SHIFT
-	MOV RG3 RG1; ALU MUL RG3 RG2; ALU OR OUT RG3
-	
-	CAL >MarkBits
-	
-	/ Load program into memory using LoadFile(CHUNK_SIZE * FirstChunk, Size)
-	LOD RG1 SP 1
-	LDI RG2 >CHUNK_SIZE; ALU MUL RG0 RG2
-	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG1; ALI UST FLG >DRIVE_PTR_BIT; MOV RG1 IO
-	
-	LOD RA SP 0; POP 2; JMP >LoadFile	/ This is the last function call, so return to RA
-	
-	/ Unless there was an error, then return NULL
-	#LoP.Error
-	NUL OUT; LOD RA SP 0; POP 2; RET
-}}
+/ ------------------------------------------------------Memory Management-----------------------------------------------------
 
 
 
 / Loads a file at IOP into memory
 / IMPORTANT: DOES NOT MARK THE BITMAP
 / Modifies Rg0 Rg1 and FLG
-#LoadFile  %MemStart, Size w/ IOP & DrivePTR% = {
+#LoadFile  %MemStart, FileSize w/ IOP & DrivePTR% = {
 
 	/ Write the file to memory
 	PAS RG1; JIF EQZ >LoF.Done
@@ -804,7 +533,7 @@ JMP >Init
 }
 
 / Shell function for UnmarkBits and MarkBits DO NOT CALL
-#ModifyBits  %!Fn% = {
+#ModifyBits {
 	/ RG2 is WORD_SIZE, RG3 is word num, RG4 is bits, RG5 is the word itself
 	LDI RG2 >WORD_SIZE
 	MOV RG3 RG0; ALU DIV RG3 RG2
@@ -829,6 +558,870 @@ JMP >Init
 	/ Now that we're done, update the last word and return
 	STR RG5 RG3 >MallocBMPs
 	RET
+}
+
+
+
+/ --------------------------------------------------------Process Tree--------------------------------------------------------
+
+
+
+/ Creates child thread for current proc with given HLB and FLG
+/ Modifies RG0-5 and FLG
+#MakeChildThread  %NewHLB w/ FLG > ProcNum% = {
+	PSH 1; STR FLG SP 0
+	
+	/ Find inactive thread (ProcNo = RG0)
+	NUL RG1
+	#MCT.Search
+		INC RG1
+		MOV RG2 RG1; ALI MUL RG2 >NUM_PROC_WORDS; LOD RG3 RG2 >ProcList
+	AIN SET RG3 >PROC_ACTIVE_BIT; JIF CAR >MCT.Search
+	
+	/ Activate proc and zero out semaphore fields
+	ZRO RG3; ALI SET RG3 >PROC_ACTIVE_BIT; STR RG3 RG2 >ProcList
+	ZRO RG3; INC RG2; STR RG3 RG2 >ProcList
+	INC RG2; STR RG3 RG2 >ProcList
+	
+	/ Increment ProcCount
+	LOD RG3 RG3 >ProcCount
+	INC RG3; STR RG3 RG3 >ProcCount
+	
+	
+	/ Get the location of its state in RG2
+	MOV RG2 RG1; ALI MUL RG2 >NUM_STATE_REGS
+	LDI RG3 >StateList; ALU ADD RG2 RG3
+	
+	/ Zero out all registers except FLG and HLB
+	ZRO RG3
+	STR RG3 RG2 0
+	STR RG3 RG2 1
+	STR RG3 RG2 2
+	STR RG3 RG2 3
+	STR RG3 RG2 4
+	STR RG3 RG2 5
+	STR RG3 RG2 6
+	STR RG3 RG2 7
+	STR RG3 RG2 >EPC_OFFSET
+	STR RG3 RG2 >SP_OFFSET
+	
+	/ Set FLG and HLB
+	LOD RG3 SP 0
+	STR RG3 RG2 >FLG_OFFSET
+	STR RG0 RG2 >HLB_OFFSET
+	
+	
+	/ InsertChild(ThisProcNum) and return to RA
+	MOV RG0 RG1
+	MOV OUT RG0; POP 1
+	JMP >InsertChild
+}
+
+
+
+/ Adds the given process as a child to the current process
+/ Modifies RG1-4, and FLG
+#InsertChild  %ProcNum% = {
+
+	/ Quick check if it's root
+	PAS RG0; JIF EQZ >InC.Skip
+	
+	/ Get the main word of ProcNum in RG2 (and actual index in RG1)
+	MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS; LOD RG2 RG1 >ProcList
+	
+	/ Zero out the parent and sib
+	LDI RG3 >SIB_MASK; ALU NOT RG3 RG3; ALU AND RG2 RG3
+	LDI RG3 >PARENT_MASK; ALU NOT RG3 RG3; ALU AND RG2 RG3
+	
+	/ Set parent to CurrentProcID and store the main word
+	ZRO RG3; LOD RG3 RG3 >CurrentProcID
+	MOV RG4 RG3; ALI SLB RG4 >PARENT_SHIFT
+	ALU OR RG2 RG4; STR RG2 RG1 >ProcList
+	
+	/ Get the current proc's main word in RG2 (and actual index in RG3) (RG1&4 are not set)
+	ALI MUL RG3 >NUM_PROC_WORDS; LOD RG2 RG3 >ProcList
+	
+	/ Check if current proc has children
+	LDI RG1 >CHILD_MASK; ALF AND RG1 RG2; JIF NEZ >InC.FindLastSib
+		/ Case 1: current proc has no children
+		ALU OR RG2 RG0; STR RG2 RG3 >ProcList
+		RET
+		
+	/ Case 2: current proc has children
+	/ Loop through siblings to find the endpoint
+	#InC.FindLastSib
+		/ Actual index in RG1, main word in RG2
+		ALI MUL RG1 >NUM_PROC_WORDS; LOD RG2 RG1 >ProcList
+		LDI RG3 >SIB_MASK; ALF AND RG3 RG2; JIF EQZ >InC.FoundLast
+		ALI SRB RG3 >SIB_SHIFT; MOV RG1 RG3; JMP >InC.FindLastSib
+	#InC.FoundLast
+	
+	/ Set proc as sibling of last sib and we're done
+	MOV RG3 RG0; ALI SLB RG3 >SIB_SHIFT
+	ALU OR RG2 RG3; STR RG2 RG1 >ProcList
+	#InC.Skip
+	RET
+}
+
+
+
+/ (ProcNum) removes the given process as a child from the process tree
+/ Does not alter the proc's main word
+/ Modifies RG2-5 and FLG
+#RemoveChild  %ProcNum% = {
+
+	/ Case 1 - Proc is root, nothing to do
+	PAS RG0; JIF EQZ >ReC.Done
+	
+	/ Get the process word in RG1
+	MOV RG5 RG0; ALI MUL RG5 >NUM_PROC_WORDS; LOD RG5 RG5 >ProcList
+	
+	/ Get the parent's main word in RG3 (and actual index in RG2)
+	LDI RG2 >PARENT_MASK; ALU AND RG2 RG5; ALI SRB RG2 >PARENT_SHIFT
+	ALI MUL RG2 >NUM_PROC_WORDS; LOD RG3 RG2 >ProcList
+	
+	/ Check if the process is the first child
+	LDI RG4 >CHILD_MASK; ALU AND RG4 RG3
+	CMP RG4 RG0; JNE >ReC.IsSibling
+		
+		/ Case 2 - Proc is the first child, set parent's child id to proc's sib id
+		LDI RG4 >CHILD_MASK; ALU NOT RG4 RG4; ALU AND RG3 RG4
+		LDI RG4 >SIB_MASK; ALU AND RG4 RG5; ALI SRB RG4 >SIB_SHIFT  / Get child in RG4
+		ALU OR RG3 RG4; STR RG3 RG2 >ProcList
+		RET
+		
+	#ReC.IsSibling
+	/ Case 3 - Proc is a sibling, "bridge" over the process
+	
+	/ Get the main word of the sibling in RG3 (and actual index in RG2)
+	LDI RG2 >CHILD_MASK
+	
+	#ReC.SibLoop
+		ALU AND RG2 RG3
+		ALI MUL RG2 >NUM_PROC_WORDS; LOD RG3 RG2 >ProcList
+		LDI RG4 >SIB_MASK; ALU AND RG4 RG3; ALI SRB RG4 >SIB_SHIFT
+		CMP RG4 RG0; JEQ >ReC.FoundSib
+		MOV RG2 RG4; JMP >ReC.SibLoop
+	#ReC.FoundSib
+	
+	/ Found the sibling, bridge over the process
+	LDI RG4 >SIB_MASK; ALU AND RG5 RG4; ALI SRB RG5 >SIB_SHIFT
+	ALU NOT RG4 RG4; ALU AND RG3 RG4
+	ALU OR RG3 RG5; STR RG3 RG2 >ProcList
+	
+	#ReC.Done
+	RET
+}
+
+
+
+/ -------------------------------------------------------Core Functions-------------------------------------------------------
+
+
+
+/ For now does not do much, but in the future there will be extra features associated with this.
+/ When the user triggers the PAUS interrupt, this subroutine is called.
+#PauseMenu  %!Fn% = {
+	LDI FLG >COMP_STATUS_IOP; LDI IO >MANUAL_PAUSE_CODE
+	HLT
+	JMP >ResumeProc
+}
+
+
+
+/ Shuts the computer down.
+/ Perhaps this should give procs an opportunity to stop themselves in the future.
+/ Maybe start by blocking all new threading and loading attempts?
+/ AND the above only happens the first time shutdown is called. The second time it just terminates root.
+#Shutdown  %!Fn% = {
+	/ For now, just terminates root, terminating all other procs.
+	ZRO RG0; ZRO RG1; CAL >Terminate
+	JMP >Dispatcher
+}
+
+
+
+/ When the TICK interrupt occurs, this function is called.
+#UnblockAllTick  %!Fn% = {
+	/ Do UnblockAll(TickWaitSem)
+	LDI RG0 >TickWaitSem
+	CAL >UnblockAll
+	
+	/ Resume proc
+	JMP >ResumeProc
+}
+
+
+
+
+/ Deactivates, deallocates, and un-childs ProcNum and all its children.
+/ Now handles semaphores and selective deallocation (if thread, don't dealloc)
+/ Always call with Recursed? = 0.
+/ Modifies RG0-5 and FLG
+#Terminate  %ProcNum, Recursed?(must be 0)% = {
+	PSH 3; STR RG0 SP 0; STR RA SP 1
+	
+	/ Push the proc's MainWord to the stack (using RG2)
+	MOV RG2 RG0; ALI MUL RG2 >NUM_PROC_WORDS; LOD RG2 RG2 >ProcList
+	STR RG2 SP 2
+	
+	/ If recursing, try to call Terminate on sibling
+	PAS RG1; JIF EQZ >Ter.NotRecurse
+		/ Get the sibling proc num. (MainWord in RG2 from above)
+		LDI RG3 >SIB_MASK; ALF AND RG2 RG3
+		
+		/ If there's no sibling, we're done.
+		JIF EQZ >Ter.Recurse
+			/ Else, call Terminate
+			ALI SRB RG2 >SIB_SHIFT; MOV RG0 RG2
+			LDI RA >Ter.Recurse; JMP >Terminate
+			
+	#Ter.NotRecurse
+		/ If not recursing, call RemoveChild
+		CAL >RemoveChild
+		
+	#Ter.Recurse
+	LOD RG0 SP 0
+	
+	/ Past this point, argument 1 (RG1) is no longer needed.
+	
+	
+	/ Now we need to check if the process was waiting on a SemAdd.
+	
+	/ If it was, we need to:
+	/ A) If the semaphore is in the OS, decrement softblockcount.
+	/ B) Increment the semaphore.
+	/ C) Increment the SemNo of all other procs where:
+	/	1. Its SemAdd is the same.
+	/	2. Its SemNo is LOWER (meaning it is behind this proc on the wait list).
+	
+	/ We do not wake up any procs because all procs under consideration are on a wait list.
+	
+	/ Getting the SemAdd in RG2
+	MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS; INC RG1
+	LOD RG2 RG1 >ProcList
+
+	/ Checking if the process was blocked.
+	PAS RG2; JIF EQZ >Ter.VSkip
+		
+		/ If the semaphore is in the OS, decrement softblockcount
+		LDI RG3 >SEM_START; CMP RG2 RG3; JLT >Ter.NotOSSem
+		LDI RG3 >SEM_END; CMP RG2 RG3; JGE >Ter.NotOSSem
+			ZRO RG3; LOD RG3 RG3 >SoftBlockCount
+			DEC RG3; STR RG3 RG3 >SoftBlockCount
+		#Ter.NotOSSem
+		
+		/ Getting the SemNo in RG1
+		INC RG1; LOD RG1 RG1 >ProcList
+		
+		/ Incrementing [SemAdd]
+		LOD RG3 RG2 0; INC RG3; STR RG3 RG2 0
+
+		/ Now begin looping through each proc (RG3) in ProcList
+		NUL RG3
+		#Ter.VLoop
+			INC RG3; LDI RG4 >MAX_PROC_COUNT; CMP RG3 RG4; JEQ >Ter.VSkip
+			
+			/ Check if the SemAdd (RG5) is equal (and if not, go to the next proc)
+			MOV RG4 RG3; ALI MUL RG4 >NUM_PROC_WORDS; INC RG4
+			LOD RG5 RG4 >ProcList
+			CMP RG5 RG2; JNE >Ter.VLoop
+			
+			/ Now check if its SemNo (RG5) is lower (and if not, go to next proc)
+			INC RG4; LOD RG5 RG4 >ProcList
+			CMP RG5 RG1; JGE >Ter.VLoop
+			
+			/ Finally, increment the SemNo if it passed all the other checks, and loop.
+			INC RG5; STR RG5 RG4 >ProcList
+			JMP >Ter.VLoop
+	#Ter.VSkip
+	/ End of semaphore code
+	
+	
+	/ We still need to:
+	/ A) Deallocate the proc's memory only if it's not a thread.
+	/ B) Recurse downwards in the tree.
+	/ C) Deactivate the process and decrement ProcCount.
+	
+	/ Get current proc's HLB
+	MOV RG2 RG0; ALI MUL RG2 >NUM_STATE_REGS; ALI ADD RG2 >HLB_OFFSET
+	LOD RG2 RG2 >StateList
+	
+	/ Skip straight to deallocating if this is root
+	PAS RG0; JIF EQZ >Ter.Dealloc
+		/ Else, check if current proc's HLB is the same as its parent's.
+		LOD RG3 SP 2
+		LDI RG1 >PARENT_MASK; ALU AND RG3 RG1; ALI SRB RG3 >PARENT_SHIFT
+		ALI MUL RG3 >NUM_STATE_REGS; ALI ADD RG3 >HLB_OFFSET
+		LOD RG3 RG3 >StateList
+	
+		/ Don't dealloc if both HLB's are the same (current proc is a thread).
+		CMP RG2 RG3; JEQ >Ter.SkipDealloc
+		
+	#Ter.Dealloc
+		/ Call UnmarkBits(Start, Size)
+		MOV RG1 RG2; LDI RG3 >CHUNK_SIZE; ALU DIV RG1 RG3
+		LDI RG0 >LO_MASK; ALU AND RG0 RG2; ALI SLB RG0 >LO_SHIFT; ALU DIV RG0 RG3
+		CAL >UnmarkBits
+		LOD RG0 SP 0
+		
+	#Ter.SkipDealloc
+	
+	/ Call Terminate on child procs (if they exist)
+	LOD RG2 SP 2
+	LDI RG3 >CHILD_MASK; ALF AND RG2 RG3
+	JIF EQZ >Ter.NoChilds
+		MOV RG0 RG2; NUL RG1; CAL >Terminate
+		LOD RG0 SP 0
+	#Ter.NoChilds
+	
+	/ Deactivate the proc
+	LOD RG1 SP 2; ALI UST RG1 >PROC_ACTIVE_BIT
+	ALI MUL RG0 >NUM_PROC_WORDS; STR RG1 RG0 >ProcList
+	
+	/ Decrement ProcCount
+	ZRO RG1; LOD RG1 RG1 >ProcCount; DEC RG1; STR RG1 RG1 >ProcCount
+	
+	/ Return
+	LOD RA SP 1; POP 3
+	RET
+}
+
+
+
+/ The Passeren (Wait) semaphore operation.
+/ Must be a function so OS can call it on procs.
+/ Modifies RG2 and RG3
+#Passeren  %Address, ProcID > ProcMustWait?% = {
+	
+	/ Decrement semaphore
+	LOD RG2 RG0 0; DEC RG2; STR RG2 RG0 0
+	
+	/ If still positive, skip over the rest of Passeren
+	PAS RG2; JIF GEZ >Pas.Skip
+		/ Else, set SemAdd
+		MOV RG3 RG1; ALI MUL RG3 >NUM_PROC_WORDS; INC RG3
+		STR RG0 RG3 >ProcList
+		/ Set SemNo
+		INC RG3; STR RG2 RG3 >ProcList
+		
+		/ Check if SemAdd is an OS semaphore.
+		LDI RG2 >SEM_START; CMP RG0 RG2; JLT >Pas.NotOSSem
+		LDI RG2 >SEM_END; CMP RG0 RG2; JGE >Pas.NotOSSem
+		/ If so, increment SoftBlockCount
+			ZRO RG2; LOD RG2 RG2 >SoftBlockCount
+			INC RG2; STR RG2 RG2 >SoftBlockCount
+		#Pas.NotOSSem
+		LDI OUT 1; RET
+		
+	#Pas.Skip
+		/ Return 0 (proc doesn't have to wait)
+		LDI OUT 0; RET
+}
+
+
+
+/ The Verhogen (Signal) semaphore operation.
+/ Must be a function so OS can call it on procs.
+/ Modifies RG1-4
+#Verhogen  %Address% = {
+	
+	/ Increment the semaphore
+	LOD RG1 RG0 0; INC RG1; STR RG1 RG0 0
+	
+	/ Now start looping through each process
+	NUL RG1; LDI RG2 >MAX_PROC_COUNT
+	#Ver.Loop
+		INC RG1; CMP RG1 RG2; JEQ >Ver.Done
+		
+		/ Get the SemAdd (and loop again if it's not the same)
+		MOV RG3 RG1; ALI MUL RG3 >NUM_PROC_WORDS; INC RG3
+		LOD RG4 RG3 >ProcList; CMP RG4 RG0; JNE >Ver.Loop
+		
+		/ Increment SemNo
+		INC RG3; LOD RG4 RG3 >ProcList
+		INC RG4; STR RG4 RG3 >ProcList
+		
+		/ Check if the process is off its wait list (SemNo is >=0)
+		PAS RG4; JIF LTZ >Ver.Loop
+		
+		/ If so, remove SemAdd
+		DEC RG3; ZRO RG4; STR RG4 RG3 >ProcList
+		
+		/ Check if semaphore is in OS
+		LDI RG4 >SEM_START; CMP RG0 RG4; JLT >Ver.NotInOS
+		LDI RG4 >SEM_END; CMP RG0 RG4; JGE >Ver.NotInOS
+		
+			/ If so, decrement SoftBlockCount
+			ZRO RG4; LOD RG4 RG4 >SoftBlockCount
+			DEC RG4; STR RG4 RG4 >SoftBlockCount
+		#Ver.NotInOS
+		
+		/ Loop
+		JMP >Ver.Loop
+	#Ver.Done
+	
+	/ When done, return
+	RET
+}
+
+
+
+/ Unblocks all processes associated with the given semaphore.
+/ Modifies RG1-4
+#UnblockAll  %SemAdd% = {
+	/ Loop through all procs (RG1 = ProcID, RG2 = Count)
+	NUL RG1; ZRO RG2
+	#UnA.Loop
+		INC RG1; LDI RG3 >MAX_PROC_COUNT
+		CMP RG1 RG3; JEQ >UnA.Done
+	
+		/ Check if matching SemAdd (if not, loop)
+		MOV RG3 RG1; ALI MUL RG3 >NUM_PROC_WORDS; INC RG3
+		LOD RG4 RG3 >ProcList; CMP RG4 RG0; JNE >UnA.Loop
+	
+		/ Set proc's SemAdd & SemNo to 0
+		ZRO RG4; STR RG4 RG3 >ProcList
+		INC RG3; STR RG4 RG3 >ProcList
+		
+		/ Count++ and loop
+		INC RG2; JMP >UnA.Loop
+	#UnA.Done
+	
+	/ Do [SemAdd] += count and return.
+	LOD RG1 RG0 0; ALU ADD RG1 RG2; STR RG1 RG0 0
+	RET
+}
+
+
+
+/ Loads the program file at IOP into memory. Returns HLB, NULL if no space, or 0 no file.
+/ Does not create the thread for said program, but does basically everything else.
+/ Modifies RG0-5, and FLG
+#LoadProgramTSFS  %FileNum w/ IOP > NewHLB|NULL|0% = {
+
+	PSH 2; STR RA SP 0
+	
+	
+	% Unused drive format check code:
+	
+	/ First, check if it's TSFS (These checks really don't take much time thanks to how IO is handled)
+	
+	/ Quick "parity check"
+	MOV RG2 IO; AIN MOD RG2 >TSFS_ENTRY_SIZE; JIF NEZ >LPT.TSFSError
+	
+	/ Longer, "zero check"
+	#LPT.ZLoop
+		/ Get the pointer to the end of the drive.
+		ALI SUB RG2 >TSFS_ENTRY_SIZE
+		ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2; ALI UST FLG >DRIVE_PTR_BIT
+		MOV RG1 IO; PAS RG1; JIF EQZ >LPT.ZLoop
+	/ Got the address for end of memory.
+	MOV RG2 RG1
+	
+	/ Just make sure this actually is the pointer.
+	PAS IO; JIF NEZ >LPT.TSFSError
+	
+	/ Now check to see if it's (probably) the end of memory.
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG2; ALI UST FLG >DRIVE_PTR_BIT
+	PAS IO; JIF NEZ >LPT.TSFSError
+	%
+	
+	/ Check if the given file number actually exists (within the index)
+	ALI MUL RG0 >TSFS_ENTRY_SIZE
+	ZRO RG1; ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG1; ALI UST FLG >DRIVE_PTR_BIT
+	MOV RG1 IO; CMP RG0 RG1; JGE >LPT.FileError
+	
+	/ Check if the file is empty
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT
+	MOV RG0 IO; PAS IO; JIF EQZ >LPT.FileError
+	
+	/ Tell LoadProgLoadable where to load this file.
+	STR RG0 SP 1; JMP >LPL.LPTSkip
+	
+	
+	#LPT.FileError
+	ZRO OUT; POP 2; RET
+}
+
+/ LPT, but for .tload drives
+#LoadProgLoadable  %w/ IOP > NewHLB|NULL% = {
+
+	PSH 2; STR RA SP 0; ZRO RG0; STR RG0 SP 1
+	#LPL.LPTSkip  / LPL has already done the above 4 instructions
+	
+	/ Calculate the size of the program in RG0 (in chunks)
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG0; ALI UST FLG >DRIVE_PTR_BIT
+	MOV RG0 IO
+	LDI RG1 >CHUNK_SIZE; ALU DIV RG0 RG1; ALI ADD RG0 2
+	
+	/ Check memory to see where it will fit
+	CAL >FindOpenMemory  / = FirstChunk
+	AIN ADD OUT 1; JIF CAR >LPL.Error
+	
+	/ Calculate HLB then do MarkBits(FirstChunk, Size)
+	MOV RG1 RG0; MOV RG0 OUT
+	
+	LDI RG2 >CHUNK_SIZE; ALU MUL OUT RG2; ALI SRB OUT >LO_SHIFT
+	MOV RG3 RG1; ALU MUL RG3 RG2; ALU OR OUT RG3
+	
+	CAL >MarkBits
+	
+	/ Load program into memory using LoadFile(CHUNK_SIZE * FirstChunk, Size)
+	LOD RG1 SP 1
+	LDI RG2 >CHUNK_SIZE; ALU MUL RG0 RG2
+	ALI SET FLG >DRIVE_PTR_BIT; MOV IO RG1; ALI UST FLG >DRIVE_PTR_BIT; MOV RG1 IO
+	
+	LOD RA SP 0; POP 2; JMP >LoadFile	/ This is the last function call, so return to RA
+	
+	/ Unless there was an error, then return NULL
+	#LPL.Error
+	NUL OUT; LOD RA SP 0; POP 2; RET
+}
+
+
+
+/ ------------------------------------------------------Helper Functions------------------------------------------------------
+
+
+
+/ Won't return, and will instead goto SRH.UserPriv, if the proc is accessing protected devices and is user.
+/ Modifies RG0 and RG1
+#CheckIOPAccess  %None > IOP | no return% = {
+	/ Get the proc's FLG (in RG0)
+	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr; LOD RG0 RG0 >FLG_OFFSET
+	
+	/ Check if the proc is kernel (meaning we can skip checks)
+	AIN SET RG0 >UE_PU_SHIFT; JIF NCR >CIA.IsKernel
+		/ If it's user, first make sure it's not accessing DevNo 0
+		LDI RG1 >IOP_DEVICE_MASK
+		AFN AND RG0 RG1; JIF EQZ >SRH.UserPriv
+		
+		/ Now make sure it's not accessing protected device groups
+		ALI SRB RG0 >IOP_SHIFT
+		LDI RG1 >MAX_UNPROT_IOP_NUM; CMP RG1 RG0; JLT >SRH.UserPriv
+		JMP >CIA.Done
+	#CIA.IsKernel
+	
+		/ If kernel, just get IOP num in RG0
+		ALI SRB RG0 >IOP_SHIFT
+	#CIA.Done
+	
+	/ Now return the IOP number
+	MOV OUT RG0; RET
+}
+
+
+
+/ Checks the given relative address from the current process to see if it is OOB or in the OS.
+/ Modifies RG2-5
+#CheckCurProcAddress  %RelAddr > Addr | no return% = {
+
+	/ Get FLG (RG3)
+	ZRO RG2; LOD RG2 RG2 >CurrentStatePtr
+	MOV RG3 RG2; ALI ADD RG3 >FLG_OFFSET; LOD RG3 RG3 >StateList
+	
+	/ Check for Kernel
+	AIN SET RG3 >UE_PU_SHIFT; JIF NCR >CPA.IsKernel
+		
+		/ If not kernel, check for OOB
+		/ Get proc HLB (RG3)
+		MOV RG3 RG2; ALI ADD RG3 >HLB_OFFSET; LOD RG3 RG3 >StateList
+		
+		/ Check for OOB using HI (RG4) (This is the only way they can OOB)
+		MOV RG4 RG3; LDI RG5 >HI_MASK; ALU AND RG4 RG5
+		MOV RG5 RG0
+		ALI SRB RG5 1; ALI SRB RG4 1
+		CMP RG5 RG4; JGE >SRH.UserOOB
+		
+		/ Finally, get the real address in OUT and return
+		ALI SLB RG3 >LO_SHIFT; ALU ADD RG3 RG0; MOV OUT RG3
+		RET
+	#CPA.IsKernel
+		
+		/ If Kernel, get the real address in OUT
+		ALI ADD RG2 >HLB_OFFSET; LOD RG2 RG2 >StateList
+		ALI SLB RG2 >LO_SHIFT; ALU ADD RG2 RG0; MOV OUT RG2
+		
+		/ Check for OSMod
+		ALI SRB RG2 1
+		LDI RG4 >OSEndPoint; INC RG4; ALI SRB RG4 1  / INC here just to make sure there are no shift issues.
+		CMP RG2 RG4; JLT >SRH.OSMod
+		
+		/ If not, return.
+		RET
+}
+
+
+
+/ Calls terminate on the current process then returns to the dispatcher
+#TerminateCurrent  %!Fn% = {
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
+	LDI RA >Dispatcher; JMP >Terminate
+}
+
+
+
+/ Syscall return codes handler.
+/ Meant to be treated as a collection of mini subroutines.
+/ IMPORTANT: YOU DO NOT NEED TO WORRY ABOUT MISALIGNED SP WHEN JUMPING HERE!
+#SysReturnHandler  %!Fn% = {
+	/ The operation was successful. Resume the process
+	#SRH.Success
+	LDI RG0 >SYS_SUCCESSFUL
+	ZRO RG1; LOD RG1 RG1 >CurrentStatePtr
+	STR RG0 RG1 >OUT_REG_NUM
+	JMP >ResumeProc
+	
+	/ Sometimes we want to skip the process, even if the operation was successful.
+	#SRH.SuccessSkip
+	LDI RG0 >SYS_SUCCESSFUL; JMP >SRH.FinSkip
+	
+	/ For all errors we skip the process.
+	
+	/ There is no room for another proc.
+	#SRH.MaxProcs
+	LDI RG0 >SYS_MAX_PROCS; JMP >SRH.FinSkip
+	
+	/ There is not enough room in memory.
+	#SRH.OutOfMem
+	LDI RG0 >SYS_OUT_OF_MEM; JMP >SRH.FinSkip
+	
+	/ The file in question is missing.
+	#SRH.MissingFile
+	LDI RG0 >SYS_MISSING_FILE; JMP >SRH.FinSkip
+	
+	/ IOP was not set correctly for this operation.
+	#SRH.IOPError
+	LDI RG0 >SYS_BAD_IOP; JMP >SRH.FinSkip
+	
+	/ The user process attempted to work with addresses out-of-bounds.
+	#SRH.UserOOB
+	LDI RG0 >SYS_ATTEMPTED_OOB; JMP >SRH.FinSkip
+	
+	/ The user process attempted a privileged operation.
+	#SRH.UserPriv
+	LDI RG0 >SYS_ATTEMPTED_PRIV; JMP >SRH.FinSkip
+	
+	/ The process attempted to alter/access the OS directly.
+	#SRH.OSMod
+	LDI RG0 >SYS_ATTEMPTED_OS; JMP >SRH.FinSkip
+	
+	/ Write the error code in RG0 and skip the process
+	#SRH.FinSkip
+	ZRO RG1; LOD RG1 RG1 >CurrentStatePtr
+	STR RG0 RG1 >OUT_REG_NUM
+	JMP >Dispatcher
+}
+
+
+
+/ ----------------------------------------------------------Syscalls----------------------------------------------------------
+
+
+
+/ Syscall handler.
+#SysHandler  %!Fn% = {
+	/ Get the proc's RG1, RG2, RG3, & RG0 in RG0, RG1, RG2, & RG3 respectively (for convenience)
+	ZRO RG4; LOD RG4 RG4 >CurrentStatePtr
+	LOD RG0 RG4 1; LOD RG1 RG4 2; LOD RG2 RG4 3; LOD RG3 RG4 0
+	
+	/ Check if it's GiveUpTurn
+	CMI RG3 >SYSCODE_GIVE_UP_TURN; JEQ >Dispatcher
+	
+	/ Check if it's the load syscall
+	CMI RG3 >SYSCODE_LOAD_PROGRAM; JEQ >SysLoadProg
+	
+	/ Check if it's the make thread syscall
+	CMI RG3 >SYSCODE_MAKE_THREAD; JEQ >SysSpawnThread
+	
+	/ Check if it's the terminate syscall
+	CMI RG3 >SYSCODE_TERMINATE; JEQ >TerminateCurrent
+	
+	/ Check if it's Verhogen
+	CMI RG3 >SYSCODE_VERHOGEN; JEQ >SysVerhogen
+	
+	/ Check if it's Passeren
+	CMI RG3 >SYSCODE_PASSEREN; JEQ >SysPasseren
+	
+	/ Check if it's I/O mutex
+	CMI RG3 >SYSCODE_IO_MUTEX; JEQ >SysIOMutex
+	
+	/ Check if it's I/O release
+	CMI RG3 >SYSCODE_IO_RELEASE; JEQ >SysIORelease
+	
+	/ Check if it's wait for tick
+	CMI RG3 >SYSCODE_WAIT_TICK; JEQ >SysWaitTick
+	
+	/ Else, return SYSCODE_ERROR
+	LDI RG0 >UNKNOWN_SYSCODE_ERROR; STR RG0 RG4 6; JMP >ResumeProc
+}
+
+
+
+/ Spawns a thread given the PC & SP, and whether the thread should be kernel.
+/ Note: We are jumping to SysReturnHandler no matter what, so no need to worry about SP.
+#SysSpawnThread  %PC, SP, IsKernel? > !Fn% = {
+	/ Store the arguments for later use.
+	PSH 3; STR RG0 SP 0; STR RG1 SP 1; STR RG2 SP 2
+	
+	/ Make sure that there is room for the thread
+	ZRO RG3; LOD RG3 RG3 >ProcCount
+	LDI RG4 >MAX_PROC_COUNT; CMP RG3 RG4; JEQ >SRH.MaxProcs
+	
+	/ If current proc is user, check to make sure PC, SP, and IsKernel are acceptable.
+	/ Use the new CheckCurProcAddress
+	
+	/ First, check IsKernel
+	ZRO RG3; LOD RG3 RG3 >CurrentStatePtr; ALI ADD RG3 >FLG_OFFSET
+	LOD RG3 RG3 0; AIN SET RG3 >UE_PU_SHIFT; JIF NCR >SST.Kernel
+		/ If not kernel, make sure IsKernel is 0
+		PAS RG2; JIF NEZ >SRH.UserPriv
+	#SST.Kernel
+	
+	/ Now check PC and SP (by swapping RG0 and RG1)
+	CAL >CheckCurProcAddress
+	MOV RG2 RG1; MOV RG1 RG0; MOV RG0 RG2
+	CAL >CheckCurProcAddress
+	
+	/ Check if this should be a user or kernel proc.
+	LOD RG2 SP 2; PAS RG2; JIF EQZ >SST.SpawnU
+		/ Spawning a kernel process.
+		LDI FLG >KERNEL_PROC_FLG; JMP >SST.Skip
+	#SST.SpawnU
+		/ Spawning a user process.
+		LDI FLG >USER_PROC_FLG
+	#SST.Skip
+	
+	/ Call MakeChildThread with HLB and FLG, get ProcNum from it.
+	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr
+	ALI ADD RG0 >HLB_OFFSET; LOD RG0 RG0 0
+	CAL >MakeChildThread
+	
+	/ Use ProcNum to get the pointer to its state.
+	LDI RG0 >NUM_STATE_REGS; ALU MUL RG0 OUT
+	LDI RG1 >StateList; ALU ADD RG0 RG1
+	
+	/ Now set EPC and SP.
+	LOD RG1 SP 0; STR RG1 RG0 >EPC_OFFSET
+	LOD RG1 SP 1; STR RG1 RG0 >SP_OFFSET
+	
+	/ Resume current process.
+	JMP >SRH.Success
+}
+
+
+
+/ Loads the program, makes it a child thread, then resumes the current process, setting OUT accordingly.
+/ Note: We are jumping to SysReturnHandler no matter what, so no need to worry about SP.
+/ RG1 is the boolean for child proc is Kernel, and RG0 is the file number
+#SysLoadProg  %FileNumber, IsKernel? > !Fn% = {
+	
+	PSH 1; STR RG1 SP 0
+	
+	/ Before doing anything, make sure we can actually spawn a process
+	ZRO RG1; LOD RG1 RG1 >ProcCount; LDI RG2 >MAX_PROC_COUNT
+	CMP RG1 RG2; JGE >SRH.MaxProcs
+	
+	/ Get FLG and make sure pUser is set to 0
+	ZRO RG1; LOD RG1 RG1 >CurrentStatePtr; LOD RG2 RG1 >FLG_OFFSET
+	AIN SET RG2 >UE_PU_SHIFT; JIF CAR >SRH.UserPriv
+	
+	/ Check if FLG is configured properly
+	LDI RG1 >IOP_GROUP_MASK; ALU AND RG1 RG2; ALI SRB RG1 >IOP_GROUP_SHIFT
+	CMI RG1 >DRIVE_IOP_GROUP; JNE >SRH.IOPError
+	
+	/ Check which load function we're calling, set FLG then jump
+	MOV FLG RG2; LDI RA >SLP.Ret
+	AIN ADD RG0 1; JIF EQZ >LoadProgLoadable
+		JMP >LoadProgramTSFS
+	#SLP.Ret
+	
+	/ Check for loading errors
+	AIN ADD OUT 1; JIF CAR >SRH.OutOfMem
+	AIN SUB OUT 1; JIF LTZ >SRH.MissingFile
+	
+	/ Figure out what privilege level to spawn child proc at.
+	LOD RG0 SP 0; PAS RG0; JIF EQZ >SLP.ChildUser
+		LDI FLG >KERNEL_PROC_FLG; JMP >SLP.ChildUSkip
+	#SLP.ChildUser
+		LDI FLG >USER_PROC_FLG
+	#SLP.ChildUSkip
+	
+	/ Now spawn the thread
+	MOV RG0 OUT; LDI RA >SRH.Success; JMP >MakeChildThread
+}
+
+
+
+/ The Passeren syscall. Does all the checks to make sure syscall is valid.
+#SysPasseren  %RelSemAdd > !Fn% = {
+	
+	/ Make sure the given address is OK to Passeren.
+	CAL >CheckCurProcAddress
+	
+	/ Now call Passeren with the given address.
+	MOV RG0 OUT; ZRO RG1; LOD RG1 RG1 >CurrentProcID
+	CAL >Passeren
+	
+	/ Depending on the result, either resume the process or skip the remainder of its burst.
+	PAS OUT; JIF EQZ >SPa.NoWait
+		JMP >SRH.SuccessSkip
+	#SPa.NoWait
+		JMP >SRH.Success
+}
+
+
+
+/ The Verhogen syscall. Does all the checks to make sure syscall is valid.
+#SysVerhogen  %RelSemAdd > !Fn% = {
+	
+	/ Make sure the given address is OK to Passeren.
+	CAL >CheckCurProcAddress
+	
+	/ Then call Verhogen using the given address and resume the process
+	MOV RG0 OUT
+	LDI RA >SRH.Success; JMP >Verhogen
+}
+
+
+
+/ Does Passeren on the given I/O's mutex. Does checks to make sure it's valid.
+#SysIOMutex  %!Fn% = {
+	
+	/ Make sure the proc's IOP is OK.
+	CAL >CheckIOPAccess
+	
+	/ Call Passeren.
+	MOV RG0 OUT
+	ZRO RG1; LOD RG1 RG1 >CurrentProcID
+	CAL >Passeren
+	
+	/ Check if we should resume the proc or not.
+	PAS OUT; JIF EQZ >SRH.Success
+		JMP >SRH.SuccessSkip
+}
+
+
+
+/ Does Verhogen on the given I/O's mutex. Does checks to make sure it's valid.
+#SysIORelease  %!Fn% = {
+	/ Make sure the proc's IOP is OK.
+	CAL >CheckIOPAccess
+	
+	/ Call Verhogen.
+	MOV RG0 OUT; LDI RA >SRH.Success; JMP >Verhogen
+}
+
+
+
+/ Passeren the WaitTick semaphore
+#SysWaitTick  %!Fn% = {
+	
+	/ Do Passeren(TickWaitSem, CurrentProcID) and skip the remainder of the proc's burst.
+	LDI RG0 >TickWaitSem
+	ZRO RG1; LOD RG1 RG1 >CurrentProcID
+	LDI RA >Dispatcher; JMP >Passeren
 }
 
 

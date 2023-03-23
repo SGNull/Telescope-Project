@@ -167,20 +167,20 @@ modifier_table = [0xD1EE, 0x0,  # NOT
 
 
 # Special characters:
-COMMENT_CHAR = ord('/')     # Comments end at a newline character.
-NEWLINE_CHAR = ord('\n')
+COMMENT_CHAR    = ord('/')  # Comments end at a newline character.
+NEWLINE_CHAR    = ord('\n')
 MULTI_LINE_CHAR = ord('%')  # Multi-line comments start and end with '%'
-LABEL_CHAR = ord('#')       # Labels end at a skippable character.
-CONST_CHAR = ord('@')       # Constants end at a skippable character.
-HEX_CHAR = ord('x')         # Hexadecimal numbers can have varying length, and end at a skippable character.
-BIN_CHAR = ord('b')         # Binary numbers have the same syntax as hexadecimal numbers.
-REF_CHAR = ord('>')         # References replace the following label with the value of the label.
-CHAR_CHAR = ord("'")        # Character syntax works somewhat similar to how it works in python. However,
+LABEL_CHAR      = ord('#')  # Labels end at a skippable character.
+CONST_CHAR      = ord('@')  # Constants end at a skippable character.
+HEX_CHAR        = ord('x')  # Hexadecimal numbers can have varying length, and end at a skippable character.
+BIN_CHAR        = ord('b')  # Binary numbers have the same syntax as hexadecimal numbers.
+REF_CHAR        = ord('>')  # References replace the following label with the value of the label.
+CHAR_CHAR       = ord("'")  # Character syntax works somewhat similar to how it works in python. However,
 #                             it forces the assembler to take ANY *single* character and write it to the output.
-STRING_CHAR = ord('"')      # Places a series of characters in order in memory, followed by NULL.
-ARRAY_CHAR = ord('~')       # The number of zeros in the array follows this character.
-NEGATIVE_CHAR = ord('-')
-STOP_CHAR = 0
+STRING_CHAR     = ord('"')  # Places a series of characters in order in memory, followed by NULL.
+ARRAY_CHAR      = ord('~')  # The number of zeros in the array follows this character.
+NEGATIVE_CHAR   = ord('-')
+STOP_CHAR        = 0
 
 
 # Memory management:
@@ -403,7 +403,7 @@ def compress_file(TL_file_path: str) -> None:
 
     # Reduce the input ROM to TL lines
     print("Compressing input ROM to TL...")
-    TL_lines = reduce_input_ROM(False)
+    TL_lines = reduce_input_ROM(to_RTL=False)
     print("Compression finished.")
 
     # Now write the lines to the output
@@ -433,7 +433,7 @@ def write_RTL(RTL_file_path: str) -> None:
 
     # Reduce the input ROM to RTL lines
     print("Translating input file into RTL...")
-    RTL_lines = reduce_input_ROM(True)
+    RTL_lines = reduce_input_ROM(to_RTL=True)
     print("Translation finished.")
 
     # Now write the lines to the output
@@ -567,9 +567,9 @@ def reduce_input_ROM(to_RTL: bool) -> list:
 
             if hash_key == CAL_HASH:
                 if to_RTL:
-                    outlines.append("MOV RA PC\n")
-                    outlines.append("ALI ADD RA 4\n")
-                    outlines.append("JMP\n")
+                    outlines.append("CAL (MOV RA PC)\n")
+                    outlines.append("|   (ALI ADD RA 4)\n")
+                    outlines.append("|   (JMP)\n")
                 else:
                     outlines.append("CAL\n")
             else:

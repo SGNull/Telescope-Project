@@ -7,6 +7,7 @@ JMP >Main
 %)
 
 / ------- Data -------
+@TERMINATE_SYSCODE = 2
 
 @KEY_TERM_FLG = 0b0100100000000000  / Selects the terminal 1 I/O device
 @STRING_END_VALUE = 0xFFFF
@@ -15,7 +16,7 @@ JMP >Main
 / ------- Code -------
 
 / The first function that is "called"
-#Main
+#Main {
 	/ RG0 = index
 	/ RG1 = STRING_END_VALUE
 	/ RG2 = current character
@@ -34,5 +35,6 @@ JMP >Main
 		INC RG0; JMP >Main.Loop		/ Increment the index and loop
 	#Main.Done
 	
-	/ Step 3: Halt, because we're done
-	HLT
+	/ Step 3: Terminate self, cause we're done.
+	LDI RG0 >TERMINATE_SYSCODE; SYS
+}
