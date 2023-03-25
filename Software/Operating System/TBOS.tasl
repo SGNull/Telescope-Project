@@ -1,6 +1,6 @@
 JMP >Init
 
-(% 	TBOS v2.0
+(% 	TBOS v2.1
 	---------
   
 	TSOS is a small-scale operating system for the Telescope Computer System.
@@ -44,6 +44,13 @@ JMP >Init
 		8 WAIT_TICK()
 			- Passeren the TICK semaphore.
 			- When TICK occurs, all procs waiting will be unblocked.
+	
+	v2.1 comes with some important bug fixes and two major optimizations:
+		MaxProcID allows the OS to skip over parts of the ProcList, significantly increasing
+			performance when working with only a few processes.
+			
+		ProcSupportList allows the OS to quickly get information about a given process, which
+			should significantly increase performance when working with many processes.
 %)
 
 / ------------------------------------------------------------Data------------------------------------------------------------
@@ -133,6 +140,17 @@ JMP >Init
 	#CurrentProcID 		= 0		/ Current running process
 	#CurrentStatePtr	= 0		/ The address of the current proc's state
 	@MAX_DISPATCH_CYCLES = 2	/ Amount of times Dispatcher will loop ProcList before deadlock check (must be >1)
+	
+	/ ---- SUPPORT ----
+	/ Not to be confused with support structures, the support list is a list of metadata about each process.
+	/ This makes many calculations within the operating system significantly faster, and is very easy to maintain.
+	#ProcSupportList	= [~MAX_PROC_COUNT]
+	@SUP_ACTIVE_BIT		= 0  / Bit 0 - Proc is active
+	@SUP_IS_THREAD_BIT	= 1  / Bit 1 - Proc is a thread (of another process)
+	@SUP_WAIT_BIT		= 2  / Bit 2 - Proc is waiting
+	@SUP_OS_WAIT_BIT	= 3  / Bit 3 - Proc is waiting on OS semaphore
+	
+	@INIT_SUP_WORD		= 0b0001  / Active, but nothing else.
 	
 	
 	/ ---- STATES ----
@@ -287,28 +305,25 @@ JMP >Init
 	PAS RG0; JIF EQZ >Dis.Done
 	
 	/ If not, get the next process ID in RG0 (and MaxProcID in RG1)
-	/ We also store this ProcID off to check if we've done 1 cycle through the ProcList
-	/ RG5 is the number of cycles
+	/ We also store this ProcNum (RG6) off to check if we've done 1 cycle through the ProcList
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; MOV RG6 RG0
 	ZRO RG1; LOD RG1 RG1 >MaxProcID; INC RG1
-	ZRO RG5
+	ZRO RG5 / Number of cycles
 	#Dis.GetNext
 		INC RG0; ALU MOD RG0 RG1
 		
-		/ Check if we've looped
+		/ Check if we've looped (too many times)
 		CMP RG0 RG6; JNE >Dis.Continue
 			INC RG5; CMI RG5 >MAX_DISPATCH_CYCLES; JEQ >Dis.MaybeDeadlock
 		#Dis.Continue
 		
 		/ Then check if it's active
-		MOV RG3 RG0; ALI MUL RG3 >NUM_PROC_WORDS
-		LOD RG3 RG3 >ProcList
-		AIN SET RG3 >PROC_ACTIVE_BIT; JIF NCR >Dis.GetNext
+		LOD RG2 RG0 >ProcSupportList; AIN SET RG2 >SUP_ACTIVE_BIT; JIF NCR >Dis.GetNext
 		
-		/ Now check whether it has a valid SemAdd (meaning it's blocked)
-		/ NOTE: This is a primitive check. In the future, we might need to simulate I/O interrupts.
-		MOV RG2 RG3; ALI ADD RG2 >SEMADD_OFFSET; LOD RG2 RG2 >ProcList
-		PAS RG2; JIF NEZ >Dis.GetNext
+		/ Now check if it's blocked
+		AIN SET RG2 >SUP_WAIT_BIT; JIF CAR >Dis.GetNext
+		
+		/ With the new support list, simulating device interrupts here should be pretty easy.
 	
 	/ Store the new current process
 	STR RG0 RG0 >CurrentProcID
@@ -600,6 +615,8 @@ JMP >Init
 		STR RG1 RG1 >MaxProcID
 	#MCT.Smaller
 	
+	/ Initialize its support list word
+	LDI RG4 >INIT_SUP_WORD; STR RG4 RG1 >ProcSupportList
 	
 	/ Get the location of its state in RG2
 	MOV RG2 RG1; ALI MUL RG2 >NUM_STATE_REGS
@@ -783,11 +800,8 @@ JMP >Init
 		/ Make sure it's not root
 		PAS RG0; JIF EQZ >Ter.Done
 		
-		/ Get the proc's main word
-		MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS; LOD RG1 RG1 >ProcList
-		
-		/ If active, then this is MaxProcID
-		AIN SET RG1 >PROC_ACTIVE_BIT; JIF CAR >Ter.Done
+		/ Check the support word to see if its active, and if so this is MaxProcID
+		LOD RG1 RG0 >ProcSupportList; AIN SET RG1 >SUP_ACTIVE_BIT; JIF CAR >Ter.Done
 		
 		/ Decrement and loop
 		DEC RG0; JMP >Ter.Loop
@@ -800,7 +814,8 @@ JMP >Init
 	RET
 }
 
-/ Always call with Recursed? = 0.
+/ Always call with Recursed?(RG1) = 0.
+/ RG0 is the ProcNum
 #RecursiveTerm  {
 	PSH 3; STR RG0 SP 0; STR RA SP 1
 	
@@ -825,31 +840,25 @@ JMP >Init
 		
 	#ReT.Recurse
 	LOD RG0 SP 0
-	
 	/ Past this point, argument 1 (RG1) is no longer needed.
 	
-	
-	/ Now we need to check if the process was waiting on a SemAdd.
-	
-	/ If it was, we need to:
+	/ If the process is waiting on a SemAdd, we need to:
 	/ A) If the semaphore is in the OS, decrement softblockcount.
 	/ B) Increment the semaphore.
 	/ C) Increment the SemNo of all other procs where:
 	/	1. Its SemAdd is the same.
 	/	2. Its SemNo is LOWER (meaning it is behind this proc on the wait list).
-	
 	/ We do not wake up any procs because all procs under consideration are on a wait list.
 	
-	/ Getting the SemAdd in RG2
-	MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS; INC RG1
-	LOD RG2 RG1 >ProcList
-
-	/ Checking if the process was blocked.
-	PAS RG2; JIF EQZ >ReT.VSkip
+	/ Get the support word in RG3, and check if the proc is blocked
+	LOD RG3 RG0 >ProcSupportList; AIN SET RG3 >SUP_WAIT_BIT; JIF NCR >ReT.VSkip
+		/ Getting the SemAdd in RG2
+		MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS; INC RG1
+		LOD RG2 RG1 >ProcList
 		
-		/ If the semaphore is in the OS, decrement softblockcount
-		LDI RG3 >SEM_START; CMP RG2 RG3; JLT >ReT.NotOSSem
-		LDI RG3 >SEM_END; CMP RG2 RG3; JGE >ReT.NotOSSem
+		/ Last usage of support word to check if blocked on OS semaphore
+		AIN SET RG3 >SUP_OS_WAIT_BIT; JIF NCR >ReT.NotOSSem
+			/ If the semaphore is in the OS, decrement softblockcount
 			ZRO RG3; LOD RG3 RG3 >SoftBlockCount
 			DEC RG3; STR RG3 RG3 >SoftBlockCount
 		#ReT.NotOSSem
@@ -861,9 +870,9 @@ JMP >Init
 		LOD RG3 RG2 0; INC RG3; STR RG3 RG2 0
 
 		/ Now begin looping through each proc (RG3) in ProcList
-		NUL RG3
+		NUL RG3; LDI RG6 >MAX_PROC_COUNT
 		#ReT.VLoop
-			INC RG3; LDI RG4 >MAX_PROC_COUNT; CMP RG3 RG4; JEQ >ReT.VSkip
+			INC RG3; CMP RG3 RG6; JEQ >ReT.VSkip
 			
 			/ Check if the SemAdd (RG5) is equal (and if not, go to the next proc)
 			MOV RG4 RG3; ALI MUL RG4 >NUM_PROC_WORDS; INC RG4
@@ -880,26 +889,20 @@ JMP >Init
 	#ReT.VSkip
 	/ End of semaphore code
 	
-	
 	/ We still need to:
 	/ A) Deallocate the proc's memory only if it's not a thread.
 	/ B) Recurse downwards in the tree.
-	/ C) Deactivate the process and decrement ProcCount.
+	/ C) Formally delete the process (deactivate proc, decrement ProcCount, clear support word).
 	
-	/ Get current proc's HLB
+	/ Check if this is a child thread (and skip dealloc if it is)
+	LOD RG1 RG0 >ProcSupportList; AIN SET RG1 >SUP_IS_THREAD_BIT; JIF CAR >ReT.SkipDealloc
+	
+	/ Get current proc's HLB(RG2)
 	MOV RG2 RG0; ALI MUL RG2 >NUM_STATE_REGS; ALI ADD RG2 >HLB_OFFSET
 	LOD RG2 RG2 >StateList
 	
-	/ Skip straight to deallocating if this is root
+	/ Go straight to deallocating if this is root
 	PAS RG0; JIF EQZ >ReT.Dealloc
-		/ Else, check if current proc's HLB is the same as its parent's.
-		LOD RG3 SP 2
-		LDI RG1 >PARENT_MASK; ALU AND RG3 RG1; ALI SRB RG3 >PARENT_SHIFT
-		ALI MUL RG3 >NUM_STATE_REGS; ALI ADD RG3 >HLB_OFFSET
-		LOD RG3 RG3 >StateList
-	
-		/ Don't dealloc if both HLB's are the same (current proc is a thread).
-		CMP RG2 RG3; JEQ >ReT.SkipDealloc
 		
 	#ReT.Dealloc
 		/ Call UnmarkBits(Start, Size)
@@ -907,7 +910,6 @@ JMP >Init
 		LDI RG0 >LO_MASK; ALU AND RG0 RG2; ALI SLB RG0 >LO_SHIFT; ALU DIV RG0 RG3
 		CAL >UnmarkBits
 		LOD RG0 SP 0
-		
 	#ReT.SkipDealloc
 	
 	/ Call Terminate on child procs (if they exist)
@@ -920,10 +922,13 @@ JMP >Init
 	
 	/ Deactivate the proc
 	LOD RG1 SP 2; ALI UST RG1 >PROC_ACTIVE_BIT
-	ALI MUL RG0 >NUM_PROC_WORDS; STR RG1 RG0 >ProcList
+	MOV RG2 RG0; ALI MUL RG2 >NUM_PROC_WORDS; STR RG1 RG2 >ProcList
 	
 	/ Decrement ProcCount
 	ZRO RG1; LOD RG1 RG1 >ProcCount; DEC RG1; STR RG1 RG1 >ProcCount
+	
+	/ Clear its support word
+	ZRO RG1; STR RG1 RG0 >ProcSupportList
 	
 	/ Return
 	LOD RA SP 1; POP 3
@@ -934,8 +939,8 @@ JMP >Init
 
 / The Passeren (Wait) semaphore operation.
 / Must be a function so OS can call it on procs.
-/ Modifies RG2 and RG3
-#Passeren  %Address, ProcID > ProcMustWait?% = {
+/ Modifies RG2-3 and FLG
+#Passeren  %Address, ProcNum > ProcMustWait?% = {
 	
 	/ Decrement semaphore
 	LOD RG2 RG0 0; DEC RG2; STR RG2 RG0 0
@@ -948,13 +953,24 @@ JMP >Init
 		/ Set SemNo
 		INC RG3; STR RG2 RG3 >ProcList
 		
+		/ Add WAIT to the support word.
+		LOD RG3 RG0 >ProcSupportList; AIN SET RG3 >SUP_WAIT_BIT
+		
 		/ Check if SemAdd is an OS semaphore.
 		LDI RG2 >SEM_START; CMP RG0 RG2; JLT >Pas.NotOSSem
 		LDI RG2 >SEM_END; CMP RG0 RG2; JGE >Pas.NotOSSem
-		/ If so, increment SoftBlockCount
+			/ If so, increment SoftBlockCount
 			ZRO RG2; LOD RG2 RG2 >SoftBlockCount
 			INC RG2; STR RG2 RG2 >SoftBlockCount
+			
+			/ And add OS_WAIT to the support word
+			AIN SET RG3 >SUP_OS_WAIT_BIT
 		#Pas.NotOSSem
+		
+		/ Update the support word
+		STR RG3 RG0 >ProcSupportList
+		
+		/ And return 1 (proc must wait)
 		LDI OUT 1; RET
 		
 	#Pas.Skip
@@ -966,13 +982,13 @@ JMP >Init
 
 / The Verhogen (Signal) semaphore operation.
 / Must be a function so OS can call it on procs.
-/ Modifies RG1-4
+/ Modifies RG1-4 and FLG
 #Verhogen  %Address% = {
 	
 	/ Increment the semaphore
 	LOD RG1 RG0 0; INC RG1; STR RG1 RG0 0
 	
-	/ Now start looping through each process
+	/ Now start looping through each process (RG1 = ProcNum)
 	NUL RG1; LDI RG2 >MAX_PROC_COUNT
 	#Ver.Loop
 		INC RG1; CMP RG1 RG2; JEQ >Ver.Done
@@ -991,6 +1007,9 @@ JMP >Init
 		/ If so, remove SemAdd
 		DEC RG3; ZRO RG4; STR RG4 RG3 >ProcList
 		
+		/ Remove WAIT from the support word
+		LOD RG3 RG1 >ProcSupportList; AIN UST RG3 >SUP_WAIT_BIT
+		
 		/ Check if semaphore is in OS
 		LDI RG4 >SEM_START; CMP RG0 RG4; JLT >Ver.NotInOS
 		LDI RG4 >SEM_END; CMP RG0 RG4; JGE >Ver.NotInOS
@@ -998,7 +1017,13 @@ JMP >Init
 			/ If so, decrement SoftBlockCount
 			ZRO RG4; LOD RG4 RG4 >SoftBlockCount
 			DEC RG4; STR RG4 RG4 >SoftBlockCount
+			
+			/ And remove OS_WAIT from the support word
+			AIN UST RG3 >SUP_OS_WAIT_BIT
 		#Ver.NotInOS
+		
+		/ Update the support word.
+		STR RG3 RG1 >ProcSupportList
 		
 		/ Loop
 		JMP >Ver.Loop
@@ -1011,9 +1036,9 @@ JMP >Init
 
 
 / Unblocks all processes associated with the given semaphore.
-/ Modifies RG1-4
+/ Modifies RG1-5, OUT, and FLG
 #UnblockAll  %SemAdd% = {
-	/ Loop through all procs (RG1 = ProcID, RG2 = Count)
+	/ Loop through all procs (RG1 = ProcNum, RG2 = Count)
 	NUL RG1; ZRO RG2
 	#UnA.Loop
 		INC RG1; LDI RG3 >MAX_PROC_COUNT
@@ -1022,6 +1047,23 @@ JMP >Init
 		/ Check if matching SemAdd (if not, loop)
 		MOV RG3 RG1; ALI MUL RG3 >NUM_PROC_WORDS; INC RG3
 		LOD RG4 RG3 >ProcList; CMP RG4 RG0; JNE >UnA.Loop
+		
+		/ If matching, unset WAIT in the support word.
+		LOD RG6 RG1 >ProcSupportList; ALI UST RG6 >SUP_WAIT_BIT
+		
+		/ Then check if SemAdd is in the OS semaphores.
+		LDI RG5 >SEM_START; CMP RG4 RG5; JLT >UnA.NotOS
+		LDI RG5 >SEM_END; CMP RG4 RG5; JGE >UnA.NotOS
+			/ If in the OS, decrement SoftBlockCount
+			ZRO RG5; LOD RG5 RG5 >SoftBlockCount
+			DEC RG5; STR RG5 RG5 >SoftBlockCount
+			
+			/ And unset OS_WAIT in the support word.
+			ALI UST RG6 >SUP_OS_WAIT_BIT
+		#UnA.NotOS
+		
+		/ Update the support word
+		STR RG6 RG1 >ProcSupportList
 	
 		/ Set proc's SemAdd & SemNo to 0
 		ZRO RG4; STR RG4 RG3 >ProcList

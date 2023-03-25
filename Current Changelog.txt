@@ -1,11 +1,11 @@
 LATEST CHANGES:
 
-Fixed bug where, if only root was running, the OS would think a deadlock has occurred.
+I'm calling this TBOS v2.1 given the important underlying changes that have occurred in this commit and the last. I also changed the v2.1 milestone to "Complete" since I'm not sure what version that will be.
 
-Slight optimization in Dispatcher saving 2 cycles per loop (LDI is done outside and not inside loop).
+Fixed bug where UnblockAll would not decrement SoftBlockCount correctly.
 
-Added MaxProcID to optimize Dispatcher. Resolves #70
+Fixed bug where Dispatcher improperly checked SemAdd (it was just looking at (pseudo-)random values).
 
-Added MAX_DISPATCH_CYCLES to adjust how many times Dispatcher will loop through ProcList.
+Added ProcSupportList. This is optimization eliminates the need for common chunks of code that deal with processes, and consequently should speed up the OS quite a bit. Not to be confused with support structures, this is a list of process metadata that is meant to *support* process management. It's very easy to access, very easy to update, and very small. I've implemented a few optimizations that I had in mind (most noteably in the Dispatcher and Terminate functions), but this also opens the door for future optimizations (should other major inefficiencies be discovered).
 
-Did some basic math to figure out how much of an optimization MaxProcID is (and it's a big one when just a few procs are running). See "Optimization Notes.txt" for more details.
+Added support list optimization details to the Optimization Notes file (probably going to keep this file for future versions of TBOS, but I'll have to find a way to standardize everything when new tests are used).
