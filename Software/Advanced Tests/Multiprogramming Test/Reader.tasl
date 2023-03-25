@@ -33,6 +33,8 @@ JMP >Init
 	
 	/ Check if it's the terminating character
 	MOV RG2 IO; CMP RG2 RG1; JEQ >I.Done
+	
+	/ If not, write the character to TNET1 for writer to see.
 	LDI FLG >TNET1; MOV IO RG2
 	
 	/ Then wait for character to be read by Writer (we need to wait here)

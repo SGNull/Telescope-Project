@@ -129,8 +129,10 @@ JMP >Init
 	@NULL_PROC_ID 		= >ROOT_PROC_ID	/ Must be ROOT_PROC_ID
 
 	#ProcCount 			= 0		/ Number of running processes
+	#MaxProcID			= 0		/ The highest active process ID
 	#CurrentProcID 		= 0		/ Current running process
 	#CurrentStatePtr	= 0		/ The address of the current proc's state
+	@MAX_DISPATCH_CYCLES = 2	/ Amount of times Dispatcher will loop ProcList before deadlock check (must be >1)
 	
 	
 	/ ---- STATES ----
@@ -284,24 +286,28 @@ JMP >Init
 	ZRO RG0; LOD RG0 RG0 >ProcCount
 	PAS RG0; JIF EQZ >Dis.Done
 	
-	/ If not, get the next process ID in RG0
+	/ If not, get the next process ID in RG0 (and MaxProcID in RG1)
 	/ We also store this ProcID off to check if we've done 1 cycle through the ProcList
+	/ RG5 is the number of cycles
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; MOV RG6 RG0
+	ZRO RG1; LOD RG1 RG1 >MaxProcID; INC RG1
+	ZRO RG5
 	#Dis.GetNext
-		INC RG0
-		LDI RG1 >MAX_PROC_COUNT; ALU MOD RG0 RG1
+		INC RG0; ALU MOD RG0 RG1
 		
 		/ Check if we've looped
-		CMP RG0 RG6; JEQ >Dis.MaybeDeadlock
+		CMP RG0 RG6; JNE >Dis.Continue
+			INC RG5; CMI RG5 >MAX_DISPATCH_CYCLES; JEQ >Dis.MaybeDeadlock
+		#Dis.Continue
 		
 		/ Then check if it's active
-		MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS
-		LOD RG1 RG1 >ProcList
-		AIN SET RG1 >PROC_ACTIVE_BIT; JIF NCR >Dis.GetNext
+		MOV RG3 RG0; ALI MUL RG3 >NUM_PROC_WORDS
+		LOD RG3 RG3 >ProcList
+		AIN SET RG3 >PROC_ACTIVE_BIT; JIF NCR >Dis.GetNext
 		
 		/ Now check whether it has a valid SemAdd (meaning it's blocked)
 		/ NOTE: This is a primitive check. In the future, we might need to simulate I/O interrupts.
-		MOV RG2 RG1; ALI ADD RG2 >SEMADD_OFFSET; LOD RG2 RG2 >ProcList
+		MOV RG2 RG3; ALI ADD RG2 >SEMADD_OFFSET; LOD RG2 RG2 >ProcList
 		PAS RG2; JIF NEZ >Dis.GetNext
 	
 	/ Store the new current process
@@ -571,7 +577,7 @@ JMP >Init
 #MakeChildThread  %NewHLB w/ FLG > ProcNum% = {
 	PSH 1; STR FLG SP 0
 	
-	/ Find inactive thread (ProcNo = RG0)
+	/ Find inactive thread (ProcNo = RG1)
 	NUL RG1
 	#MCT.Search
 		INC RG1
@@ -586,6 +592,13 @@ JMP >Init
 	/ Increment ProcCount
 	LOD RG3 RG3 >ProcCount
 	INC RG3; STR RG3 RG3 >ProcCount
+	
+	/ Check if this is above MaxProcID.
+	ZRO RG4; LOD RG4 RG4 >MaxProcID
+	CMP RG1 RG4; JLT >MCT.Smaller
+		/ If it's not less than, it's greater than, so set MaxProcID
+		STR RG1 RG1 >MaxProcID
+	#MCT.Smaller
 	
 	
 	/ Get the location of its state in RG2
@@ -735,7 +748,7 @@ JMP >Init
 / AND the above only happens the first time shutdown is called. The second time it just terminates root.
 #Shutdown  %!Fn% = {
 	/ For now, just terminates root, terminating all other procs.
-	ZRO RG0; ZRO RG1; CAL >Terminate
+	ZRO RG0; CAL >Terminate
 	JMP >Dispatcher
 }
 
@@ -753,12 +766,42 @@ JMP >Init
 
 
 
-
 / Deactivates, deallocates, and un-childs ProcNum and all its children.
-/ Now handles semaphores and selective deallocation (if thread, don't dealloc)
-/ Always call with Recursed? = 0.
+/ Now handles semaphores and selective deallocation (if thread, don't dealloc), along with MaxProcID
+/ Shell function for RecursiveTerm
 / Modifies RG0-5 and FLG
-#Terminate  %ProcNum, Recursed?(must be 0)% = {
+#Terminate  %ProcNum% = {
+	PSH 1; STR RA SP 1
+	
+	/ First, call RecursiveTerm
+	ZRO RG1; CAL >RecursiveTerm
+	
+	/ Now we have to (probably) update MaxProcID
+	/ Get MaxProcID
+	ZRO RG0; LOD RG0 RG0 >MaxProcID
+	#Ter.Loop
+		/ Make sure it's not root
+		PAS RG0; JIF EQZ >Ter.Done
+		
+		/ Get the proc's main word
+		MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS; LOD RG1 RG1 >ProcList
+		
+		/ If active, then this is MaxProcID
+		AIN SET RG1 >PROC_ACTIVE_BIT; JIF CAR >Ter.Done
+		
+		/ Decrement and loop
+		DEC RG0; JMP >Ter.Loop
+	#Ter.Done
+	
+	/ Whatever is in RG0 is the correct MaxProcID
+	STR RG0 RG0 >MaxProcID
+	
+	LOD RA SP 1; POP 1
+	RET
+}
+
+/ Always call with Recursed? = 0.
+#RecursiveTerm  {
 	PSH 3; STR RG0 SP 0; STR RA SP 1
 	
 	/ Push the proc's MainWord to the stack (using RG2)
@@ -766,21 +809,21 @@ JMP >Init
 	STR RG2 SP 2
 	
 	/ If recursing, try to call Terminate on sibling
-	PAS RG1; JIF EQZ >Ter.NotRecurse
+	PAS RG1; JIF EQZ >ReT.NotRecurse
 		/ Get the sibling proc num. (MainWord in RG2 from above)
 		LDI RG3 >SIB_MASK; ALF AND RG2 RG3
 		
 		/ If there's no sibling, we're done.
-		JIF EQZ >Ter.Recurse
-			/ Else, call Terminate
+		JIF EQZ >ReT.Recurse
+			/ Else, call Terminate on it recursively
 			ALI SRB RG2 >SIB_SHIFT; MOV RG0 RG2
-			LDI RA >Ter.Recurse; JMP >Terminate
+			LDI RA >ReT.Recurse; JMP >RecursiveTerm
 			
-	#Ter.NotRecurse
+	#ReT.NotRecurse
 		/ If not recursing, call RemoveChild
 		CAL >RemoveChild
 		
-	#Ter.Recurse
+	#ReT.Recurse
 	LOD RG0 SP 0
 	
 	/ Past this point, argument 1 (RG1) is no longer needed.
@@ -802,14 +845,14 @@ JMP >Init
 	LOD RG2 RG1 >ProcList
 
 	/ Checking if the process was blocked.
-	PAS RG2; JIF EQZ >Ter.VSkip
+	PAS RG2; JIF EQZ >ReT.VSkip
 		
 		/ If the semaphore is in the OS, decrement softblockcount
-		LDI RG3 >SEM_START; CMP RG2 RG3; JLT >Ter.NotOSSem
-		LDI RG3 >SEM_END; CMP RG2 RG3; JGE >Ter.NotOSSem
+		LDI RG3 >SEM_START; CMP RG2 RG3; JLT >ReT.NotOSSem
+		LDI RG3 >SEM_END; CMP RG2 RG3; JGE >ReT.NotOSSem
 			ZRO RG3; LOD RG3 RG3 >SoftBlockCount
 			DEC RG3; STR RG3 RG3 >SoftBlockCount
-		#Ter.NotOSSem
+		#ReT.NotOSSem
 		
 		/ Getting the SemNo in RG1
 		INC RG1; LOD RG1 RG1 >ProcList
@@ -819,22 +862,22 @@ JMP >Init
 
 		/ Now begin looping through each proc (RG3) in ProcList
 		NUL RG3
-		#Ter.VLoop
-			INC RG3; LDI RG4 >MAX_PROC_COUNT; CMP RG3 RG4; JEQ >Ter.VSkip
+		#ReT.VLoop
+			INC RG3; LDI RG4 >MAX_PROC_COUNT; CMP RG3 RG4; JEQ >ReT.VSkip
 			
 			/ Check if the SemAdd (RG5) is equal (and if not, go to the next proc)
 			MOV RG4 RG3; ALI MUL RG4 >NUM_PROC_WORDS; INC RG4
 			LOD RG5 RG4 >ProcList
-			CMP RG5 RG2; JNE >Ter.VLoop
+			CMP RG5 RG2; JNE >ReT.VLoop
 			
 			/ Now check if its SemNo (RG5) is lower (and if not, go to next proc)
 			INC RG4; LOD RG5 RG4 >ProcList
-			CMP RG5 RG1; JGE >Ter.VLoop
+			CMP RG5 RG1; JGE >ReT.VLoop
 			
 			/ Finally, increment the SemNo if it passed all the other checks, and loop.
 			INC RG5; STR RG5 RG4 >ProcList
-			JMP >Ter.VLoop
-	#Ter.VSkip
+			JMP >ReT.VLoop
+	#ReT.VSkip
 	/ End of semaphore code
 	
 	
@@ -848,7 +891,7 @@ JMP >Init
 	LOD RG2 RG2 >StateList
 	
 	/ Skip straight to deallocating if this is root
-	PAS RG0; JIF EQZ >Ter.Dealloc
+	PAS RG0; JIF EQZ >ReT.Dealloc
 		/ Else, check if current proc's HLB is the same as its parent's.
 		LOD RG3 SP 2
 		LDI RG1 >PARENT_MASK; ALU AND RG3 RG1; ALI SRB RG3 >PARENT_SHIFT
@@ -856,24 +899,24 @@ JMP >Init
 		LOD RG3 RG3 >StateList
 	
 		/ Don't dealloc if both HLB's are the same (current proc is a thread).
-		CMP RG2 RG3; JEQ >Ter.SkipDealloc
+		CMP RG2 RG3; JEQ >ReT.SkipDealloc
 		
-	#Ter.Dealloc
+	#ReT.Dealloc
 		/ Call UnmarkBits(Start, Size)
 		MOV RG1 RG2; LDI RG3 >CHUNK_SIZE; ALU DIV RG1 RG3
 		LDI RG0 >LO_MASK; ALU AND RG0 RG2; ALI SLB RG0 >LO_SHIFT; ALU DIV RG0 RG3
 		CAL >UnmarkBits
 		LOD RG0 SP 0
 		
-	#Ter.SkipDealloc
+	#ReT.SkipDealloc
 	
 	/ Call Terminate on child procs (if they exist)
 	LOD RG2 SP 2
 	LDI RG3 >CHILD_MASK; ALF AND RG2 RG3
-	JIF EQZ >Ter.NoChilds
-		MOV RG0 RG2; NUL RG1; CAL >Terminate
+	JIF EQZ >ReT.NoChilds
+		MOV RG0 RG2; NUL RG1; CAL >RecursiveTerm
 		LOD RG0 SP 0
-	#Ter.NoChilds
+	#ReT.NoChilds
 	
 	/ Deactivate the proc
 	LOD RG1 SP 2; ALI UST RG1 >PROC_ACTIVE_BIT
@@ -1156,7 +1199,7 @@ JMP >Init
 
 / Calls terminate on the current process then returns to the dispatcher
 #TerminateCurrent  %!Fn% = {
-	ZRO RG0; LOD RG0 RG0 >CurrentProcID; NUL RG1
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID
 	LDI RA >Dispatcher; JMP >Terminate
 }
 

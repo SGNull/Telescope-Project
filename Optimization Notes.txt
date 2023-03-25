@@ -1,0 +1,43 @@
+Running the "Multiprogramming Test" programs.
+
+Test input string: "Hi!$"
+
+Pre  optimization: 6074 cycles
+Post optimization: 4593 cycles
+
+
+Test input string: "Hello World!$"
+
+Pre  optimization: 14219 cycles
+Post optimization: 9219  cycles
+
+
+
+
+In Desmos:
+	Found a perfect solution for cycles/character (including $) pre-optimization:
+	f(x) = 905x + 2454
+	For x = number of characters, f(x) = cycles
+
+	2454 cycles to start and stop no matter what:
+		Not including boot
+		Including Main's negligable initial time spent syscalling
+		Including OS startup time
+		Including OS loading program time
+		Including OS shutdown time
+
+	905 cycles per character:
+		Including Dispatcher loop time
+		Including negligable time spent reading/writing/waiting by programs
+		Including ExHandler and Dispatcher loading and storing proc states
+	
+	
+	
+	Found a perfect solution for cycles/character (including $) post-optimization:
+	f(x) = 514x + 2537
+	
+	2537 cycles is our new base amount of cycles.
+		Very very good! Only a minor, negligable increase!
+	
+	514 cycles per character.
+		This is huge! Nearly halved!

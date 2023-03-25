@@ -1,58 +1,11 @@
 LATEST CHANGES:
 
-TBOS v2.0! Removed V1.0 comments (still need to get around to the TBOS doc).
+Fixed bug where, if only root was running, the OS would think a deadlock has occurred.
 
-NOTE: As of right now, v2.0 has been tested up to the standards of v1.2 (ie. semaphores have not been tested yet). I wanted to get this commit out ASAP since so many changes have occurred.
+Slight optimization in Dispatcher saving 2 cycles per loop (LDI is done outside and not inside loop).
 
-New TASL Dark Mode!
+Added MaxProcID to optimize Dispatcher. Resolves #70
 
-OS now supports 32 max procs instead of 16.
+Added MAX_DISPATCH_CYCLES to adjust how many times Dispatcher will loop through ProcList.
 
-OS/Cross-Assembler comment fixes/improvements.
-
-Fix in OS SysHandler where error code was written to the wrong place (causing random memory corruption).
-
-Fix in OS SysLoadProg where FLG pUser bit was not properly checked (allowing user procs to load from drive 0).
-	Note: the code in question was simply removed due to changes in OS v2.0.
-	
-All interrupts are now implemented in TCS, and supported by TBOS! Resolves #57, resolves #58. Still working on #59 though.
-
-Combined TSFS and Loadable syscalls into one LOAD_PROGRAM syscall.
-
-Created TERMINATE syscall.
-
-Changed GIVE_UP_TURN syscall number.
-
-Consolidated all return codes for each syscall into one common set of codes.
-
-Thoroughly resolved #54, resolved #55, resolved #56, and resolved #60.
-
-Modified process structure to enable semaphores.
-
-Modified MakeChildProc to support semaphores (zeroing them out upon proc creation).
-
-Modified Terminate to support semaphores (selective partial verhogen).
-
-Modified Dispatcher to primitively support semaphores (doesn't run proc if blocked, but doesn't simulate I/O interrupts yet).
-
-Added Passeren function to OS.
-
-Added Verhogen function to OS.
-
-Added Passeren and Verhogen syscalls.
-
-Added I/O Mutex and Release syscalls.
-
-Added Delayed Wait (wait on TICK) syscall.
-
-Added UnblockAll function to OS.
-
-Seriously restructured OS function order (this thing is 1400+ lines long, I had to do something!) (wish I could group functions in the N++ FunctionList).
-
-Created helper functions for checking IOP access and checking relative addresses for OOB errors and similar things.
-
-Changed CAL RTL formatting (should now be slightly clearer where you are in your code).
-
-TCS now triggers a breakpoint every time the status register is written to (for some reason it can trigger multiple times in rapid succession, but I still find it more helpful than just having 2 break points for start and finish).
-
-The OS can no longer be resumed after calling StatusHalt.
+Did some basic math to figure out how much of an optimization MaxProcID is (and it's a big one when just a few procs are running). See "Optimization Notes.txt" for more details.
