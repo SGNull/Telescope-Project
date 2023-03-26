@@ -1,11 +1,3 @@
 LATEST CHANGES:
 
-I'm calling this TBOS v2.1 given the important underlying changes that have occurred in this commit and the last. I also changed the v2.1 milestone to "Complete" since I'm not sure what version that will be.
-
-Fixed bug where UnblockAll would not decrement SoftBlockCount correctly.
-
-Fixed bug where Dispatcher improperly checked SemAdd (it was just looking at (pseudo-)random values).
-
-Added ProcSupportList. This is optimization eliminates the need for common chunks of code that deal with processes, and consequently should speed up the OS quite a bit. Not to be confused with support structures, this is a list of process metadata that is meant to *support* process management. It's very easy to access, very easy to update, and very small. I've implemented a few optimizations that I had in mind (most noteably in the Dispatcher and Terminate functions), but this also opens the door for future optimizations (should other major inefficiencies be discovered).
-
-Added support list optimization details to the Optimization Notes file (probably going to keep this file for future versions of TBOS, but I'll have to find a way to standardize everything when new tests are used).
+Nearly finished the threading test for TBOS v2.

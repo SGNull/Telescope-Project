@@ -8,7 +8,7 @@ Test input string: "Hi!$"
 Test input string: "Hello World!$"
 	Old Version (base 2.0): 		14219 cycles
 	MaxProcID optimization: 		9219  cycles
-	ProcSupportList addition (2.1):	8943
+	ProcSupportList addition (2.1):	8943  cycles
 
 
 I was able to find perfect solutions for cycles/character (including $) using Desmos.

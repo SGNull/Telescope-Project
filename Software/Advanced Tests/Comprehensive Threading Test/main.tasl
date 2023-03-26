@@ -1,0 +1,263 @@
+%	Comprehensive Threading Test
+
+	This is a rather technical test compared to the others.
+	It tests for everything except waiting on the TICK interrupt.
+	Here's what it does in order:
+	
+	Spawn procs 1, 2, 3, and 4.
+	Execution order should be 3, 1, 2, 4 using synchronization semaphores.
+	The terminal output should read "This is in order!"
+	3 prints: "This ",  1 prints: "is ",  2 prints: "in ",  and 4 prints: "order!\n"
+	
+	That justs tests synchronization though.
+	
+	Spawn procs 5 and 6.
+	5 prints: "Five is running and just stopped!\n"
+	6 prints: "Six just ran instead of five!\n"
+	They both try to print right away, doing SYS WAIT after each character write.
+	But they both gain mutex over the terminal, so only one should be printing at once.
+	
+	This has the added benefit of testing selective deallocation.
+	
+	However, I also want to double check that all the termination/dispatcher code works right.
+	Before spawning procs 5 and 6, procs 1, 2, and 4 are terminated.
+	After procs 5 and 6 finish, 3 prints "All done!" and then terminates itself.
+	
+	After each process has terminated, root uses HLT to pause the computer.
+	At this point, there should only be 1 process remaining (use the OS's .tabl file to manually check).
+	Then, after the user manually resumes it, proc 1 will terminate itself, finishing the test.
+%
+
+
+
+/ ------------- DATA -------------
+
+
+
+/ IOP Information
+@TERMINAL1 			= 0b0100100000000000
+
+/ Syscodes
+@SPAWN_THREAD 	= 1
+@TERMINATE 		= 2
+@WAIT 			= 3
+@PASSEREN 		= 4
+@VERHOGEN 		= 5
+@GAIN_IO_MUTEX 	= 6
+@RELEASE_IO 	= 7
+
+/ Semaphores
+#Thread1Sync = 0	/ "is "
+#Thread2Sync = 0	/ "in "
+#Thread3Sync = 0	/ "This ", used for the second half of the test.
+#Thread4Sync = 0	/ "order!"
+#RootWaitSem = 0	/ Used for the first and second half of the test to coordinate root.
+
+/ Strings
+#Thread3String = "This "
+#Thread1String = "is "
+#Thread2String = "in "
+#Thread4String = "order!
+"
+#Thread5String = "Five is running and just stopped!
+"
+#Thread6String = "Six just ran instead of five!
+"
+#EndingString = "All done!
+"
+
+
+
+/ ------------- CODE -------------
+
+
+
+#Root = {
+	/ Step 1: Spawn procs 1-4 as User with the same stack.
+	LDI RG0 >SPAWN_THREAD; LDI RG2 >CommonStack; ZRO RG3
+	LDI RG1 >Thread1; SYS
+	LDI RG1 >Thread2; SYS
+	LDI RG3 >Thread3; SYS
+	LDI RG3 >Thread4; SYS
+	
+	/ Step 2: Wait for each proc to finish (wait on RootWaitSem 4 times)
+	LDI RG0 >PASSEREN; LDI RG1 >RootWaitSem
+	SYS; SYS; SYS; SYS
+	
+	/ Step 3: Spawn procs 5 and 6 (1, 2, and 4 terminate themselves)
+	LDI RG0 >SPAWN_THREAD
+	LDI RG1 >Thread5; SYS
+	LDI RG1 >Thread6; SYS
+	
+	/ Step 4: Wait for each proc to finish (proc 3 is still running and we need a signal from it)
+	LDI RG0 >PASSEREN; LDI RG1 >RootWaitSem
+	SYS; SYS; SYS
+	
+	/ Step 5: Pause CPU execution for TCS user to check the state of the OS (we can do this as kernel).
+	HLT
+	
+	/ Step 6: Shutdown by terminating self
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+
+#Thread1 = {
+	/ Step 1: Wait on sync semaphore
+	LDI RG0 >PASSEREN; LDI RG1 >Thread1Sync
+	SYS
+	
+	/ Step 2: Print "is "
+	LDI FLG >TERMINAL1; LDI RG0 >Thread1String
+	CAL >Print
+	
+	/ Step 3: Signal root and thread 2
+	LDI RG0 >VERHOGEN
+	LDI RG1 >RootWaitSem; SYS
+	LDI RG1 >Thread2Sync; SYS
+	
+	/ Step 4: Terminate self
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+
+#Thread2 = {
+	/ Step 1: Wait on sync semaphore
+	LDI RG0 >PASSEREN; LDI RG1 >Thread2Sync
+	SYS
+	
+	/ Step 2: Print "in "
+	LDI FLG >TERMINAL1; LDI RG0 >Thread2String
+	CAL >Print
+	
+	/ Step 3: Signal root and thread 4
+	LDI RG0 >VERHOGEN
+	LDI RG1 >RootWaitSem; SYS
+	LDI RG1 >Thread4Sync; SYS
+	
+	/ Step 4: Terminate self
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+
+#Thread3 = {
+	/ Step 1: Print "This "
+	LDI FLG >TERMINAL1; LDI RG0 >Thread3String
+	CAL >Print
+	
+	/ Step 2: Signal thread 1 and root
+	LDI RG0 >VERHOGEN
+	LDI RG1 >Thread1Sync; SYS
+	LDI RG1 >RootWaitSem; SYS
+	
+	/ Step 3: Wait for two signals from threads 5 and 6
+	LDI RG0 >PASSEREN
+	LDI RG1 >Thread3Sync; SYS; SYS
+	
+	/ Step 4: Check that we can get mutex.
+	LDI RG0 >GAIN_IO_MUTEX
+	SYS
+	
+	/ Step 5: Print "All done!\n"
+	LDI RG0 >EndingString
+	CAL >Print
+	
+	/ Step 6: Release mutex one last time.
+	LDI RG0 >RELEASE_IO
+	SYS
+	
+	/ Step 7: Signal root again
+	LDI RG0 >VERHOGEN
+	LDI RG1 >RootWaitSem; SYS
+	
+	/ Step 8: Terminate self
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+
+#Thread4 = {
+	/ Step 1: Wait on sync semaphore
+	LDI RG0 >PASSEREN; LDI RG1 >Thread4Sync
+	SYS
+	
+	/ Step 2: Print "order!\n"
+	LDI FLG >TERMINAL1; LDI RG0 >Thread4String
+	CAL >Print
+	
+	/ Step 3: Signal root
+	LDI RG0 >VERHOGEN
+	LDI RG1 >RootWaitSem; SYS
+	
+	/ Step 4: Terminate self
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+
+#Thread5 = {
+	/ Step 1: Gain mutex over terminal 1
+	LDI RG0 >GAIN_IO_MUTEX; LDI FLG >TERMINAL1
+	SYS
+	
+	/ Step 2: Print string
+	LDI RG0 >Thread5String
+	CAL >Print
+	
+	/ Step 3: Release mutex
+	LDI RG0 >RELEASE_IO
+	SYS
+	
+	/ Step 4: Signal root and proc 3
+	LDI RG0 >VERHOGEN
+	LDI RG1 >Thread3Sync; SYS
+	LDI RG1 >RootWaitSem; SYS
+	
+	/ Step 5: Terminate self
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+
+#Thread6 = {
+	/ Step 1: Gain mutex over terminal 1
+	LDI RG0 >GAIN_IO_MUTEX; LDI FLG >TERMINAL1
+	SYS
+	
+	/ Step 2: Print string
+	LDI RG0 >Thread5String
+	CAL >Print
+	
+	/ Step 3: Release mutex
+	LDI RG0 >RELEASE_IO
+	SYS
+	
+	/ Step 4: Signal root and proc 3
+	LDI RG0 >VERHOGEN
+	LDI RG1 >Thread3Sync; SYS
+	LDI RG1 >RootWaitSem; SYS
+	
+	/ Step 5: Terminate self
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+
+/ We'll just use the same stack for each thread (they're not going to be using it anyways).
+~STACK_SIZE
+#CommonStack
+
+
+
+/ Prints the given string to the given IOP, and (for the sake of this test) waits after each character.
+/ Modifies RG0-2 and ALUF
+#Print %String w/ IOP% = {
+	/ Set up RG0 for waiting
+	MOV RG1 RG0; LDI RG0 >WAIT
+	
+	/ Loop through string, wait each time.
+	
+	/ Return after reaching NULL
+}
