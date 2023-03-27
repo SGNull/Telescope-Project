@@ -4,6 +4,7 @@ In C:\Program Files\Notepad++
 
 In %APPDATA%\Notepad++
 	copy userDefineLangs into it
+	copy themes into it
 	go into the plugins folder
 		copy config into it
 

@@ -1,43 +1,47 @@
 LATEST CHANGES:
 
-Finished the Comprehensive Threading Test. (Mostly) resolves #64
+Started new test for the remaining OS features. #71
 
-TBOS can now run the threading test successfully!
+Adjusted hardware & fixed minor issues.
 
-Slight hardware changes.
+Updated documentation for multiple parts of the project. #65
 
-
---- OS Fixes ---
-
-Rewrote some code to use LOD's address value, rather than add it to the offset register.
-
-Implemented further MaxProcNum optimizations.
-
-Terminate now completely zeros out the proc's main word (it's slightly faster).
-
-Fixed bug where OS would not get HLB or FLG correctly for OOB checks.
-
-Fixed bug in Verhogen and Passeren where the process support word would not be properly updated.
-
-Fixed bug in Terminate where it would not remove a proc's SemAdd or SemNo.
-
-Fixed bug in Passeren where it would write the support word to the wrong memory location.
-
-Fixed bug where child threads would not have their support words marked correctly.
-
-Fixed bug where I/O Mutex and I/O Release did not V or P the I/O semaphores.
-
-Fixed the initialization of I/O mutex semaphores.
-
-Fixed bug in RemoveChild where a process, if it was a sibling, would not be bridged over properly in the proc tree.
-
-Removed the I/O mutex semaphores from the list of soft block semaphores.
-
+(Possibly) Exported my custom theme settings from N++.
 
 --- Hardware Changes ---
 
-Further refined the CPU's I/O signals (I can't believe they STILL flicker)
+Disabled TBOS ROM "Load on Model Start" in "TBOS Testing"
 
-Added CPU HLT breakpoint to the TCS.
+Fixed the Status Update breakpoint in TCS (incredibly obvious solution, I can't believe I didn't see it sooner).
 
-Removed PAUS Mode pin on TCS. Now has seperate Pause CPU and PAUS interrupt pins. Details were added to the pins for clarification.
+Adjusted Glass CPU's I/O signal corrections (I'm not convinced they're necessary anymore).
+
+Adjusted timeouts on breakpoints in TCS.
+
+Removed OS Stopped breakpoint from TCS.
+
+Changed "OS Running" pin on TCS to just "Running"
+
+Swapped position of TNET input and output to match every other I/O device.
+
+Swapped the TCS drive output Address and Data bits, so now splitters will be correctly ordered by default when using EEPROM.
+
+Reorganized the TCS internals.
+
+--- Documentation ---
+
+Updated and improved TCS & Bootloader documentation.
+
+Updated and improved TASL documentation.
+
+Significantly updated TBOS documentation. Resolves #65
+
+--- Software ---
+
+Started the Small Threading Test to test the remaining features that CTT did not.
+
+Renamed the Comprehensive Threading Test's "Main" file to "CTT"
+
+--- Notepad++ ---
+
+Found my current theme settings and included them in the Notepad++ files. This ~should~ contain all of my settings.

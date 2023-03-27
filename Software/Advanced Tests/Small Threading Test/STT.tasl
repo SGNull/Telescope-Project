@@ -1,0 +1,114 @@
+JMP >Root
+(%	Remainder Threading Test
+	
+	Tests the two features that the comprehensive test does not:
+	- Begin terminated while on a wait list
+	- Waiting on TICK
+	
+	The expected output is something like:
+	"
+	AAAAAABCABCBCBCBCB
+	All Done!
+	"
+	
+	Root spawns threads 1, 2, 3 (1 is kernel) and waits.
+	Thread 1, in order:
+		- tries to print "AAAAAAAAA"
+		- waits on synch sem x2
+		- spawns thread 4
+		- make sure 4 is waiting
+		- signal 2
+		- make sure 2 is waiting
+		- signal root and immediately terminate (turn off ints)
+		
+	Thread 2, in order:
+		- waits on TICK
+		- tries to print "BBBBBBBBB"
+		- signals thread 1
+		- then waits on synch sem x2
+		- tries to print "All Done!
+		- signals root
+		
+	Thread 3, in order:
+		- waits on TICK
+		- tries to print "CCCCCCCCC"
+		- signals 1, 2
+		- terminates
+	Printing is done by waiting after each character write.
+	
+	Finally, root signals the X semaphore and waits on the root semaphore for 2 to signal.
+%)
+
+@SPAWNTHREAD	= 1
+@TERMINATE		= 2
+@PASSEREN		= 4
+@VERHOGEN		= 5
+@LONGWAIT		= 8
+
+#CrossSem = 0
+#SyncThread1 = 0
+#SyncThread2 = 0
+#SyncRoot = 0
+
+#Thread1String = "AAAAAA"
+#Thread2String = "BBBBBB"
+#Thread3String = "CCCCCC"
+#EndString	   = "
+All done!"
+
+#Root  %!Fn% = {
+	/ Step 1: Spawn each thread.
+	LDI RG0 >SPAWNTHREAD; LDI RG2 >CommonStack; ZRO RG3
+	LDI RG1 >Thread1; SYS
+	LDI RG1 >Thread2; SYS
+	LDI RG1 >Thread3; SYS
+	
+	/ Step 2: Wait to be woken up by thread 1 to finish part 2 of the test.
+	LDI RG0 >PASSEREN; LDI RG1 >SyncRoot; SYS
+	
+	/ Step 3: Signal the cross-sem (should wake up 2)
+	LDI RG0 >VERHOGEN; LDI RG1 >CrossSem; SYS
+	
+	/ Step 4: Wait for 2 to signal
+	LDI RG0 >PASSEREN; LDI RG1 >SyncRoot; SYS
+	
+	/ Step 5: Terminate
+	LDI RG0 >TERMINATE; SYS
+}
+
+#Thread1  %!Fn% = {
+
+}
+
+#Thread2  %!Fn% = {
+
+}
+
+#Thread3  %!Fn% = {
+
+}
+
+#Thread4  %!Fn% = {
+	/ Thread 4 does nothing but wait.
+	LDI RG0 >PASSEREN; LDI RG1 >CrossSem; SYS
+}
+
+/ Prints the given string to Terminal1, and (for the sake of this test) waits after each character.
+#PrintT1 %String% = {
+	/ Set up RG0 for waiting
+	MOV RG1 RG0; LDI RG0 >WAIT; LDI FLG >TERMINAL1
+	
+	/ Loop through string, wait each time.
+	LOD RG2 RG1 0
+	#PrT.Loop
+		MOV IO RG2
+		SYS
+		INC RG1; LOD RG2 RG1 0
+		AIN ADD RG2 1; JIF NCR >PrT.Loop
+	
+	/ Return after reaching NULL
+	RET
+}
+
+~32
+#CommonStack

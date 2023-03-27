@@ -25,9 +25,7 @@ JMP >Root
 	Before spawning procs 5 and 6, procs 1, 2, and 4 are terminated.
 	After procs 5 and 6 finish, 3 gains I/O mutex and prints "All done!", then terminates itself.
 	
-	After each process has terminated, root uses HLT to pause the computer.
-	At this point, there should only be 1 process remaining (use the OS's .tabl file to manually check).
-	Then, after the user manually resumes it, root will terminate itself, finishing the test.
+	Then root will terminate itself, finishing the test.
 %)
 
 
@@ -100,10 +98,7 @@ JMP >Root
 	LDI RG0 >PASSEREN; LDI RG1 >RootWaitSem
 	SYS; SYS; SYS
 	
-	/ Step 5: Pause CPU execution for TCS user to check the state of the OS (we can do this as kernel).
-	HLT
-	
-	/ Step 6: Shutdown by terminating self
+	/ Step 5: Shutdown by terminating self
 	LDI RG0 >TERMINATE; SYS
 }
 
