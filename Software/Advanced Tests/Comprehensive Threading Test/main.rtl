@@ -1,0 +1,358 @@
+NOTE: DESPITE THEIR APPEARANCE, RTL FILES CANNOT BE ASSEMBLED
+JMP
+>Root
+0
+0
+0
+0
+0
+'T'
+'h'
+'i'
+'s'
+' '
+0xffff
+'i'
+'s'
+' '
+0xffff
+'i'
+'n'
+' '
+0xffff
+'o'
+'r'
+'d'
+'e'
+'r'
+'!'
+'\n'
+0xffff
+'F'
+'i'
+'v'
+'e'
+' '
+'i'
+'s'
+' '
+'r'
+'u'
+'n'
+'n'
+'i'
+'n'
+'g'
+' '
+'a'
+'n'
+'d'
+' '
+'j'
+'u'
+'s'
+'t'
+' '
+'s'
+'t'
+'o'
+'p'
+'p'
+'e'
+'d'
+'!'
+'\n'
+0xffff
+'S'
+'i'
+'x'
+' '
+'j'
+'u'
+'s'
+'t'
+' '
+'r'
+'a'
+'n'
+' '
+'i'
+'n'
+'s'
+'t'
+'e'
+'a'
+'d'
+' '
+'o'
+'f'
+' '
+'f'
+'i'
+'v'
+'e'
+'!'
+'\n'
+0xffff
+'A'
+'l'
+'l'
+' '
+'d'
+'o'
+'n'
+'e'
+'!'
+'\n'
+0xffff
+LDI RG0
+>SPAWN_THREAD
+LDI RG2
+>CommonStack
+ZRO RG3
+LDI RG1
+>Thread1
+SYS
+LDI RG1
+>Thread2
+SYS
+LDI RG1
+>Thread3
+SYS
+LDI RG1
+>Thread4
+SYS
+LDI RG0
+>PASSEREN
+LDI RG1
+>RootWaitSem
+SYS
+SYS
+SYS
+SYS
+LDI RG0
+>SPAWN_THREAD
+LDI RG1
+>Thread5
+SYS
+LDI RG1
+>Thread6
+SYS
+LDI RG0
+>PASSEREN
+LDI RG1
+>RootWaitSem
+SYS
+SYS
+SYS
+HLT
+LDI RG0
+>TERMINATE
+SYS
+LDI RG0
+>PASSEREN
+LDI RG1
+>Thread1Sync
+SYS
+LDI FLG
+>TERMINAL1
+LDI RG0
+>Thread1String
+CAL (MOV RA PC)
+|   (ALI ADD RA 4)
+|   (JMP)
+>Print
+LDI RG0
+>VERHOGEN
+LDI RG1
+>RootWaitSem
+SYS
+LDI RG1
+>Thread2Sync
+SYS
+LDI RG0
+>TERMINATE
+SYS
+LDI RG0
+>PASSEREN
+LDI RG1
+>Thread2Sync
+SYS
+LDI FLG
+>TERMINAL1
+LDI RG0
+>Thread2String
+CAL (MOV RA PC)
+|   (ALI ADD RA 4)
+|   (JMP)
+>Print
+LDI RG0
+>VERHOGEN
+LDI RG1
+>RootWaitSem
+SYS
+LDI RG1
+>Thread4Sync
+SYS
+LDI RG0
+>TERMINATE
+SYS
+LDI FLG
+>TERMINAL1
+LDI RG0
+>Thread3String
+CAL (MOV RA PC)
+|   (ALI ADD RA 4)
+|   (JMP)
+>Print
+LDI RG0
+>VERHOGEN
+LDI RG1
+>Thread1Sync
+SYS
+LDI RG1
+>RootWaitSem
+SYS
+LDI RG0
+>PASSEREN
+LDI RG1
+>Thread3Sync
+SYS
+SYS
+LDI RG0
+>GAIN_IO_MUTEX
+SYS
+LDI RG0
+>EndingString
+CAL (MOV RA PC)
+|   (ALI ADD RA 4)
+|   (JMP)
+>Print
+LDI RG0
+>RELEASE_IO
+SYS
+LDI RG0
+>VERHOGEN
+LDI RG1
+>RootWaitSem
+SYS
+LDI RG0
+>TERMINATE
+SYS
+LDI RG0
+>PASSEREN
+LDI RG1
+>Thread4Sync
+SYS
+LDI FLG
+>TERMINAL1
+LDI RG0
+>Thread4String
+CAL (MOV RA PC)
+|   (ALI ADD RA 4)
+|   (JMP)
+>Print
+LDI RG0
+>VERHOGEN
+LDI RG1
+>RootWaitSem
+SYS
+LDI RG0
+>TERMINATE
+SYS
+LDI RG0
+>GAIN_IO_MUTEX
+LDI FLG
+>TERMINAL1
+SYS
+LDI RG0
+>Thread5String
+CAL (MOV RA PC)
+|   (ALI ADD RA 4)
+|   (JMP)
+>Print
+LDI RG0
+>RELEASE_IO
+SYS
+LDI RG0
+>VERHOGEN
+LDI RG1
+>Thread3Sync
+SYS
+LDI RG1
+>RootWaitSem
+SYS
+LDI RG0
+>TERMINATE
+SYS
+LDI RG0
+>GAIN_IO_MUTEX
+LDI FLG
+>TERMINAL1
+SYS
+LDI RG0
+>Thread6String
+CAL (MOV RA PC)
+|   (ALI ADD RA 4)
+|   (JMP)
+>Print
+LDI RG0
+>RELEASE_IO
+SYS
+LDI RG0
+>VERHOGEN
+LDI RG1
+>Thread3Sync
+SYS
+LDI RG1
+>RootWaitSem
+SYS
+LDI RG0
+>TERMINATE
+SYS
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+0x0000 of STACK_SIZE 
+MOV RG1 RG0
+LDI RG0
+>WAIT
+LOD RG2 RG1
+0
+MOV IO RG2
+SYS
+INC RG1
+LOD RG2 RG1
+0
+AIN ADD RG2 1
+JIF NCR
+>Pri.Loop
+RET

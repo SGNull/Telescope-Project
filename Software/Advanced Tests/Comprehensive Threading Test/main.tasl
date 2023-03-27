@@ -1,17 +1,19 @@
-%	Comprehensive Threading Test
+JMP >Root
+
+(%	Comprehensive Threading Test
 
 	This is a rather technical test compared to the others.
-	It tests for everything except waiting on the TICK interrupt.
+	It tests for everything except waiting on the TICK interrupt and terminating while on a wait list.
 	Here's what it does in order:
 	
-	Spawn procs 1, 2, 3, and 4.
+	Spawn threads 1, 2, 3, and 4.
 	Execution order should be 3, 1, 2, 4 using synchronization semaphores.
 	The terminal output should read "This is in order!"
 	3 prints: "This ",  1 prints: "is ",  2 prints: "in ",  and 4 prints: "order!\n"
 	
 	That justs tests synchronization though.
 	
-	Spawn procs 5 and 6.
+	Spawn threads 5 and 6.
 	5 prints: "Five is running and just stopped!\n"
 	6 prints: "Six just ran instead of five!\n"
 	They both try to print right away, doing SYS WAIT after each character write.
@@ -21,21 +23,24 @@
 	
 	However, I also want to double check that all the termination/dispatcher code works right.
 	Before spawning procs 5 and 6, procs 1, 2, and 4 are terminated.
-	After procs 5 and 6 finish, 3 prints "All done!" and then terminates itself.
+	After procs 5 and 6 finish, 3 gains I/O mutex and prints "All done!", then terminates itself.
 	
 	After each process has terminated, root uses HLT to pause the computer.
 	At this point, there should only be 1 process remaining (use the OS's .tabl file to manually check).
-	Then, after the user manually resumes it, proc 1 will terminate itself, finishing the test.
-%
+	Then, after the user manually resumes it, root will terminate itself, finishing the test.
+%)
 
 
 
-/ ------------- DATA -------------
+(/ ------------- DATA -------------
 
 
+
+/ Configuration
+@STACK_SIZE = 32
 
 / IOP Information
-@TERMINAL1 			= 0b0100100000000000
+@TERMINAL1 = 0b0100100000000000
 
 / Syscodes
 @SPAWN_THREAD 	= 1
@@ -65,6 +70,7 @@
 "
 #EndingString = "All done!
 "
+)
 
 
 
@@ -77,8 +83,8 @@
 	LDI RG0 >SPAWN_THREAD; LDI RG2 >CommonStack; ZRO RG3
 	LDI RG1 >Thread1; SYS
 	LDI RG1 >Thread2; SYS
-	LDI RG3 >Thread3; SYS
-	LDI RG3 >Thread4; SYS
+	LDI RG1 >Thread3; SYS
+	LDI RG1 >Thread4; SYS
 	
 	/ Step 2: Wait for each proc to finish (wait on RootWaitSem 4 times)
 	LDI RG0 >PASSEREN; LDI RG1 >RootWaitSem
@@ -87,6 +93,7 @@
 	/ Step 3: Spawn procs 5 and 6 (1, 2, and 4 terminate themselves)
 	LDI RG0 >SPAWN_THREAD
 	LDI RG1 >Thread5; SYS
+	
 	LDI RG1 >Thread6; SYS
 	
 	/ Step 4: Wait for each proc to finish (proc 3 is still running and we need a signal from it)
@@ -227,7 +234,7 @@
 	SYS
 	
 	/ Step 2: Print string
-	LDI RG0 >Thread5String
+	LDI RG0 >Thread6String
 	CAL >Print
 	
 	/ Step 3: Release mutex
@@ -258,6 +265,13 @@
 	MOV RG1 RG0; LDI RG0 >WAIT
 	
 	/ Loop through string, wait each time.
+	LOD RG2 RG1 0
+	#Pri.Loop
+		MOV IO RG2
+		SYS
+		INC RG1; LOD RG2 RG1 0
+		AIN ADD RG2 1; JIF NCR >Pri.Loop
 	
 	/ Return after reaching NULL
+	RET
 }

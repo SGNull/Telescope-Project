@@ -1,3 +1,43 @@
 LATEST CHANGES:
 
-Nearly finished the threading test for TBOS v2.
+Finished the Comprehensive Threading Test. (Mostly) resolves #64
+
+TBOS can now run the threading test successfully!
+
+Slight hardware changes.
+
+
+--- OS Fixes ---
+
+Rewrote some code to use LOD's address value, rather than add it to the offset register.
+
+Implemented further MaxProcNum optimizations.
+
+Terminate now completely zeros out the proc's main word (it's slightly faster).
+
+Fixed bug where OS would not get HLB or FLG correctly for OOB checks.
+
+Fixed bug in Verhogen and Passeren where the process support word would not be properly updated.
+
+Fixed bug in Terminate where it would not remove a proc's SemAdd or SemNo.
+
+Fixed bug in Passeren where it would write the support word to the wrong memory location.
+
+Fixed bug where child threads would not have their support words marked correctly.
+
+Fixed bug where I/O Mutex and I/O Release did not V or P the I/O semaphores.
+
+Fixed the initialization of I/O mutex semaphores.
+
+Fixed bug in RemoveChild where a process, if it was a sibling, would not be bridged over properly in the proc tree.
+
+Removed the I/O mutex semaphores from the list of soft block semaphores.
+
+
+--- Hardware Changes ---
+
+Further refined the CPU's I/O signals (I can't believe they STILL flicker)
+
+Added CPU HLT breakpoint to the TCS.
+
+Removed PAUS Mode pin on TCS. Now has seperate Pause CPU and PAUS interrupt pins. Details were added to the pins for clarification.
