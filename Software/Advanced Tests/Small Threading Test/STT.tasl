@@ -1,5 +1,5 @@
 JMP >Root
-(%	Remainder Threading Test
+(%	Small (Complimentary) Threading Test
 	
 	Tests the two features that the comprehensive test does not:
 	- Begin terminated while on a wait list
@@ -14,18 +14,19 @@ JMP >Root
 	Root spawns threads 1, 2, 3 (1 is kernel) and waits.
 	Thread 1, in order:
 		- tries to print "AAAAAAAAA"
-		- waits on synch sem x2
+		- waits on sync sem x2
 		- spawns thread 4
 		- make sure 4 is waiting
 		- signal 2
 		- make sure 2 is waiting
-		- signal root and immediately terminate (turn off ints)
+		- signal root and immediately terminate
 		
 	Thread 2, in order:
 		- waits on TICK
 		- tries to print "BBBBBBBBB"
 		- signals thread 1
-		- then waits on synch sem x2
+		- then waits on sync sem x2
+		- waits on cross sync sem
 		- tries to print "All Done!
 		- signals root
 		
@@ -39,8 +40,11 @@ JMP >Root
 	Finally, root signals the X semaphore and waits on the root semaphore for 2 to signal.
 %)
 
+@TERMINAL1 = 0b0100100000000000
+
 @SPAWNTHREAD	= 1
 @TERMINATE		= 2
+@WAIT			= 3
 @PASSEREN		= 4
 @VERHOGEN		= 5
 @LONGWAIT		= 8
@@ -77,15 +81,80 @@ All done!"
 }
 
 #Thread1  %!Fn% = {
-
+	/ Step 1: Print the string
+	LDI RG0 >Thread1String; CAL >PrintT1
+	
+	/ Step 2: Wait for 2 & 3 to finish printing.
+	LDI RG0 >PASSEREN; LDI RG1 >SyncThread1
+	SYS; SYS
+	
+	/ Step 3: Spawn thread 4
+	LDI RG0 >SPAWNTHREAD; LDI RG1 >Thread4; LDI RG2 >CommonStack; ZRO RG3
+	SYS
+	
+	/ Step 4: Make sure 4 is waiting
+	LDI RG0 >WAIT
+	#Th1.4Wait
+		SYS
+		ZRO RG1; LOD RG1 RG1 >CrossSem
+	AIN ADD RG1 1; JIF NEZ >Th1.4Wait
+	
+	/ Step 5: Signal 2
+	LDI RG0 >VERHOGEN; LDI RG1 >SyncThread2
+	SYS
+	
+	/ Step 6: Make sure 2 is waiting
+	LDI RG0 >WAIT
+	#Th1.2Wait
+		SYS
+		ZRO RG1; LOD RG1 RG1 >CrossSem
+	AIN ADD RG1 2; JIF NEZ >Th1.2Wait
+	
+	/ Step 7: Signal root and terminate (with as little time between as possible)
+	LDI RG2 >TERMINATE
+	LDI RG0 >VERHOGEN; LDI RG1 >SyncRoot
+	SYS; MOV RG0 RG2; SYS
 }
 
 #Thread2  %!Fn% = {
-
+	/ Step 1: Wait on TICK
+	LDI RG0 >LONGWAIT; SYS
+	
+	/ Step 2: Print
+	LDI RG0 >Thread2String; CAL >PrintT1
+	
+	/ Step 3: Signal thread 1
+	LDI RG0 >VERHOGEN; LDI RG1 >SyncThread1
+	
+	/ Step 4: Wait on sync semaphore twice
+	LDI RG0 >PASSEREN; LDI RG1 >SyncThread2
+	SYS; SYS
+	
+	/ Step 5: Wait on cross semaphore to check termination function
+	LDI RG1 >CrossSem
+	SYS
+	
+	/ Step 6: Print the ending string (cause 2 only wakes up at the end)
+	LDI RG0 >EndString; CAL >PrintT1
+	
+	/ Step 7: Terminate
+	LDI RG0 >TERMINATE; SYS
 }
 
 #Thread3  %!Fn% = {
-
+	/ Step 1: Wait on TICK
+	LDI RG0 >LONGWAIT; SYS
+	
+	/ Step 2: Print
+	LDI RG0 >Thread3String; CAL >PrintT1
+	
+	/ Step 3: Signal 1 and 2
+	LDI RG0 >VERHOGEN
+	LDI RG1 >SyncThread1; SYS
+	LDI RG1 >SyncThread2; SYS
+	
+	/ Step 4: Terminate
+	LDI RG0 >TERMINATE; SYS
 }
 
 #Thread4  %!Fn% = {
@@ -110,5 +179,6 @@ All done!"
 	RET
 }
 
-~32
+@STACKSIZE = 32
+~STACKSIZE
 #CommonStack

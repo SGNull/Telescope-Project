@@ -1,47 +1,9 @@
 LATEST CHANGES:
 
-Started new test for the remaining OS features. #71
+Made Small Threading Test.
 
-Adjusted hardware & fixed minor issues.
+Halved number of ticks required to trigger TICK.
 
-Updated documentation for multiple parts of the project. #65
+Increased the number of TBOS dispatch loops to 8.
 
-(Possibly) Exported my custom theme settings from N++.
-
---- Hardware Changes ---
-
-Disabled TBOS ROM "Load on Model Start" in "TBOS Testing"
-
-Fixed the Status Update breakpoint in TCS (incredibly obvious solution, I can't believe I didn't see it sooner).
-
-Adjusted Glass CPU's I/O signal corrections (I'm not convinced they're necessary anymore).
-
-Adjusted timeouts on breakpoints in TCS.
-
-Removed OS Stopped breakpoint from TCS.
-
-Changed "OS Running" pin on TCS to just "Running"
-
-Swapped position of TNET input and output to match every other I/O device.
-
-Swapped the TCS drive output Address and Data bits, so now splitters will be correctly ordered by default when using EEPROM.
-
-Reorganized the TCS internals.
-
---- Documentation ---
-
-Updated and improved TCS & Bootloader documentation.
-
-Updated and improved TASL documentation.
-
-Significantly updated TBOS documentation. Resolves #65
-
---- Software ---
-
-Started the Small Threading Test to test the remaining features that CTT did not.
-
-Renamed the Comprehensive Threading Test's "Main" file to "CTT"
-
---- Notepad++ ---
-
-Found my current theme settings and included them in the Notepad++ files. This ~should~ contain all of my settings.
+Found that TBOS does not look for TICK, because exception mask = 0.

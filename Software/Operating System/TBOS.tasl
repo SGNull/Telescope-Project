@@ -139,7 +139,7 @@ JMP >Init
 	#MaxProcNum			= 0		/ The highest active process ID
 	#CurrentProcID 		= 0		/ Current running process
 	#CurrentStatePtr	= 0		/ The address of the current proc's state
-	@MAX_DISPATCH_CYCLES = 2	/ Amount of times Dispatcher will loop ProcList before deadlock check (must be >1)
+	@MAX_DISPATCH_CYCLES = 8	/ Amount of times Dispatcher will loop ProcList before deadlock check (must be >1)
 	
 	/ ---- SUPPORT ----
 	/ Not to be confused with support structures, the support list is a list of metadata about each process.

@@ -2517,7 +2517,7 @@
         </entry>
         <entry>
           <string>Output Splitting</string>
-          <string>16,1,15</string>
+          <string>15,1,16</string>
         </entry>
       </elementAttributes>
       <pos x="2520" y="240"/>
