@@ -15,7 +15,7 @@ JMP >Root
 	Thread 1, in order:
 		- tries to print "AAAAAAAAA"
 		- waits on sync sem x2
-		- spawns thread 4
+		- spawns thread 4 (4 just waits on the cross sem)
 		- make sure 4 is waiting
 		- signal 2
 		- make sure 2 is waiting
@@ -125,6 +125,7 @@ All done!"
 	
 	/ Step 3: Signal thread 1
 	LDI RG0 >VERHOGEN; LDI RG1 >SyncThread1
+	SYS
 	
 	/ Step 4: Wait on sync semaphore twice
 	LDI RG0 >PASSEREN; LDI RG1 >SyncThread2
@@ -137,7 +138,10 @@ All done!"
 	/ Step 6: Print the ending string (cause 2 only wakes up at the end)
 	LDI RG0 >EndString; CAL >PrintT1
 	
-	/ Step 7: Terminate
+	/ Step 7: Signal root
+	LDI RG0 >VERHOGEN; LDI RG1 >SyncRoot; SYS
+	
+	/ Step 8: Terminate
 	LDI RG0 >TERMINATE; SYS
 }
 

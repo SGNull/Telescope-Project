@@ -80,6 +80,7 @@ JMP >Init
 	@EXC_SHIFT 		= 8
 	
 	@UE_PU_SHIFT 	= 3
+	@UE_CE_BIT		= 0
 	
 	/ EXC defined by TCS
 	@EXC_TICK 	= 0
@@ -99,6 +100,7 @@ JMP >Init
 	@RANDOM_IOP 		= >COMP_STATUS_IOP
 	@COUNTER_START_IOP 	= 0xE000
 	@COUNTER_STOP_IOP 	= 0xE800
+	@CONFIG_IOP			= 0xF800
 
 
 	/ OS determined hardware constants
@@ -139,7 +141,10 @@ JMP >Init
 	#MaxProcNum			= 0		/ The highest active process ID
 	#CurrentProcID 		= 0		/ Current running process
 	#CurrentStatePtr	= 0		/ The address of the current proc's state
-	@MAX_DISPATCH_CYCLES = 8	/ Amount of times Dispatcher will loop ProcList before deadlock check (must be >1)
+	
+	@MAX_DISPATCH_CYCLES = 6		/ Amount of times Dispatcher will loop ProcList before deadlock check (must be >1)
+	@WAIT_TIME			 = 0xFFFF	/ Amount of cycles the OS will wait upon softblock before running dispatcher again.
+									/ Right now is set to maximum, but when I/O ints are simulated, should be lowered.
 	
 	/ ---- SUPPORT ----
 	/ Not to be confused with support structures, the support list is a list of metadata about each process.
@@ -229,7 +234,8 @@ JMP >Init
 	@START_CODE 			= 1		  / The OS has been loaded into the computer's memory.
 	@RUN_CODE 				= 2		  / The OS has successfully set up the environment and is now running processes.
 	@MANUAL_PAUSE_CODE		= 0x1000
-	@PAUSE_CODE				= 0x1111  / All procs are currently waiting, some are waiting for I/O devices. (or PAUS interrupt)
+	@PAUSE_CODE				= 0x1111  / The computer is currently paused due to the PAUS interrupt.
+	@SHUTDOWN_CODE			= 0x2222  / If you resume the computer, it will begin shutting down.
 	@END_CODE 				= 0x600D  / The OS has successfully come to a stop.
 	@DEADLOCK_CODE			= 0xDEAD  / All procs are waiting on semaphores that will never be signaled.
 	@BAD_START_ERROR 		= 0xFF00  / The OS has encountered a critical error attempting to set up the environment.
@@ -319,6 +325,7 @@ JMP >Init
 	ZRO RG0; LOD RG0 RG0 >CurrentProcID; MOV RG6 RG0
 	ZRO RG1; LOD RG1 RG1 >MaxProcNum; INC RG1
 	ZRO RG5 / Number of cycles
+	ALU MOD RG6 RG1 / Fix issues with CurrentProc > MaxProcID after Terminate
 	#Dis.GetNext
 		INC RG0; ALU MOD RG0 RG1
 		
@@ -368,14 +375,9 @@ JMP >Init
 	#Dis.MaybeDeadlock
 	/ Check if SoftBlockCount is 0 (deadlock)
 	ZRO RG0; LOD RG0 RG0 >SoftBlockCount
-	PAS RG0; JIF EQZ >Dis.Deadlock
+	PAS RG0; JIF NEZ >WaitForInt
 	
-	/ If not, pause the machine and write the pause code to CompStatus
-	LDI FLG >COMP_STATUS_IOP; LDI IO >PAUSE_CODE
-	HLT
-	LDI IO >RUN_CODE; JMP >Dispatcher
-	
-	#Dis.Deadlock
+	/ If so, deadlock.
 	LDI RG0 >DEADLOCK_CODE
 	JMP >StatusHalt
 }
@@ -407,6 +409,9 @@ JMP >Init
 	/ Ready the stack for the OS
 	ZRO SP
 	
+	
+	/ For in-OS waiting
+	#ExH.Skip
 	
 	/ Get EXC in RG0
 	LDI RG0 >EXC_MASK; ALU AND RG0 FLG; ALI SRB RG0 >EXC_SHIFT
@@ -442,8 +447,10 @@ JMP >Init
 
 
 
-/ Resume the current process
+/ Resume the current process (if it's not waiting)
 #ResumeProc  %!Fn% = {
+	ZRO RG0; LOD RG0 RG0 >CurrentProcID
+	LOD RG0 RG0 >SupportList; AIN SET RG0 >SUP_WAIT_BIT; JIF CAR >Dispatcher
 	
 	/ Restore the state
 	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr
@@ -472,7 +479,6 @@ JMP >Init
 / IMPORTANT: DOES NOT MARK THE BITMAP
 / Modifies Rg0 Rg1 and FLG
 #LoadFile  %MemStart, FileSize w/ IOP & DrivePTR% = {
-
 	/ Write the file to memory
 	PAS RG1; JIF EQZ >LoF.Done
 	#LoF.LoadLoop
@@ -663,7 +669,6 @@ JMP >Init
 / Adds the given process as a child to the current process
 / Modifies RG1-4, and FLG
 #InsertChild  %ProcNum% = {
-
 	/ Quick check if it's root
 	PAS RG0; JIF EQZ >InC.Skip
 	
@@ -710,7 +715,6 @@ JMP >Init
 / Does not alter the proc's main word
 / Modifies RG2-5 and FLG
 #RemoveChild  %ProcNum% = {
-
 	/ Case 1 - Proc is root, nothing to do
 	PAS RG0; JIF EQZ >ReC.Done
 	
@@ -724,7 +728,6 @@ JMP >Init
 	/ Check if the process is the first child
 	LDI RG4 >CHILD_MASK; ALU AND RG4 RG3
 	CMP RG4 RG0; JNE >ReC.IsSibling
-		
 		/ Case 2 - Proc is the first child, set parent's child id to proc's sib id
 		LDI RG4 >CHILD_MASK; ALU NOT RG4 RG4; ALU AND RG3 RG4
 		LDI RG4 >SIB_MASK; ALU AND RG4 RG5; ALI SRB RG4 >SIB_SHIFT  / Get child in RG4
@@ -732,23 +735,33 @@ JMP >Init
 		RET
 		
 	#ReC.IsSibling
-	/ Case 3 - Proc is a sibling, "bridge" over the process
-	
-	/ Get the main word of the sibling in RG3 (and actual index in RG2)
-	LDI RG2 >CHILD_MASK
-	
-	#ReC.SibLoop
-		ALU AND RG2 RG3
-		ALI MUL RG2 >NUM_PROC_WORDS; LOD RG3 RG2 >ProcList
-		LDI RG4 >SIB_MASK; ALU AND RG4 RG3; ALI SRB RG4 >SIB_SHIFT
-		CMP RG4 RG0; JEQ >ReC.FoundSib
-		MOV RG2 RG4; JMP >ReC.SibLoop
-	#ReC.FoundSib
-	
-	/ Found the sibling, bridge over the process
-	LDI RG4 >SIB_MASK; ALU AND RG5 RG4
-	ALU NOT RG4 RG4; ALU AND RG3 RG4
-	ALU OR RG3 RG5; STR RG3 RG2 >ProcList
+		/ Case 3 - Proc is a sibling, "bridge" over the process
+		/ What we need to do this: the previous sibling's main word + relative address
+		
+		#ReC.SibLoop
+			/ Get the main word in RG2 
+			ALI MUL RG4 >NUM_PROC_WORDS; LOD RG2 RG4 >ProcList
+		
+			/ Get the sibling's ProcNo (RG3)
+			LDI RG3 >SIB_MASK; ALU AND RG3 RG2; ALI SRB RG3 >SIB_SHIFT
+			
+			/ If this is our ProcNum (RG0), then break
+			CMP RG3 RG0; JEQ >ReC.FoundSib
+			
+			/ Else, ready RG4 to loop again
+			MOV RG4 RG3; JMP >ReC.SibLoop
+			
+		#ReC.FoundSib
+		
+		/ Found the sibling, bridge over the process.
+		/ RG4 is the relative address, RG2 is the sibling's main word
+		
+		/ Get the current proc's sibling field (unshifted, RG5)
+		LDI RG3 >SIB_MASK; ALU AND RG5 RG3
+		
+		/ Remove the previous sibling's sibling field and update it
+		ALU NOT RG3 RG3; ALU AND RG2 RG3
+		ALU OR RG2 RG5; STR RG2 RG4 >ProcList
 	
 	#ReC.Done
 	RET
@@ -775,7 +788,10 @@ JMP >Init
 / Maybe start by blocking all new threading and loading attempts?
 / AND the above only happens the first time shutdown is called. The second time it just terminates root.
 #Shutdown  %!Fn% = {
-	/ For now, just terminates root, terminating all other procs.
+	/ For now, just pauses and terminates root, terminating all other procs.
+	LDI FLG >COMP_STATUS_IOP; LDI IO >SHUTDOWN_CODE
+	HLT
+	
 	ZRO RG0; CAL >Terminate
 	JMP >Dispatcher
 }
@@ -788,6 +804,9 @@ JMP >Init
 	LDI RG0 >TickWaitSem
 	CAL >UnblockAll
 	
+	/ Process interrupt
+	LDI FLG >CONFIG_IOP; ZRO IO
+	
 	/ Resume proc
 	JMP >ResumeProc
 }
@@ -799,7 +818,7 @@ JMP >Init
 / Shell function for RecursiveTerm
 / Modifies RG0-5 and FLG
 #Terminate  %ProcNum% = {
-	PSH 1; STR RA SP 1
+	PSH 1; STR RA SP 0
 	
 	/ First, call RecursiveTerm
 	ZRO RG1; CAL >RecursiveTerm
@@ -821,7 +840,7 @@ JMP >Init
 	/ Whatever is in RG0 is the correct MaxProcNum
 	STR RG0 RG0 >MaxProcNum
 	
-	LOD RA SP 1; POP 1
+	LOD RA SP 0; POP 1
 	RET
 }
 
@@ -957,7 +976,6 @@ JMP >Init
 / Must be a function so OS can call it on procs.
 / Modifies RG2-3 and FLG
 #Passeren  %Address, ProcNum > ProcMustWait?% = {
-	
 	/ Decrement semaphore
 	LOD RG2 RG0 0; DEC RG2; STR RG2 RG0 0
 	
@@ -1000,7 +1018,6 @@ JMP >Init
 / Must be a function so OS can call it on procs.
 / Modifies RG1-4 and FLG
 #Verhogen  %Address% = {
-	
 	/ Increment the semaphore
 	LOD RG1 RG0 0; INC RG1; STR RG1 RG0 0
 	
@@ -1314,6 +1331,34 @@ JMP >Init
 
 
 
+/ Waits for an interrupt.
+/ If the specified time passes (WAIT_TIME), then run dispatcher again, else jump to ExH.Skip to handle it.
+#WaitForInt  %!Fn% = {	
+	/ The only possible interrupts are TICK, PAUS, STOP, and CTDZ.
+	
+	/ Store off CTD.
+	PSH 1; STR CTD SP 0
+	
+	/ Setup registers for waiting.
+	LDI EXA >WFI.Done; LDI CTD >WAIT_TIME; ALI SET FLG >UE_CE_BIT
+	
+	/ Wait...
+	#WFI.Wait: JMP >WFI.Wait
+	
+	/ Now reset registers.
+	#WFI.Done
+	ALI UST FLG >UE_CE_BIT; LDI EXA >ExHandler
+	
+	/ Check if it was CTDZ
+	PAS CTD; JIF EQZ >Dispatcher
+	
+	/ Else, let the exception handler handle it
+	LOD CTD SP 0; POP 1
+	JMP >ExH.Skip
+}
+
+
+
 / ----------------------------------------------------------Syscalls----------------------------------------------------------
 
 
@@ -1473,7 +1518,6 @@ JMP >Init
 
 / The Verhogen syscall. Does all the checks to make sure syscall is valid.
 #SysVerhogen  %RelSemAdd > !Fn% = {
-	
 	/ Make sure the given address is OK to Verhogen.
 	CAL >CheckCurProcAddress
 	

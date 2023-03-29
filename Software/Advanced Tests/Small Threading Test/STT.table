@@ -18,9 +18,9 @@
 0x005c - Th1.4Wait
 0x006a - Th1.2Wait
 0x007a - Thread2
-0x0099 - Thread3
-0x00ad - Thread4
-0x00b2 - PrintT1
-0x00b9 - PrT.Loop
+0x009f - Thread3
+0x00b3 - Thread4
+0x00b8 - PrintT1
+0x00bf - PrT.Loop
 0x0020 - STACKSIZE
-0x00e2 - CommonStack
+0x00e8 - CommonStack
