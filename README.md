@@ -39,9 +39,9 @@ On top of the CPU is the bootloader, which will automatically load a program in 
 
 Finally, on top of the bootloader is the TCS, or Telescope Computing System. It comes with a few different types of I/O, and a relatively easy-to-use pin layout. It also has a few features that the CPU is lacking, like a computer status code, random number generator, cycle counter, and kernel restrictions on I/O devices ending in 00. One port of the TCS says it's for the operating system, but it's really for any program you want the bootloader to run first to control the computer.
 
-The OS, called TBOS or Telescope Basic OS, is the shrunk down and simplified version of [PandOS](https://wiki.virtualsquare.org/#!education/pandos.md). TBOS will, as of January 2023, load and run the program from drive 0 as a User process. It supports loading a "Loadable" formatted program from the given I/O port (SYS 0), loading a program from the file system at the given I/O port (SYS 1 w/ RG1 = file number), ending the current process's CPU burst early (SYS 2), and terminating the current process (HLT as a User process, user interrupts, and any exception not yet supported). If everything runs correctly, the computer will stop with the code 0x600D.
+The OS, called TBOS or Telescope Basic OS, is an attempt to shrink down and simplify [PandOS](https://wiki.virtualsquare.org/#!education/pandos.md). Though as time has gone on, it has become clear that TBOS is more "inspired by" than a "recreation of" PandOS. For a full list of features and syscalls, see the documentation for it [here](https://docs.google.com/document/d/1w4tGKG7OOmJUgn_xcEoIwMuiV4fEk35birdfAZGWwIo/edit?usp=sharing).
 
-The assembly language at the heart of this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations over the course of development, and will probably continue to do so (though hopefully not as frequently). The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and it's User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with some easy to use buttons, is why I often refer to them together as the N++ Mini-IDE.
+The assembly language at the heart of this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations over the course of development, but change in it has significantly slowed down over time. The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and it's User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with some easy to use buttons, is why I often refer to them together as the N++ Mini-IDE.
 
 It is important to note that the bootloader and OS can only load "Loadable" machine code files into RAM. Loadable files begin with their file size, allowing loaders to pull them into memory correctly and efficiently.
 
@@ -57,7 +57,7 @@ I tried to be somewhat organized about how I do things on Github for this projec
   - If an issue is surprisingly big or takes time to fix, I'll leave comments detailing my progress.
 
 - I organize issues in 4 ways:
-  - Issues are pined if they are currently being worked on.
+  - Issues are pinned if they are currently being worked on.
   - Labels are used to provide a quick, easy-to-see category for the issue.
   - Milestones are used when there's a clear goal I have, and when a given issue is in service of that goal.
   - Projects are used to break issues down into the main project categories like OS, Assembler, CPU, etc.
