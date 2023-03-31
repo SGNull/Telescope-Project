@@ -1,0 +1,72 @@
+% 	I/O Interface Module
+
+	Useful tools for interacting with the I/O.
+	Configured to work with TBOS v2.
+	Module functions are defined like "#..MyFunc"
+	
+	
+	Print(StringPtr, TerminalNo) -> None
+	ReadLine(DestinationPtr, Size, KeyboardNo) -> None
+%
+
+@TERMINAL_GROUP_NUM = 2
+@IO_GROUP_SHIFT = 13
+@IO_DEVICE_SHIFT = 11
+@IOP_MASK = 0xF800
+
+@GAIN_IO_MUTEX  = 6
+@RELEASE_IO		= 7
+
+
+
+/ Prints the given string to the given terminal number.
+#..Print  %StringPtr, TerminalNo% = {
+	
+	/ Step 0: Push used registers onto the stack.
+	PSH 3
+	STR RG0 SP 0; STR RG1 SP 1;  STR FLG SP 2
+	
+	/ Step 1: Configure IOP to face TerminalNo.
+	ALI SLB RG1 >IO_DEVICE_SHIFT
+	LDI RG0 >TERMINAL_GROUP_NUM; ALI SLB RG0 >IO_GROUP_SHIFT
+	ALU OR RG1 RG0
+	
+	LDI RG0 >IOP_MASK; ALU NOT RG0 RG0
+	ALU AND RG0 FLG; ALU OR RG0 RG1; MOV FLG RG0
+	
+	/ Step 2: Gain mutex over the terminal/keyboard.
+	LDI RG0 >GAIN_IO_MUTEX; SYS
+	LOD RG0 SP 0
+	
+	/ Step 3: Write characters to terminal, until we see NULL.
+	#IO.Pr.Loop
+		LOD RG1 RG0 0
+		AIN ADD RG1 1; JIF EQZ >IO.Pr.Done
+		
+		MOV IO RG1
+		INC RG0; JMP >IO.Pr.Loop
+	
+	/ Step 4: When we see NULL, break from loop and release mutex.
+	#IO.Pr.Done
+	LDI RG0 >RELEASE_IO; SYS
+	
+	/ Step 5: Finally, pop from stack and return.
+	LOD RG0 SP 0; LOD RG1 SP 1; LOD FLG SP 2
+	POP 3
+	RET
+}
+
+
+
+/ Reads one line of keyboard input, or up to Size - 1.
+/ Size must be greater than 1
+#..ReadLine  %DestinationPtr, Size, KeyboardNo% = {
+	/ Step 0: Push used registers to stack.
+	/ Step 1: Configure IOP to face KeyboardNo
+	/ Step 2: Gain mutex over the terminal/keyboard.
+	/ Step 3: Wait for and get input.
+	/ Step 4: Check if this is \n, if so we're done.
+	/ Step 5: Write to the string, and loop if we're not at Size - 1
+	/ Step 6: We're done, so release mutex.
+	/ Step 7: Pop registers off stack and return.
+}

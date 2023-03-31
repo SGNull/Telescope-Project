@@ -1,8 +1,6 @@
 These are some ideas that I come up with during the project that are somewhat out of the way, but still feasible enough to be written down.
 
 
-Libraries for commonly used things (strings, tables, objects).
-
 A syntax enforcer & better error checker for TASL V3+.
 
 A light compiler with support for simple loops, function calls, variables, and +=, -=, etc. style operations.

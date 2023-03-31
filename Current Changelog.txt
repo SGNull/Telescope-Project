@@ -1,62 +1,11 @@
 LATEST CHANGES:
 
-TBOS v2.1 is confirmed to work properly! Resolved #71.
+Began #74 (Modules Library)
 
-Adjusted some internal TBOS values.
+Created "Software Library" directory.
 
-Significant hardware adjustments/fixes (yes, hardware fixes).
+Created library module files.
 
+Created "Library Idea" text file.
 
---- TBOS ---
-
-Reduced TBOS dispatcher loops to 6.
-
-Added WaitForInt to OS. Now, instead of pausing the computer, the OS waits for the next interrupt to occur if softblock happens. Resolves #68.
-
-ResumeProc now checks for semaphore waiting (and if the current proc is waiting, calls dispatcher)
-
-Shutdown now pauses the computer with code 0x2222 before terminating root.
-
-Fixed bug where triggering STOP while in the OS would cause unrecoverable memory corruption.
-
-Fixed issue where Terminate cause memory corruption and should have been unrecoverable (how did this not break sooner???)
-
-Fixed RemoveChild. Both the comments and logic were completely incorrect in one spot.
-
-Fixed issue where Dispatcher would infinite loop if all procs were waiting and CurrentProcNum > MaxProcNum.
-
-
---- Hardware ---
-
-Reduced TICK interval to 16,384 cycles. May want to increase this in the future when the TCS/OS is being used realistically.
-
-Made all physical interrupts (they're basically just exceptions) maskable while LO offsetting is disabled in the TCS, and non-maskable when LO offsetting is enabled.
-
-Added "Config" I/O port 31 (currently just a way to acknowledge TICK interrupts)
-
-TICK interrupt requires acknowledging on I/O port 31 before it turns off.
-
-Further reduced TCS internal size (and changed lots of wiring).
-
-Corrected some wiring inside of the Bootloader machine.
-
-The Hard Reset pin now also resets the Bootloader.
-
-
---- Tests ---
-
-Completed Small Threading Test.
-
-Small Threading Test runs successfully on TBOS now!
-
-
---- Notepad++ ---
-
-Updated TASL Dark to support .table files (they're a bit nicer to look at now)
-
-
---- Documentation ---
-
-Updated TCS and Bootloader documentation to reflect changes in this update.
-
-Updated TBOS documentation to reflect changes in this update.
+Added "..Print" to IO Interface module.

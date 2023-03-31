@@ -1,0 +1,34 @@
+The idea is to create a list of common functions grouped together into modules.
+Module functions are defined like "#..MyFunc" to minimize label conflicts.
+These modules will then be compressed into .tl files.
+The .tl files will be placed in the directory of the source code being developed.
+Some "Loadable Module Import" Python script will run, and will require their names (minus the .tl)
+It will convert your .tasl into .tl, combine it with the other .tl files, then make a .tload file of that.
+
+In the future, this may be converted into something like what C does with its makefiles.
+
+
+
+List of Module Functions
+
+IO Interface:
+	Print(StringPtr, TerminalNo) -> None
+	ReadLine(DestinationPtr, Size, KeyboardNo) -> None
+		Assumes Size is total available space (reads Size-1 chars to put NULL at the end)
+		Will stop reading at \n too (does not place \n into the string).
+
+Strings:
+	GetValue(StringPtr) -> Value
+	IsValue(StringPtr) -> IsValue?
+	ToLower(StringPtr) -> None
+	IsEqual(StringPtr, StringPtr) -> Equal?
+	
+Memory Mgt:
+	InitHeap(HeapPtr, Size) -> None (lets all module functions know about the heap)
+	Alloc(Size) -> Ptr
+	Dealloc(Ptr) -> None
+	ClearHeap() -> None
+	
+TSFS Interface:
+	LoadFile(DestinationPtr, FileNo, DriveNo) -> Success?
+	StoreFile(SourcePtr, FileSize, DriveNo) -> Success?
