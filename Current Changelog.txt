@@ -1,11 +1,13 @@
 LATEST CHANGES:
 
-Began #74 (Modules Library)
+Added gitignore.
 
-Created "Software Library" directory.
+Corrected TBOS pause code.
 
-Created library module files.
+Rewrote ModifyBits code.
 
-Created "Library Idea" text file.
+Hugely improved FindOpenMemory (the logic was not nearly as difficult as I remember it being).
 
-Added "..Print" to IO Interface module.
+Added clarification to Glass CPU documentation about bit masking with SET, UST, SLB, and SRB operations.
+
+Added stack pushing & popping to all functions except the LoadProgramX's in TBOS. Minor slowdowns, but nothing too significant. Data in optimization notes (data for post-optimization will be replaced once stack pushing and popping is fully implemented). Brief Summary: I'm not sure that I like these numbers, and I'm not sure if I'm going to stick with this change.

@@ -174,6 +174,7 @@ JMP >Init
 	@CHUNK_SIZE 		= 0x0400
 	@NUM_CHUNKS 		= 64		/ Must be (2^16)/CHUNK_SIZE
 	@BMP_WORDS 			= 4			/ Must be NUM_CHUNKS/16, and under 16
+	@BMP_WORDS_2S_EXP	= 2			/ Must be sqrt(BMP_WORDS)
 	#MallocBMPs 		= [~BMP_WORDS]
 	
 	
@@ -199,8 +200,8 @@ JMP >Init
 	
 	
 	/ ---- MISC ----
-	#MarkInst: ALU SET RG5 RG4
-	#UnmarkInst: ALU UST RG5 RG4
+	#MarkInst: ALU SET RG3 RG0
+	#UnmarkInst: ALU UST RG3 RG0
 )
 
 
@@ -233,7 +234,6 @@ JMP >Init
 	/ Status codes
 	@START_CODE 			= 1		  / The OS has been loaded into the computer's memory.
 	@RUN_CODE 				= 2		  / The OS has successfully set up the environment and is now running processes.
-	@MANUAL_PAUSE_CODE		= 0x1000
 	@PAUSE_CODE				= 0x1111  / The computer is currently paused due to the PAUS interrupt.
 	@SHUTDOWN_CODE			= 0x2222  / If you resume the computer, it will begin shutting down.
 	@END_CODE 				= 0x600D  / The OS has successfully come to a stop.
@@ -275,7 +275,7 @@ JMP >Init
 	ALI ADD RG1 2  / Add the stack chunk + 1 for remainder
 	
 	/ Call MarkBits(start chunk, size)
-	LDI RG0 >NUM_CHUNKS; ALI SUB RG0 1  / Adjust for stack (will be at end of mem)
+	LDI RG0 >NUM_CHUNKS; DEC RG0  / Adjust for stack (will be at end of mem)
 	CAL >MarkBits
 	
 	/ Load the root program
@@ -477,8 +477,10 @@ JMP >Init
 
 / Loads a file at IOP into memory
 / IMPORTANT: DOES NOT MARK THE BITMAP
-/ Modifies Rg0 Rg1 and FLG
 #LoadFile  %MemStart, FileSize w/ IOP & DrivePTR% = {
+	PSH 3
+	STR RG0 SP 0; STR RG1 SP 1; STR FLG SP 2
+
 	/ Write the file to memory
 	PAS RG1; JIF EQZ >LoF.Done
 	#LoF.LoadLoop
@@ -488,113 +490,135 @@ JMP >Init
 	
 	/ Finally, return
 	#LoF.Done
+	LOD RG0 SP 0; LOD RG1 SP 1; LOD FLG SP 2
+	POP 3
 	RET
 }
 
 
 
 / Returns the number of the first 0 bit, or NULL if none are found
-/ Modifies RG1-5, and FLG
 #FindOpenMemory  %Size > FirstChunkNum|NULL% = {
-	/ RG1: Current bitwise index
-	/ RG2: Relative bitwise index to RG1
+	PSH 5
+	STR RG0 SP 0; STR RG1 SP 1; STR RG2 SP 2; STR RG3 SP 3
+	STR FLG SP 4
+	
+	/ Setup registers:
+	/ RG0: NUM_CHUNKS / Bits left to find (+ default value in stack)
+	/ RG1: Current bit
+	/ RG2: Current word number
 	/ RG3: Current word
-	/ RG4: WORD_SIZE
-	/ RG5: Temp register
-	/ RG6: Temp register
-	ZRO RG1; LOD RG3 RG1 >MallocBMPs; LDI RG4 >WORD_SIZE
 	
-	#FOM.Loop
-		/ If current bit (calculate in RG5) is 0, start the inner loop
-		MOV RG5 RG1; ALU MOD RG5 RG4
-		AFN SET RG3 RG5; JIF CAR >FOM.Not0
-			
-			/ Set up RG2 as relative index, and
-			/ RG5: current actual index
-			LDI RG2 1
-			MOV RG5 RG1; ALU ADD RG5 RG2
-			#FOM.InLoop
-				/ If RG0 number of 0's were found, we're done
-				CMP RG2 RG0; JEQ >FOM.Success
-				
-				/ If not, check if we need to go to the next word for the next bit
-				AFN MOD RG5 RG4; JIF NEZ >FOM.SameWord
-					/ Not the same word, so grab the new one.
-					MOV RG6 RG5; ALU DIV RG6 RG4; ALI MOD RG6 >BMP_WORDS
-					LOD RG3 RG6 >MallocBMPs
-				#FOM.SameWord
-				
-				/ Now check the next bit
-				MOV RG6 RG5; ALU MOD RG6 RG4
-				AFN SET RG3 RG6; JIF CAR >FOM.Hit1
-				
-			/ If it's 0, increment RG5 and RG2
-			INC RG5; INC RG2; JMP >FOM.InLoop
-				
-			/ Else, if it's 1, exit the loop
-			#FOM.Hit1
-			MOV RG1 RG5  / Update RG1 to be accurate (it will then increment past the 1)
-			
-		#FOM.Not0
-		
-		/ Increment the current index, and check if it's over the total bits
-		INC RG1; LDI RG5 >NUM_CHUNKS; CMP RG5 RG1; JLT >FOM.NoSpace
-		
-		/ If not, get the next word if needed and loop
-		AFN MOD RG1 RG4; JIF NEZ >FOM.Loop
-		MOV RG5 RG1; ALU DIV RG5 RG4; LOD RG3 RG5 >MallocBMPs  / Get next word
-	JMP >FOM.Loop
+	LDI RG0 >NUM_CHUNKS
+	ZRO RG1
+	ZRO RG2; LOD RG3 RG2 >MallocBMPs
 	
-	#FOM.Success
-	MOV OUT RG1; RET
+	#FOM.OpenSearch
+		/ Immediately check for wrap around (if so, we're done).
+		CMP RG1 RG0; JGE >FOM.OutOfMem
 		
-	#FOM.NoSpace
-	NUL OUT; RET
+		/ Store off the current bit for now.
+		MOV RG6 RG1
+		
+		/ Increment bit, and if word overflow get next word.
+		INC RG1; AIN SRB RG1 4; JIF CAR >FOM.SNoverflow
+			INC RG2; ALI UST RG2 >BMP_WORDS_2S_EXP; LOD RG3 RG2 >MallocBMPs
+		#FOM.SNoverflow
+		
+		/ If the bit is not open, loop.
+		AFN SET RG3 RG6; JIF CAR >FOM.OpenSearch
+		
+		/ If not, setup RG0 for OpenCheck
+		LOD RG0 SP 0
+		
+		#FOM.OpenCheck
+			/ Decrement number of bits to find, and if zero, we're done.
+			DCC RG0; JIF EQZ >FOM.Done
+			
+			/ Else, increment bit and check for word overflow.
+			INC RG1; AIN SRB RG1 4; JIF CAR >FOM.CNoverflow
+				INC RG2; ALI UST RG2 >BMP_WORDS_2S_EXP; LOD RG3 RG2 >MallocBMPs
+			#FOM.CNoverflow
+			
+			/ If the bit is open, loop again.
+			AFN SET RG3 RG1; JIF NCR >FOM.OpenCheck
+		
+		/ If not, setup RG0 for outer loop and goto it.
+		/ NOTE: This repeats the same check (RG1 is unchanged), but it will have the same outcome so it does not matter.
+		LDI RG0 >NUM_CHUNKS; JMP >FOM.OpenSearch
+	
+	#FOM.OutOfMem
+	NUL OUT
+	
+	#FOM.Done
+	LOD RG0 SP 0; LOD RG1 SP 1; LOD RG2 SP 2; LOD RG3 SP 3
+	LOD FLG SP 4
+	POP 5
+	RET
 }
 
 
 
-/ Turns on bits Start through Start+Size-1 inclusive
-/ Modifies RG1-5, and FLG
-#MarkBits  %Start, Size% = {
+/ Turns on bits StartChunk through StartChunk+Size-1 inclusive
+#MarkBits  %StartChunk, Size% = {
+	PSH 5
+	STR RG0 SP 0; STR RG1 SP 1; STR RG2 SP 2; STR RG3 SP 3
+	STR FLG SP 4
+	
 	/ Setup and jump to ModifyBits
-	ZRO RG2; LOD RG2 RG2 >MarkInst; STR RG2 RG2 >MoB.ModBit
+	ZRO RG2; LOD RG2 RG2 >MarkInst
 	JMP >ModifyBits
 }
 
-/ Turns off bits Start through Start+Size-1 inclusive
-/ Modifies RG1-5, and FLG
-#UnmarkBits  %Start, Size% = {
+/ Turns off bits StartChunk through StartChunk+Size-1 inclusive
+#UnmarkBits  %StartChunk, Size% = {
+	PSH 5
+	STR RG0 SP 0; STR RG1 SP 1; STR RG2 SP 2; STR RG3 SP 3
+	STR FLG SP 4
+	
 	/ Setup and jump to ModifyBits
-	ZRO RG2; LOD RG2 RG2 >UnmarkInst; STR RG2 RG2 >MoB.ModBit
+	ZRO RG2; LOD RG2 RG2 >UnmarkInst
 	JMP >ModifyBits
 }
 
 / Shell function for UnmarkBits and MarkBits DO NOT CALL
 #ModifyBits {
-	/ RG2 is WORD_SIZE, RG3 is word num, RG4 is bits, RG5 is the word itself
-	LDI RG2 >WORD_SIZE
-	MOV RG3 RG0; ALU DIV RG3 RG2
-	LOD RG5 RG3 >MallocBMPs
-	MOV RG4 RG0; ALU MOD RG4 RG2
+	/ Modify code according to RG2
+	STR RG2 RG2 >MoB.ModBit
 	
-	/ Now loop through the bitmap and unset bits
+	/ Setup the following:
+	/ RG0: Current bit (already set)
+	/ RG1: End bit
+	/ RG2: Word number
+	/ RG3: Current word
+	ALU ADD RG1 RG0
+	MOV RG2 RG0; ALI SRB RG2 4
+	LOD RG3 RG2 >MallocBMPs
+	
 	#MoB.Loop
-		/ Modify the bit
-		#MoB.ModBit:NOP  / ALU SET RG5 RG4 or ALU UST RG5 RG4
+		/ If we're at the end, we're done.
+		CMP RG0 RG1; JEQ >MoB.Done
 		
-		/ Goto the next bit (unless we're at the end, or end of word)
-		INC RG4; DCC RG1; JIF EQZ >MoB.Done
-		ALF MOD RG4 RG2; JIF NEZ >MoB.Loop
+		/ Do the operation
+		#MoB.ModBit: NOP	/ ALU XXX RG3 RG0
 		
-		/ If at the end of word, store the word and get the next one
-		STR RG5 RG3 >MallocBMPs; INC RG3; ALI MOD RG3 >BMP_WORDS
-		LOD RG5 RG3 >MallocBMPs
+		/ Go to next bit, and if no word overflow, loop again.
+		INC RG0; AIN SRB RG0 4; JIF CAR >MoB.Loop
+		
+		/ Else, store word, and load next word.
+		STR RG3 RG2 >MallocBMPs
+		INC RG2; ALI UST RG2 >BMP_WORDS_2S_EXP  / Does wrap-around automatically :D
+		LOD RG3 RG2 >MallocBMPs
 		JMP >MoB.Loop
+		
 	#MoB.Done
 	
-	/ Now that we're done, update the last word and return
-	STR RG5 RG3 >MallocBMPs
+	STR RG3 RG2 >MallocBMPs
+	
+	/ Pop and return
+	LOD RG0 SP 0; LOD RG1 SP 1; LOD RG2 SP 2; LOD RG3 SP 3
+	LOD FLG SP 4
+	POP 5
 	RET
 }
 
@@ -605,9 +629,10 @@ JMP >Init
 
 
 / Creates child thread for current proc with given HLB and FLG
-/ Modifies RG0-5 and FLG
 #MakeChildThread  %NewHLB w/ FLG > ProcNum% = {
-	PSH 1; STR FLG SP 0
+	PSH 5
+	STR RG0 SP 0; STR RG1 SP 1; STR RG2 SP 2; STR RG3 SP 3
+	STR FLG SP 4
 	
 	/ Find inactive thread (ProcNo = RG1)
 	NUL RG1
@@ -626,14 +651,14 @@ JMP >Init
 	INC RG3; STR RG3 RG3 >ProcCount
 	
 	/ Check if this is above MaxProcNum.
-	ZRO RG4; LOD RG4 RG4 >MaxProcNum
-	CMP RG1 RG4; JLT >MCT.Smaller
+	ZRO RG2; LOD RG2 RG2 >MaxProcNum
+	CMP RG1 RG2; JLT >MCT.Smaller
 		/ If it's not less than, it's greater than, so set MaxProcNum
 		STR RG1 RG1 >MaxProcNum
 	#MCT.Smaller
 	
 	/ Initialize its support list word
-	LDI RG4 >INIT_SUP_WORD; STR RG4 RG1 >SupportList
+	LDI RG2 >INIT_SUP_WORD; STR RG2 RG1 >SupportList
 	
 	/ Get the location of its state in RG2
 	MOV RG2 RG1; ALI MUL RG2 >NUM_STATE_REGS
@@ -653,24 +678,37 @@ JMP >Init
 	STR RG3 RG2 >SP_OFFSET
 	
 	/ Set FLG and HLB
-	LOD RG3 SP 0
+	LOD RG3 SP 4
 	STR RG3 RG2 >FLG_OFFSET
 	STR RG0 RG2 >HLB_OFFSET
 	
 	
-	/ InsertChild(ThisProcNum) and return to RA
+	/ InsertChild(ThisProcNum)
 	MOV RG0 RG1
-	MOV OUT RG0; POP 1
-	JMP >InsertChild
+	MOV OUT RG0
+	
+	MOV RG3 RA
+	CAL >InsertChild
+	MOV RA RG3
+	
+	/ Pop and return
+	LOD RG0 SP 0; LOD RG1 SP 1; LOD RG2 SP 2; LOD RG3 SP 3
+	LOD FLG SP 4
+	POP 5
+	RET
 }
 
 
 
 / Adds the given process as a child to the current process
-/ Modifies RG1-4, and FLG
 #InsertChild  %ProcNum% = {
+	/ Push to stack
+	PSH 5
+	STR RG1 SP 0; STR RG2 SP 1; STR RG3 SP 2; STR RG4 SP 3
+	STR FLG SP 4
+	
 	/ Quick check if it's root
-	PAS RG0; JIF EQZ >InC.Skip
+	PAS RG0; JIF EQZ >InC.Done
 	
 	/ Get the main word of ProcNum in RG2 (and actual index in RG1)
 	MOV RG1 RG0; ALI MUL RG1 >NUM_PROC_WORDS; LOD RG2 RG1 >ProcList
@@ -691,7 +729,7 @@ JMP >Init
 	LDI RG1 >CHILD_MASK; ALF AND RG1 RG2; JIF NEZ >InC.FindLastSib
 		/ Case 1: current proc has no children
 		ALU OR RG2 RG0; STR RG2 RG3 >ProcList
-		RET
+		JMP >InC.Done
 		
 	/ Case 2: current proc has children
 	/ Loop through siblings to find the endpoint
@@ -705,7 +743,12 @@ JMP >Init
 	/ Set proc as sibling of last sib and we're done
 	MOV RG3 RG0; ALI SLB RG3 >SIB_SHIFT
 	ALU OR RG2 RG3; STR RG2 RG1 >ProcList
-	#InC.Skip
+	#InC.Done
+	
+	/ Pop and return
+	LOD RG1 SP 0; LOD RG2 SP 1; LOD RG3 SP 2; LOD RG4 SP 3
+	LOD FLG SP 4
+	POP 5
 	RET
 }
 
@@ -713,8 +756,11 @@ JMP >Init
 
 / (ProcNum) removes the given process as a child from the process tree
 / Does not alter the proc's main word
-/ Modifies RG2-5 and FLG
 #RemoveChild  %ProcNum% = {
+	PSH 5
+	STR RG2 SP 0; STR RG3 SP 1; STR RG4 SP 2; STR RG5 SP 3
+	STR FLG SP 4
+
 	/ Case 1 - Proc is root, nothing to do
 	PAS RG0; JIF EQZ >ReC.Done
 	
@@ -732,7 +778,7 @@ JMP >Init
 		LDI RG4 >CHILD_MASK; ALU NOT RG4 RG4; ALU AND RG3 RG4
 		LDI RG4 >SIB_MASK; ALU AND RG4 RG5; ALI SRB RG4 >SIB_SHIFT  / Get child in RG4
 		ALU OR RG3 RG4; STR RG3 RG2 >ProcList
-		RET
+		JMP >ReC.Done
 		
 	#ReC.IsSibling
 		/ Case 3 - Proc is a sibling, "bridge" over the process
@@ -764,6 +810,9 @@ JMP >Init
 		ALU OR RG2 RG5; STR RG2 RG4 >ProcList
 	
 	#ReC.Done
+	LOD RG2 SP 0; LOD RG3 SP 1; LOD RG4 SP 2; LOD RG5 SP 3
+	LOD FLG SP 4
+	POP 5
 	RET
 }
 
@@ -776,7 +825,7 @@ JMP >Init
 / For now does not do much, but in the future there will be extra features associated with this.
 / When the user triggers the PAUS interrupt, this subroutine is called.
 #PauseMenu  %!Fn% = {
-	LDI FLG >COMP_STATUS_IOP; LDI IO >MANUAL_PAUSE_CODE
+	LDI FLG >COMP_STATUS_IOP; LDI IO >PAUSE_CODE
 	HLT
 	JMP >ResumeProc
 }
@@ -816,9 +865,10 @@ JMP >Init
 / Deactivates, deallocates, and un-childs ProcNum and all its children.
 / Now handles semaphores and selective deallocation (if thread, don't dealloc), along with MaxProcNum
 / Shell function for RecursiveTerm
-/ Modifies RG0-5 and FLG
 #Terminate  %ProcNum% = {
-	PSH 1; STR RA SP 0
+	PSH 7
+	STR RG1 SP 0; STR RG2 SP 1; STR RG3 SP 2; STR RG4 SP 3; STR RG5 SP 4
+	STR RA SP 5; STR FLG SP 6
 	
 	/ First, call RecursiveTerm
 	ZRO RG1; CAL >RecursiveTerm
@@ -840,7 +890,9 @@ JMP >Init
 	/ Whatever is in RG0 is the correct MaxProcNum
 	STR RG0 RG0 >MaxProcNum
 	
-	LOD RA SP 0; POP 1
+	LOD RG1 SP 0; LOD RG2 SP 1; LOD RG3 SP 2; LOD RG4 SP 3; LOD RG5 SP 4
+	LOD RA SP 5; LOD FLG SP 6
+	POP 7
 	RET
 }
 
@@ -904,9 +956,9 @@ JMP >Init
 		LOD RG3 RG2 0; INC RG3; STR RG3 RG2 0
 
 		/ Now begin looping through each proc (RG3) in ProcList
-		NUL RG3; ZRO RG6; LOD RG6 RG6 >MaxProcNum; INC RG6
+		NUL RG3; ZRO RG0; LOD RG0 RG0 >MaxProcNum; INC RG0
 		#ReT.VLoop
-			INC RG3; CMP RG3 RG6; JEQ >ReT.VSkip
+			INC RG3; CMP RG3 RG0; JEQ >ReT.VSkip
 			
 			/ Check if the SemAdd (RG5) is equal (and if not, go to the next proc)
 			MOV RG4 RG3; ALI MUL RG4 >NUM_PROC_WORDS; INC RG4
@@ -930,6 +982,7 @@ JMP >Init
 	/ C) Formally delete the process (deactivate proc, decrement ProcCount, clear support word).
 	
 	/ Check if this is a child thread (and skip dealloc if it is)
+	LOD RG0 SP 0
 	LOD RG1 RG0 >SupportList; AIN SET RG1 >SUP_IS_THREAD_BIT; JIF CAR >ReT.SkipDealloc
 	
 	/ Get current proc's HLB(RG2)
@@ -944,7 +997,6 @@ JMP >Init
 		MOV RG1 RG2; LDI RG3 >CHUNK_SIZE; ALU DIV RG1 RG3
 		LDI RG0 >LO_MASK; ALU AND RG0 RG2; ALI SLB RG0 >LO_SHIFT; ALU DIV RG0 RG3
 		CAL >UnmarkBits
-		LOD RG0 SP 0
 	#ReT.SkipDealloc
 	
 	/ Call RecursiveTerm on child procs (if they exist)
@@ -966,7 +1018,7 @@ JMP >Init
 	ZRO RG1; STR RG1 RG0 >SupportList
 	
 	/ Return
-	LOD RA SP 1; POP 3
+	LOD RG0 SP 0; LOD RA SP 1; POP 3
 	RET
 }
 
@@ -974,8 +1026,10 @@ JMP >Init
 
 / The Passeren (Wait) semaphore operation.
 / Must be a function so OS can call it on procs.
-/ Modifies RG2-3 and FLG
 #Passeren  %Address, ProcNum > ProcMustWait?% = {
+	PSH 3
+	STR RG2 SP 0; STR RG3 SP 1; STR FLG SP 2
+
 	/ Decrement semaphore
 	LOD RG2 RG0 0; DEC RG2; STR RG2 RG0 0
 	
@@ -1001,23 +1055,31 @@ JMP >Init
 			ALI SET RG3 >SUP_OS_WAIT_BIT
 		#Pas.NotOSSem
 		
-		/ Update the support word
-		STR RG3 RG1 >SupportList
+	/ Update the support word
+	STR RG3 RG1 >SupportList
 		
-		/ And return 1 (proc must wait)
-		LDI OUT 1; RET
+	/ And return 1 (proc must wait)
+	LDI OUT 1 JMP >Pas.Done
 		
 	#Pas.Skip
-		/ Return 0 (proc doesn't have to wait)
-		ZRO OUT; RET
+	/ Return 0 (proc doesn't have to wait)
+	ZRO OUT
+	
+	#Pas.Done
+	LOD RG2 SP 0; LOD RG3 SP 1; LOD FLG SP 2
+	POP 3
+	RET
 }
 
 
 
 / The Verhogen (Signal) semaphore operation.
 / Must be a function so OS can call it on procs.
-/ Modifies RG1-4 and FLG
 #Verhogen  %Address% = {
+	PSH 5
+	STR RG0 SP 0; STR RG1 SP 1; STR RG2 SP 2; STR RG3 SP 3; STR RG4 SP 4
+	STR FLG SP 5
+	
 	/ Increment the semaphore
 	LOD RG1 RG0 0; INC RG1; STR RG1 RG0 0
 	
@@ -1064,14 +1126,20 @@ JMP >Init
 	#Ver.Done
 	
 	/ When done, return
+	LOD RG0 SP 0; LOD RG1 SP 1; LOD RG2 SP 2; LOD RG3 SP 3; LOD RG4 SP 4
+	LOD FLG SP 5
+	POP 5
 	RET
 }
 
 
 
 / Unblocks all processes associated with the given semaphore.
-/ Modifies RG1-5, OUT, and FLG
 #UnblockAll  %SemAdd% = {
+	PSH 7
+	STR RG1 SP 0; STR RG2 SP 1; STR RG3 SP 2; STR RG4 SP 3; STR RG5 SP 4
+	STR RG6 SP 5; STR FLG SP 6
+	
 	/ Loop through all procs (RG1 = ProcNum, RG2 = Count)
 	NUL RG1; ZRO RG2
 	#UnA.Loop
@@ -1109,6 +1177,10 @@ JMP >Init
 	
 	/ Do [SemAdd] += count and return.
 	LOD RG1 RG0 0; ALU ADD RG1 RG2; STR RG1 RG0 0
+	
+	LOD RG1 SP 0; LOD RG2 SP 1; LOD RG3 SP 2; LOD RG4 SP 3; LOD RG5 SP 4
+	LOD RG6 SP 5; LOD FLG SP 6
+	POP 7
 	RET
 }
 
@@ -1183,9 +1255,8 @@ JMP >Init
 	
 	LDI RG2 >CHUNK_SIZE; ALU MUL OUT RG2; ALI SRB OUT >LO_SHIFT
 	MOV RG3 RG1; ALU MUL RG3 RG2; ALU OR OUT RG3
-	
 	CAL >MarkBits
-	
+
 	/ Load program into memory using LoadFile(CHUNK_SIZE * FirstChunk, Size)
 	LOD RG1 SP 1
 	LDI RG2 >CHUNK_SIZE; ALU MUL RG0 RG2
@@ -1205,8 +1276,10 @@ JMP >Init
 
 
 / Won't return, and will instead goto SRH.UserPriv, if the proc is accessing protected devices and is user.
-/ Modifies RG0 and RG1
 #CheckIOPAccess  %None > IOP | no return% = {
+	PSH 3
+	STR RG0 SP 0; STR RG1 SP 1; STR FLG SP 2
+
 	/ Get the proc's FLG (in RG0)
 	ZRO RG0; LOD RG0 RG0 >CurrentStatePtr; LOD RG0 RG0 >FLG_OFFSET
 	
@@ -1228,15 +1301,21 @@ JMP >Init
 	#CIA.Done
 	
 	/ Now return the IOP number
-	MOV OUT RG0; RET
+	MOV OUT RG0
+	
+	LOD RG0 SP 0; LOD RG1 SP 1; LOD FLG SP 2
+	POP 3
+	RET
 }
 
 
 
 / Checks the given relative address from the current process to see if it is OOB or in the OS.
-/ Modifies RG2-4
 #CheckCurProcAddress  %RelAddr > Addr | no return% = {
-
+	PSH 4
+	STR RG2 SP 0; STR RG3 SP 1; STR RG4 SP 2
+	STR FLG SP 3
+	
 	/ Get FLG (RG3) and HLB (RG2)
 	ZRO RG2; LOD RG2 RG2 >CurrentStatePtr
 	LOD RG3 RG2 >FLG_OFFSET
@@ -1252,7 +1331,7 @@ JMP >Init
 		
 		/ Finally, get the real address in OUT and return
 		ALI SLB RG2 >LO_SHIFT; ALU ADD RG2 RG0; MOV OUT RG2
-		RET
+		JMP >CPA.Done
 		
 	#CPA.IsKernel
 		/ If Kernel, get the real address in OUT
@@ -1264,7 +1343,12 @@ JMP >Init
 		CMP RG2 RG4; JLT >SRH.OSMod
 		
 		/ If not, return.
-		RET
+	#CPA.Done
+	
+	LOD RG2 SP 0; LOD RG3 SP 1; LOD RG4 SP 2
+	LOD FLG SP 3
+	POP 4
+	RET
 }
 
 
