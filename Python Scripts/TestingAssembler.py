@@ -109,16 +109,26 @@ instructions_table = [0xd188, 0x0000, 0b0000,  # HLT
                       ]
 
 # Register table entries: (mnemonic_hash, translation)
-register_table = [0x40F2, 0x0,  # RG0
+register_table = [
+                  # General purpose:
+                  0x40F2, 0x0,  # RG0
                   0x44F2, 0x1,  # RG1
                   0x48F2, 0x2,  # RG2
                   0x4CF2, 0x3,  # RG3
+
+                  # No longer used:
                   0x50F2, 0x4,  # RG4
                   0x54F2, 0x5,  # RG5
                   0x58F2, 0x6,  # RG6
-                  0xD2AF, 0x6,  # OUT
                   0x5CF2, 0x7,  # RG7
+
+                  # Assembler assigned special purpose:
+                  0x40d3, 0x4,  # SF0
+                  0x44d3, 0x5,  # SF1
+                  0xD2AF, 0x6,  # OUT
                   0x0032, 0x7,  # RA
+
+                  # Special purpose:
                   0x0070, 0x8,  # PC
                   0x01E9, 0x9,  # IO
                   0x9D86, 0xA,  # FLG

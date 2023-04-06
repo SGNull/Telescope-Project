@@ -1,0 +1,10 @@
+# Read .tasl files as assembly
+*.tasl linguist-language=Assembly
+
+# Ignore most Notepad++ files (ones I did not manually (using N++) create/edit).
+Notepad++?Files/config/* -linguist-detectable
+Notepad++?Files/plugins/* -linguist-detectable
+Notepad++?Files/themes/* -linguist-detectable
+
+# Ignore old files. ? is used for spacing
+Old?Files/* -linguist-detectable

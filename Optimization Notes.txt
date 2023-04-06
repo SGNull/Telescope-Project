@@ -53,7 +53,7 @@ x is the number of characters, and f(x) gives the exact number of cycles it woul
 		
 		493 cycles per character.
 			Not a huge improvement, but still an improvement!
-	
+
 	I have a hunch that the optimizations made will be more noticeable in different tests besides just this one.
 
 
@@ -80,10 +80,10 @@ Multiprogramming Test:
 
 		Solution:
 		f(x) = 496x + 3197
-		
+	
 		Interesting. It has not increased the cycles per character at all, and has increased the base OS time by about 25%. Not tooooo bad in this particular test, but perhaps really bad in the long run? Is tech debt worth the speedup in OS related functions? I leaning towards no, especially with how far this OS has come.
-	
-	
+
+
 Comprehensive Threading Test:
 
 	Pre-change  - 35388 cycles
@@ -103,3 +103,54 @@ Small Threading Test:
 	
 
 I'm just not liking these numbers. It's not like it's a 100% increase, but 5%, 9%, 25% in specific cases, that adds up over time. Think about some set of programs that take a total of 1,000,000 cycles to run. Let's say we have on average a 13% increase in cycles, then that's an extra 130,000 cycles that need to be executed. The only upside is that the dispatcher is unaffected (as demonstrated by the Multiprogramming Test results), but just about everything else is.
+
+
+
+		==================
+--------TASL 5 TBOS Update--------
+		==================
+Multiprogramming Test:
+
+	"Hi!$"			- 4627 cycles
+	"Hello!$"		- 6115 cycles
+	"Hello World!$"	- 9091 cycles
+
+	Solution (x is chars, f(x) is cycles):
+	f(x) = 496x + 2643
+	
+	Pre-Stack:
+	f(x) = 496x + 2546
+	
+	Post-Stack:
+	f(x) = 496x + 3197
+	
+	Barely any difference! Good!
+
+
+Comprehensive Threading Test:
+
+	35916 cycles
+	
+	Pre-Stack:
+	35388 cycles
+	
+	Post-Stack:
+	38554 cycles
+	
+	Not much change at all.
+
+
+Small Threading Test:
+
+	27012 cycles
+	
+	Pre-Stack:
+	26765 cycles
+	
+	Post-Stack:
+	28025 cycles
+	
+	Again, not much change.
+	
+
+In total, we have about a 3.8% increase in base OS cycle usage, 1.5% increase in CTT cycle usage, and 0.9% increase in STT cycle usage, as opposed to 25%, 9%, and 5% respectively.

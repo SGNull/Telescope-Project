@@ -1,13 +1,16 @@
 LATEST CHANGES:
 
-Added gitignore.
+TBOS 2.2: Resolved #73 (TBOS uses stack properly) and enough code has been modified to prompt a new sub-version. In the process of resolving #73, created TASL 5. 
 
-Corrected TBOS pause code.
+Added optimization notes for TBOS 2.2 (much better than the old stack usage).
 
-Rewrote ModifyBits code.
+TASL 5: RG4 and RG5 are now SF0 and SF1 respectively. They are intended to be used as "Safe" registers that do not change upon calling a function, and the other RG0-3 can be changed. This solves the numerous issues that have been encountered while writing TBOS when it comes to stack usage. In most cases, there are just one or two values that we care about that must be kept in between function calls, so I see this as an adequate middle ground between "functions must always push registers they use" and "callers must always push registers they need," since most of the time either approach led to excessive pushing and popping.
+Note: FLG is NOT preserved when functions use it, since it is used so frequently, and since its ALU/IOP flags are ideally used immediately after they are generated.
 
-Hugely improved FindOpenMemory (the logic was not nearly as difficult as I remember it being).
+Removed N++ UDL support for mnemonics RG4-7. The assemblers will still work with them for backwards compatability reasons, but programmers are strongly advised to not use those mnemonics given that these registers are no longer treated as general purpose.
 
-Added clarification to Glass CPU documentation about bit masking with SET, UST, SLB, and SRB operations.
+Updated TASL documentation to reflect TASL 5 changes.
 
-Added stack pushing & popping to all functions except the LoadProgramX's in TBOS. Minor slowdowns, but nothing too significant. Data in optimization notes (data for post-optimization will be replaced once stack pushing and popping is fully implemented). Brief Summary: I'm not sure that I like these numbers, and I'm not sure if I'm going to stick with this change.
+Added gitattributes file to correctly identify programming languages in the project (finally)!
+
+Cleaned up some things around the github repo (issue tags, projects, etc.).
