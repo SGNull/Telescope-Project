@@ -154,3 +154,25 @@ Small Threading Test:
 	
 
 In total, we have about a 3.8% increase in base OS cycle usage, 1.5% increase in CTT cycle usage, and 0.9% increase in STT cycle usage, as opposed to 25%, 9%, and 5% respectively.
+
+
+
+		================
+--------TBOS v2.3 Update--------
+		================
+
+Multiprogramming Test:
+
+	"Hi!$"			- 4530 cycles
+	"Hello!$"		- 6018 cycles
+	"Hello World!$"	- 8994 cycles
+	
+	Solution: f(x) =  496x + 2546 		3.8% decrease in base cycles
+	
+Comprehensive Threading Test: 35381 	1.5% decrease in cycles
+
+Small Threading Test: 26563 			1.7% decrease in cycles
+
+Wow, I'm kind of surprised, but I did implement a few optimizations as I was rewriting stuff. Also, the coefficient of the Multiprogramming Test solution has become much less applicable as time has gone on. Now with the new code to simulate I/O interrupts
+
+

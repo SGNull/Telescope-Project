@@ -5,6 +5,3 @@
 Notepad++?Files/config/* -linguist-detectable
 Notepad++?Files/plugins/* -linguist-detectable
 Notepad++?Files/themes/* -linguist-detectable
-
-# Ignore old files. ? is used for spacing
-Old?Files/* -linguist-detectable

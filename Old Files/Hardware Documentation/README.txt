@@ -1,1 +1,0 @@
-As of 4/30/2022 this documentation is slightly outdated, but only slightly. There is much better documentation almost everywhere else. Just read the need-to-know
