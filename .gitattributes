@@ -2,4 +2,4 @@
 *.tasl linguist-language=Assembly
 
 # Ignore N++ Files (since most are generated for me).
-Notepad++?Files/**
+Notepad++?Files/** -linguist-detectable
