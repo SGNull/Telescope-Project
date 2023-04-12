@@ -1,6 +1,6 @@
 # Telescope Project
 
-This is a personal project of mine that is still being developed as of January of 2023, and probably will be for quite some time given how well it has turned out.
+This is a personal project of mine that is still being developed, and probably will be for quite some time given how well it has turned out.
 
 I had a lot of different, rather big goals for this project. Here are just a few of them:
 1. Design a CPU with a simple yet robust ISA capable of running a simple OS in ~~[Logisim](https://www.cburch.com/logisim/)~~ [Digital](https://github.com/hneemann/Digital).
@@ -67,4 +67,6 @@ I tried to be somewhat organized about how I do things on Github for this projec
   - This changelog, along with some additional comments, are placed in the **commit descriptions**.
   - While many things might change, I try to minimize the scope of these changes.
 
+- I am attempting to use branches to differentiate between in-progress "development" versions, and the working "main" versions.
 
+- Related to the above point, I'm also using this project as a way to better understand Git and optimal workflows, so the way this project interfaces with Git is likely to change in the future.
