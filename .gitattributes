@@ -1,10 +1,5 @@
 # Read .tasl files as assembly
 *.tasl linguist-language=Assembly
 
-# Ignore most Notepad++ files (ones I did not manually (using N++) create/edit).
-Notepad++?Files/config/* -linguist-detectable
-Notepad++?Files/plugins/* -linguist-detectable
-Notepad++?Files/themes/* -linguist-detectable
-
-# Ignore .hex files (I think it ignores the -ex and just reads .h)
-*.hex -linguist-detectable
+# Ignore N++ Files (since most are generated for me).
+Notepad++?Files/**

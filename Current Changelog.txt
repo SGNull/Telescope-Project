@@ -2,7 +2,7 @@ LATEST CHANGES:
 
 Categorized test scripts and put them under Tests & Checks in Software.
 
-Made .hex files not linguist detectable (hopefully #77).
+Made all of Notepad++ Files not detectable by linguist (subdirectories were being read). Resolves #77.
 
 Added ReadLine function to IO Interface library module. Contributes towards #74.
 
