@@ -9,26 +9,24 @@
 	ReadLine(DestinationPtr, Size, KeyboardNo) -> None
 %
 
-@TERMINAL_GROUP_NUM = 2
+@TERMINAL_GROUP = 2
+@KEYBOARD_GROUP = >TERMINAL_GROUP
+
 @IO_GROUP_SHIFT = 13
 @IO_DEVICE_SHIFT = 11
 @IOP_MASK = 0xF800
 
 @GAIN_IO_MUTEX  = 6
 @RELEASE_IO		= 7
+@WAIT_FOR_DATA	= 9
 
 
 
 / Prints the given string to the given terminal number.
 #..Print  %StringPtr, TerminalNo% = {
-	
-	/ Step 0: Push used registers onto the stack.
-	PSH 3
-	STR RG0 SP 0; STR RG1 SP 1;  STR FLG SP 2
-	
 	/ Step 1: Configure IOP to face TerminalNo.
 	ALI SLB RG1 >IO_DEVICE_SHIFT
-	LDI RG0 >TERMINAL_GROUP_NUM; ALI SLB RG0 >IO_GROUP_SHIFT
+	LDI RG0 >TERMINAL_GROUP; ALI SLB RG0 >IO_GROUP_SHIFT
 	ALU OR RG1 RG0
 	
 	LDI RG0 >IOP_MASK; ALU NOT RG0 RG0
@@ -50,9 +48,7 @@
 	#IO.Pr.Done
 	LDI RG0 >RELEASE_IO; SYS
 	
-	/ Step 5: Finally, pop from stack and return.
-	LOD RG0 SP 0; LOD RG1 SP 1; LOD FLG SP 2
-	POP 3
+	/ Step 5: Finally, return.
 	RET
 }
 
@@ -61,12 +57,39 @@
 / Reads one line of keyboard input, or up to Size - 1.
 / Size must be greater than 1
 #..ReadLine  %DestinationPtr, Size, KeyboardNo% = {
-	/ Step 0: Push used registers to stack.
-	/ Step 1: Configure IOP to face KeyboardNo
-	/ Step 2: Gain mutex over the terminal/keyboard.
-	/ Step 3: Wait for and get input.
-	/ Step 4: Check if this is \n, if so we're done.
-	/ Step 5: Write to the string, and loop if we're not at Size - 1
-	/ Step 6: We're done, so release mutex.
-	/ Step 7: Pop registers off stack and return.
+	/ Step 1: Setup RG1 to have the ending address - 1
+	ALU ADD RG1 RG0; ALI SUB RG0 1
+	
+	/ Step 1: Configure IOP to face KeyboardNo (and only modify IOP!)
+	LDI RG3 >IOP_MASK; ALU NOT RG3 RG3; ALU AND RG3 FLG
+	ALI SLB RG2 >IO_DEVICE_SHIFT; ALU OR RG3 RG2
+	LDI RG2 >KEYBOARD_GROUP; ALU OR RG3 RG2
+	MOV FLG RG3
+	
+	/ Step 2: Gain mutex over the terminal/keyboard (moving arg0 to RG2).
+	MOV RG2 RG0
+	LDI RG0 >GAIN_IO_MUTEX; SYS
+	
+	#IO.RL.Loop
+		/ Step 3: Wait for and get input.
+		LDI RG0 >WAIT_FOR_DATA; SYS
+		MOV RG0 IO
+		
+		/ Step 4: Check if this is \n, if so we're done.
+		LDI RG3 >NEWLINE_CHAR; CMP RG0 RG3; JEQ >IO.RL.Done
+		
+		/ Step 5: Write to the string, and loop if we're not at Size - 1
+		STR RG0 RG2 0
+		
+		INC RG2; CMP RG1 RG2; JNE >IO.RL.Loop
+	#IO.RL.Done
+	
+	/ Step 6: We're done, so write NULL to string.
+	NUL RG0; STR RG0 RG2 0
+	
+	/ Step 7: Release Mutex
+	LDI RG0 >RELEASE_IO; SYS
+	
+	/ Step 8: Return.
+	RET
 }

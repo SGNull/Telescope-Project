@@ -4,7 +4,6 @@ JMP >Init
 	---------
   
 	TSOS is a small-scale operating system for the Telescope Computer System.
-	It will intentionally be written with as few "magic numbers" as possible for maximum versatility.
 	
 	TBOS v2.0 is a complete overhall of TBOS, fullfilling most of the features that PandOS does at phases 2 and 3.
 	Because of this, TBOS begins to stand out as its own operating system.
@@ -119,9 +118,8 @@ JMP >Init
 	#CurrentStatePtr	= 0		/ The address of the current proc's state
 	
 	@CTD_VAL 				= 0x0200	/ How many cycles each process is allotted before its turn ends.
-	@MAX_DISPATCH_CYCLES 	= 6			/ Amount of times Dispatcher will loop proc list before deadlock check (must be >1)
-	@WAIT_TIME			 	= 0xFFFF	/ Amount of cycles the OS will wait upon softblock before running dispatcher again.
-										/ Right now is set to maximum, but when I/O ints are simulated, should be lowered.
+	@MAX_DISPATCH_CYCLES 	= 4			/ Max times Dispatcher will loop proc list before deadlock check (must be >1)
+	@WAIT_TIME			 	= 0x0600	/ Max cycles the OS will wait upon softblock before running dispatcher again.
 	
 	/ ---- SUPPORT ----
 	/ Not to be confused with support structures, the support list is a list of metadata about each process.
@@ -200,13 +198,13 @@ JMP >Init
 	@SYSCODE_MAKE_THREAD 	= 1   / PC, SP, IsKernel?		Create a new thread of the current process.
 	@SYSCODE_TERMINATE		= 2   / 						Terminate the current process.
 	@SYSCODE_GIVE_UP_TURN 	= 3   / 						Skip the remainder of the current process's CPU burst.
-	@SYSCODE_PASSEREN		= 4   / SemAdd					Wait on the given semaphore.
+	@SYSCODE_PASSEREN		= 4   / SemAdd					Wait in line on the given semaphore.
 	@SYSCODE_VERHOGEN		= 5   / SemAdd					Signal the given semaphore.
 	@SYSCODE_IO_MUTEX		= 6   / IOP set					Gain mutual exclusion over the given I/O device.
 	@SYSCODE_IO_RELEASE		= 7   / IOP set					Release mutual exclusion over the given I/O device.
 	@SYSCODE_WAIT_TICK		= 8   / 						Wait for the TICK interrupt to occur.
-	@SYSCODE_IO_WAIT_WRITE	= 9	  / IOP set					Wait for the given I/O to send a PWT signal. Does NOT grant mutex.
-	@SYSCODE_IO_WAIT_READ	= 10  / IOP set					Wait for the given I/O to send a PRD signal. Does NOT grant mutex.
+	@SYSCODE_IO_WAIT_WRITE	= 9	  / IOP set					Wait in line for the given I/O to send a PWT signal.
+	@SYSCODE_IO_WAIT_READ	= 10  / IOP set					Wait in line for the given I/O to send a PRD signal.
 )
 
 
@@ -218,7 +216,7 @@ JMP >Init
 	@PAUSE_CODE				= 0x1111  / The computer is currently paused due to the PAUS interrupt.
 	@SHUTDOWN_CODE			= 0x2222  / If you resume the computer, it will begin shutting down.
 	@END_CODE 				= 0x600D  / The OS has successfully come to a stop.
-	@DEADLOCK_CODE			= 0xDEAD  / All procs are waiting on semaphores that will never be signaled.
+	@DEADLOCK_CODE			= 0xDEAD  / All procs are waiting on semaphores that will never be signalled.
 	@BAD_START_ERROR 		= 0xFF00  / The OS has encountered a critical error attempting to set up the environment.
 	@UNKNOWN_EXC_ERROR 		= 0xFF01  / The OS has encountered a critical error where EXC is not 3 bit.
 	
