@@ -5,3 +5,6 @@
 Notepad++?Files/config/* -linguist-detectable
 Notepad++?Files/plugins/* -linguist-detectable
 Notepad++?Files/themes/* -linguist-detectable
+
+# Ignore .hex files (I think it ignores the -ex and just reads .h)
+*.hex -linguist-detectable
