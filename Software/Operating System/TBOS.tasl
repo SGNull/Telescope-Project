@@ -33,7 +33,7 @@ JMP >Init
 (/ ------- Hardware constants -------
 	/ Processor constants
 	@WORD_SIZE 		 		= 16  / Word size in bits (always must be 16)
-	@IO_DEVICE_COUNT 		= 32
+	@NUM_IO_DEVICES 		= 32
 	@OUT_REG_NUM			= 6
 	@RA_REG_NUM				= 7
 
@@ -160,7 +160,7 @@ JMP >Init
 	
 	/ ---- SEMAPHORES ----
 	
-	/ IO_DEVICE_COUNT number of 1's
+	/ NUM_IO_DEVICES number of 1's
 	#IOMutexSems = [1, 1, 1, 1, 
 					1, 1, 1, 1,
 					1, 1, 1, 1,
@@ -171,13 +171,9 @@ JMP >Init
 					1, 1, 1, 1]
 	
 	/ All OS soft blocking semaphores must be between SEM_START and SEM_END
-	@READ_SEM_IOP_OFFSET	= 12
-	@WRITE_SEM_IOP_OFFSET	= 8
-	@NUM_READ_SEMS  = 16  / 4*4; GPIO, TNET, Networking, and Expansion
-	@NUM_WRITE_SEMS = 20  / 5*4; Keyboard, GPIO, TNET, Networking, and Expansion
 	#SEM_START
-		#IOReadSems		= [~NUM_READ_SEMS]
-		#IOWriteSems 	= [~NUM_WRITE_SEMS]
+		#IOReadSems		= [~NUM_IO_DEVICES]
+		#IOWriteSems 	= [~NUM_IO_DEVICES]
 		#TickWaitSem 	= 0
 	#SEM_END
 	
@@ -1580,9 +1576,6 @@ JMP >Init
 	/ Setup RG1 for Passeren call
 	MOV RG1 RG0
 	
-	/ Get the correct semaphore index (OUT)
-	LDI RG0 >READ_SEM_IOP_OFFSET; ALU SUB OUT RG0
-	
 	/ And place the current proc on its waitlist
 	LDI RG0 >IOReadSems; ALU ADD RG0 OUT
 	LDI RA >SRH.SuccessSkip; JMP >Passeren
@@ -1605,9 +1598,6 @@ JMP >Init
 	
 	/ Setup RG1 for Passeren call
 	MOV RG1 RG0
-	
-	/ Get the correct semaphore index (OUT)
-	LDI RG0 >WRITE_SEM_IOP_OFFSET; ALU SUB OUT RG0
 	
 	/ And place the current proc on its waitlist
 	LDI RG0 >IOWriteSems; ALU ADD RG0 OUT
