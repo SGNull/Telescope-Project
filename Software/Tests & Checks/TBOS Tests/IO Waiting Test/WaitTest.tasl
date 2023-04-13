@@ -1,0 +1,141 @@
+JMP >Root
+%	I/O Waiting Test
+	
+	This is a test program which utilizes the TBOS v2.3 simulated interrupts to print "ABC" followed by "All done!" to terminal 1. It additionally uses semaphores and thread creation to achieve this goal.
+	
+	More Specifically:
+		- Root spawns threads 1, 2, and 3.
+		- 1 prints A, 2 prints B, and 3 prints C, while Root waits for them to finish.
+		- Before doing this, they wait on the GPIO 1 write signal in order.
+		- After being woken up, they will each read from GPIO 1 once.
+			* This is so a device can be made to wake procs up individually.
+		- Once root awakens, it will print "All done!".
+%
+
+
+/ ---------- Data ----------
+
+
+/ Special chars
+@NEWLINE = '
+'
+
+/ IOP Info
+@TERM1 = 0b0100100000000000
+@GPIO1 = 0b0110100000000000
+
+/ SYScodes
+@SPAWN_THREAD 	= 1
+@TERMINATE 		= 2
+@WAIT			= 3
+@WAIT_ON_SEM 	= 4
+@SIGNAL_SEM		= 5
+@WAIT_IO_WRITE  = 9
+@WAIT_IO_READ	= 10
+
+@USING_SYSCALL = >WAIT_IO_WRITE
+
+/ Semaphores
+#RootSync = 0
+#T2Sync = 0
+#T3Sync = 0
+
+
+/ ---------- Code ----------
+
+
+#Root  %!Fn% = {
+	/ Spawn threads
+	LDI RG0 >SPAWN_THREAD; LDI RG2 >GPStack; ZRO RG3
+	LDI RG1 >T1; SYS
+	LDI RG1 >T2; SYS
+	LDI RG1 >T3; SYS
+	
+	/ Wait for them to finish
+	LDI RG0 >WAIT_ON_SEM; LDI RG1 >RootSync
+	SYS; SYS; SYS
+	
+	/ Print "All done!"
+	LDI FLG >TERM1
+	LDI IO >NEWLINE
+	LDI IO 'A'; LDI IO 'l'; LDI IO 'l'; LDI IO ' '
+	LDI IO 'd'; LDI IO 'o'; LDI IO 'n'; LDI IO 'e'; LDI IO '!'
+	
+	/ Stop
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+#T1  %!Fn% = {
+	/ Setup registers for quick execution
+	LDI RG2 >SIGNAL_SEM; LDI RG1 >T2Sync
+	LDI RG3 >USING_SYSCALL; LDI FLG >GPIO1
+	
+	/ Refresh CTD
+	LDI RG0 >WAIT; SYS
+	
+	/ Signal T2 before waiting
+	MOV RG0 RG2; SYS
+	
+	/ Now wait
+	MOV RG0 RG3; SYS 
+	
+	/ Write A to terminal
+	LDI FLG >TERM1; LDI IO 'A'
+	
+	/ Terminate
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+#T2  %!Fn% = {
+	/ Setup registers for quick execution
+	LDI RG2 >WAIT_ON_SEM; LDI RG1 >T2Sync
+	LDI RG3 >USING_SYSCALL; LDI FLG >GPIO1
+	LDI SF0 >SIGNAL_SEM; LDI SF1 >T3Sync
+	
+	/ Refresh CTD
+	LDI RG0 >WAIT; SYS
+	
+	/ Wait on T1
+	MOV RG0 RG2; SYS
+	
+	/ Signal T3
+	MOV RG0 SF0; MOV RG1 SF1; SYS
+	
+	/ Now wait on I/O
+	MOV RG0 RG3; SYS 
+	
+	/ Write B to terminal
+	LDI FLG >TERM1; LDI IO 'B'
+	
+	/ Terminate
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+#T3  %!Fn% = {
+	/ Setup registers for quick execution
+	LDI RG2 >WAIT_ON_SEM; LDI RG1 >T3Sync
+	LDI RG3 >USING_SYSCALL; LDI FLG >GPIO1
+	
+	/ Refresh CTD
+	LDI RG0 >WAIT; SYS
+	
+	/ Wait on T2
+	MOV RG0 RG2; SYS
+	
+	/ Now wait on I/O
+	MOV RG0 RG3; SYS 
+	
+	/ Write C to terminal
+	LDI FLG >TERM1; LDI IO 'C'
+	
+	/ Terminate
+	LDI RG0 >TERMINATE; SYS
+}
+
+
+/ General purpose stack (won't actually be used)
+@STACK_SIZE = 16
+#GPStack: ~STACK_SIZE

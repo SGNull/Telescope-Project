@@ -9,3 +9,7 @@ Added ReadLine function to IO Interface library module. Contributes towards #74.
 Lowered TBOS MAX_DISPATCH_CYCLES
 
 Significantly lowered TBOS WAIT_TIME
+
+All I/O devices have their own semaphores for I/O waiting (even ones which are currently always reading/writing).
+
+Made I/O waiting test.
