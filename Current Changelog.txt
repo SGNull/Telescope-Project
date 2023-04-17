@@ -14,7 +14,6 @@ All I/O devices have their own semaphores for I/O waiting (even ones which are c
 
 Made I/O waiting test.
 
-
 Cleaned up FLG readings in Digital's Measurement Value Table.
 
 Renamed RG4-7 inside the Glass CPU to show up as their proper mnemonics in the Measurement Value Table.
