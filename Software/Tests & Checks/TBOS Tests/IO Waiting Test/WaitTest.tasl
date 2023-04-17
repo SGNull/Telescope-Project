@@ -6,8 +6,9 @@ JMP >Root
 	More Specifically:
 		- Root spawns threads 1, 2, and 3.
 		- 1 prints A, 2 prints B, and 3 prints C, while Root waits for them to finish.
-		- Before doing this, they wait on the GPIO 1 write signal in order.
-		- After being woken up, they will each read from GPIO 1 once.
+		- Before doing this, they wait on a GPIO 1 read/write signal *in order*.
+			* This is configurable using the USING_SYSCALL constant. Set to it the wait op to perform.
+		- After being woken up, they will each write to GPIO 1 once.
 			* This is so a device can be made to wake procs up individually.
 		- Once root awakens, it will print "All done!".
 %
@@ -30,9 +31,9 @@ JMP >Root
 @WAIT			= 3
 @WAIT_ON_SEM 	= 4
 @SIGNAL_SEM		= 5
+
 @WAIT_IO_WRITE  = 9
 @WAIT_IO_READ	= 10
-
 @USING_SYSCALL = >WAIT_IO_WRITE
 
 / Semaphores
@@ -53,9 +54,9 @@ JMP >Root
 	
 	/ Wait for them to finish
 	LDI RG0 >WAIT_ON_SEM; LDI RG1 >RootSync
-	SYS; SYS; SYS
+	SYS
 	
-	/ Print "All done!"
+	/ Print "All done!" on a new line
 	LDI FLG >TERM1
 	LDI IO >NEWLINE
 	LDI IO 'A'; LDI IO 'l'; LDI IO 'l'; LDI IO ' '
@@ -79,6 +80,9 @@ JMP >Root
 	
 	/ Now wait
 	MOV RG0 RG3; SYS 
+	
+	/ Write to GPIO
+	ZRO IO
 	
 	/ Write A to terminal
 	LDI FLG >TERM1; LDI IO 'A'
@@ -106,6 +110,9 @@ JMP >Root
 	/ Now wait on I/O
 	MOV RG0 RG3; SYS 
 	
+	/ Write to I/O
+	ZRO IO
+	
 	/ Write B to terminal
 	LDI FLG >TERM1; LDI IO 'B'
 	
@@ -128,8 +135,14 @@ JMP >Root
 	/ Now wait on I/O
 	MOV RG0 RG3; SYS 
 	
+	/ Write to I/O
+	ZRO IO
+	
 	/ Write C to terminal
 	LDI FLG >TERM1; LDI IO 'C'
+	
+	/ Signal root
+	LDI RG0 >SIGNAL_SEM; LDI RG1 >RootSync; SYS
 	
 	/ Terminate
 	LDI RG0 >TERMINATE; SYS

@@ -273,10 +273,6 @@ If the bit is on, then that interrupt is non-maskable.</string>
       <elementName>RS_FF</elementName>
       <elementAttributes>
         <entry>
-          <string>valueIsProbe</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
           <string>Label</string>
           <string>Done Booting</string>
         </entry>
@@ -691,16 +687,6 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
       <pos x="1280" y="-80"/>
     </visualElement>
     <visualElement>
-      <elementName>Probe</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Label</string>
-          <string>Lo Enabled</string>
-        </entry>
-      </elementAttributes>
-      <pos x="1680" y="-200"/>
-    </visualElement>
-    <visualElement>
       <elementName>CounterPreset</elementName>
       <elementAttributes>
         <entry>
@@ -758,16 +744,6 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
         </entry>
       </elementAttributes>
       <pos x="1060" y="80"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Probe</elementName>
-      <elementAttributes>
-        <entry>
-          <string>intFormat</string>
-          <intFormat>dec</intFormat>
-        </entry>
-      </elementAttributes>
-      <pos x="1280" y="-20"/>
     </visualElement>
     <visualElement>
       <elementName>Or</elementName>
@@ -926,10 +902,6 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
       <p2 x="1660" y="900"/>
     </wire>
     <wire>
-      <p1 x="1660" y="-200"/>
-      <p2 x="1680" y="-200"/>
-    </wire>
-    <wire>
       <p1 x="1100" y="520"/>
       <p2 x="1240" y="520"/>
     </wire>
@@ -1040,10 +1012,6 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
     <wire>
       <p1 x="1000" y="-20"/>
       <p2 x="1100" y="-20"/>
-    </wire>
-    <wire>
-      <p1 x="1160" y="-20"/>
-      <p2 x="1280" y="-20"/>
     </wire>
     <wire>
       <p1 x="1500" y="340"/>
@@ -1632,10 +1600,6 @@ Note: I/O must be multiplexed according to this signal *outside* the CPU.</strin
     <wire>
       <p1 x="1020" y="0"/>
       <p2 x="1020" y="100"/>
-    </wire>
-    <wire>
-      <p1 x="1660" y="-200"/>
-      <p2 x="1660" y="-160"/>
     </wire>
     <wire>
       <p1 x="1660" y="-160"/>

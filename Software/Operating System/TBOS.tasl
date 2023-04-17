@@ -57,6 +57,7 @@ JMP >Init
 	
 	@UE_PU_SHIFT 	= 3
 	@UE_CE_BIT		= 0
+	@UE_STACK_MASK	= 0xF
 	
 	/ EXC defined by TCS
 	@EXC_TICK 	= 0
@@ -119,7 +120,7 @@ JMP >Init
 	
 	@CTD_VAL 				= 0x0200	/ How many cycles each process is allotted before its turn ends.
 	@MAX_DISPATCH_CYCLES 	= 4			/ Max times Dispatcher will loop proc list before deadlock check (must be >1)
-	@WAIT_TIME			 	= 0x0600	/ Max cycles the OS will wait upon softblock before running dispatcher again.
+	@WAIT_TIME			 	= 0x0400	/ Max cycles the OS will wait upon softblock before running dispatcher again.
 	
 	/ ---- SUPPORT ----
 	/ Not to be confused with support structures, the support list is a list of metadata about each process.
@@ -323,10 +324,11 @@ JMP >Init
 				AIN SET RG2 >SUP_IO_WAIT_BIT; JIF NCR >Dis.GetNext
 				
 					/ Then it must be the last proc on its waitlist
-					LOD RG3 RG0 >ProcSemNos; ICC RG3; JIF CAR >Dis.GetNext
+					LOD RG3 RG0 >ProcSemNos; ICC RG3; JIF NCR >Dis.GetNext
 					
 						/ And the I/O must be doing the given operation.
-						ZRO RG3; LOD RG3 RG3 >CurrentStatePtr; LOD FLG RG3 >FLG_OFFSET
+						MOV RG3 RG0; ALI MUL RG3 >NUM_STATE_REGS; ALI ADD RG3 >FLG_OFFSET
+						LOD FLG RG3 >StateList
 						AIN SET RG2 >SUP_IO_TYPE_BIT; JIF CAR >Dis.IsWrite
 							/ It must be reading
 							JIF PNR >Dis.GetNext
@@ -338,7 +340,7 @@ JMP >Init
 						
 							/ If so, verhogen the semaphore and run this proc
 							MOV SF0 RG0
-							LOD RG0 RG0 >ProcMainWords; CAL >Verhogen
+							LOD RG0 RG0 >ProcSemAdds; CAL >Verhogen
 							MOV RG0 SF0
 	#Dis.FoundProc
 	
@@ -1336,8 +1338,10 @@ JMP >Init
 #WaitForInt  %!Fn% = {	
 	/ The only possible interrupts are TICK, PAUS, STOP, and CTDZ.
 	
-	/ Store off CTD
+	/ Store off CTD, EPC & FLG's U/E stack
 	MOV RG0 CTD
+	MOV RG1 FLG; ALI AND RG1 >UE_STACK_MASK
+	MOV RG2 EPC
 	
 	/ Setup registers for waiting.
 	LDI EXA >WFI.Done; LDI CTD >WAIT_TIME; ALI SET FLG >UE_CE_BIT
@@ -1345,9 +1349,11 @@ JMP >Init
 	/ Wait...
 	#WFI.Wait: JMP >WFI.Wait
 	
-	/ Now reset registers.
+	/ Now reset registers (Note: UE stack is 0000 here).
 	#WFI.Done
-	ALI UST FLG >UE_CE_BIT; LDI EXA >ExHandler
+	ALU OR FLG RG1
+	MOV EPC RG2
+	LDI EXA >ExHandler
 	
 	/ If it's CTDZ, do another set of dispatcher loops.
 	PAS CTD; JIF EQZ >Dispatcher

@@ -24,7 +24,7 @@
             <Keywords name="Folders in comment, open"></Keywords>
             <Keywords name="Folders in comment, middle"></Keywords>
             <Keywords name="Folders in comment, close"></Keywords>
-            <Keywords name="Keywords1">MOV LDI LOD STR PSH POP</Keywords>
+            <Keywords name="Keywords1">MOV LDI LOD STR PSH POP RG4 RG5 RG6 RG7</Keywords>
             <Keywords name="Keywords2">RG0 RG1 RG2 RG3 SF0 SF1</Keywords>
             <Keywords name="Keywords3">PC IO FLG SP HLB EPC CTD EXA RA OUT</Keywords>
             <Keywords name="Keywords4">&gt; ~</Keywords>
