@@ -1,5 +1,5 @@
 <NotepadPlus>
-    <UserLang name="TASL" ext="tasl tl rtl table" udlVersion="2.1">
+    <UserLang name="TASL" ext="tasl tl rtl" udlVersion="2.1">
         <Settings>
             <Global caseIgnored="yes" allowFoldOfComments="no" foldCompact="no" forcePureLC="0" decimalSeparator="0" />
             <Prefix Keywords1="no" Keywords2="no" Keywords3="no" Keywords4="yes" Keywords5="no" Keywords6="no" Keywords7="no" Keywords8="yes" />
@@ -24,7 +24,7 @@
             <Keywords name="Folders in comment, open"></Keywords>
             <Keywords name="Folders in comment, middle"></Keywords>
             <Keywords name="Folders in comment, close"></Keywords>
-            <Keywords name="Keywords1">MOV LDI LOD STR PSH POP</Keywords>
+            <Keywords name="Keywords1">MOV LDI LOD STR PSH POP RG4 RG5 RG6 RG7</Keywords>
             <Keywords name="Keywords2">RG0 RG1 RG2 RG3 SF0 SF1</Keywords>
             <Keywords name="Keywords3">PC IO FLG SP HLB EPC CTD EXA OUT RA</Keywords>
             <Keywords name="Keywords4">@ &gt; ~</Keywords>

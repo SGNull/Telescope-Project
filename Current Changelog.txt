@@ -13,3 +13,14 @@ Significantly lowered TBOS WAIT_TIME
 All I/O devices have their own semaphores for I/O waiting (even ones which are currently always reading/writing).
 
 Made I/O waiting test.
+
+
+Cleaned up FLG readings in Digital's Measurement Value Table.
+
+Renamed RG4-7 inside the Glass CPU to show up as their proper mnemonics in the Measurement Value Table.
+
+Re-Added RG4-7 to TASL 5, but they are highlighted in a strange way to encourage the usage of their proper mnemonics.
+
+Fixed issue where the IOP writing/reading check was being done to the wrong IOP.
+
+TBOS successfully passes the I/O Waiting Test. Resolved #79
