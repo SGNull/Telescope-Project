@@ -14,13 +14,13 @@ JMP >Init
 			- PVIO just returns an error code to the user process.
 			- STOP calls the Shutdown function (terminates root, might improve in the future).
 		
-		8 syscalls are implemented (see 'OS External-Facing Constants' for details).
+		9 syscalls are implemented (11 with v2.3, see 'OS External-Facing Constants' for details).
 		
 		Semaphores are supported.
 	
 	v2.1 comes with some important bug fixes and two major optimizations:
 		MaxProcNum allows the OS to skip over parts of the process list, significantly increasing performance when working with only a few processes.
-			
+		
 		SupportList allows the OS to quickly get information about a given process, which should significantly increase performance when working with many processes.
 	
 	v2.2 comes with some rewrites to existing code, follows TASL 5 conventions, and properly uses the stack. This is a big deal, because it makes writing code in the future much easier.

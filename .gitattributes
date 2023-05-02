@@ -1,5 +1,5 @@
 # Read .tasl files as assembly
 *.tasl linguist-language=Assembly
 
-# Ignore N++ Files (since most are generated for me).
-Notepad++?Files/** -linguist-detectable
+# Ignore N++ plugin data
+Notepad++?Files/plugins/** -linguist-detectable

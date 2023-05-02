@@ -1,7 +1,8 @@
 These are some ideas that I come up with during the project that are somewhat out of the way, but still feasible enough to be written down.
 
 
-A syntax enforcer & better error checker for TASL V3+.
+Interesting Ideas:
+------------------
 
 A light compiler with support for simple loops, function calls, variables, and +=, -=, etc. style operations.
 
@@ -11,6 +12,28 @@ Integration of the QT Project with the Telescope Computer? QPU as a coprocessor?
 
 VRAM using a TLB microcontroller which can be controlled via some I/O device (possibly part of the internal expansion IO group).
 
-With networking: simple (not machine learning) AI which moves data over the network using networking software that receives updates, and they randomly decide to install that update or not.
+
+Things I'm Seriously Considering:
+---------------------------------
+A syntax enforcer & better error checker for TASL V5+.
 
 Computer defect simulation by randomly deleting a line from a random hardware file it's dependent on (and hoping it still loads properly. Probably use some kind of regex to delete stuff)
+
+Break up the main words of processes into child, sibling, and parent lists, alongside the semadd and semno lists. This shouldn't cause much of a decrease in performance, while allowing the OS to run a ton of processes (then we run into the issue of looping by ID) (could this also be TBOS v3?).
+
+Rework TBOS to utilize support structures (could this be TBOS v3?).
+	- The support structure's code is present inside the OS.
+	- All processes have the same support structure.
+	- Must implement pass-up-or-die from PandOS.
+	- Restrict all access to I/O devices (maybe use the new config device as a way to setup I/O device privs).
+		- Note: the Glass Architecture's speedy I/O accesses are still utilized, just by the sup struct, not the proc.
+		- ^ This is really good, because it guarantees that all processes are playing (mostly) fair with the I/O.
+		- ^ This is one main reason to have support structures as far as I can see right now (and it's a GOOD reason).
+	- Will have to store the previous previous U/E values ("old" in PandOS)
+	- Perhaps integrate the library into this support structure? We are talking about baseline, essential modules here.
+	- Processes cannot be kernel anymore, only the kernel can be kernel.
+	- Need some kind of CLI or menu to load programs, as procs will not be able to do this anymore.
+	- Down the road will need a privilege system specified by the sup struct (how we're currently using the User bit).
+The more I think about, the more I'm realizing TBOS's & TCS's current way of doing things is unnecessarily headache-inducing. This solution is so much nicer. In an attempt to make things simpler, things became more difficult and clumsy as partial solutions were implemented.
+
+With networking: simple (not machine learning!) AI which moves data over the network using networking software that receives updates, and they randomly decide to install that update or not (this would enable somewhat realistic hacking).

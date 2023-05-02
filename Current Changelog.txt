@@ -1,25 +1,17 @@
 LATEST CHANGES:
 
-Categorized test scripts and put them under Tests & Checks in Software.
+Minor change to the wording of TBOS.tasl documentation.
 
-Made all of Notepad++ Files not detectable by linguist (subdirectories were being read). Resolves #77.
+Added some OS ideas to the Ideas.txt file.
 
-Added ReadLine function to IO Interface library module. Contributes towards #74.
+Reduced number of Linguist ignored files.
 
-Lowered TBOS MAX_DISPATCH_CYCLES
+Completely rewrote the npes_saved.txt file to make modifying it far easier.
 
-Significantly lowered TBOS WAIT_TIME
+Created a startup script for N++.
 
-All I/O devices have their own semaphores for I/O waiting (even ones which are currently always reading/writing).
+Created the Import & Assemble python script file.
 
-Made I/O waiting test.
+Began side-work on Import & Assemble internal logic.
 
-Cleaned up FLG readings in Digital's Measurement Value Table.
-
-Renamed RG4-7 inside the Glass CPU to show up as their proper mnemonics in the Measurement Value Table.
-
-Re-Added RG4-7 to TASL 5, but they are highlighted in a strange way to encourage the usage of their proper mnemonics.
-
-Fixed issue where the IOP writing/reading check was being done to the wrong IOP.
-
-TBOS successfully passes the I/O Waiting Test. Resolved #79
+Began side-work on N++ IDE UI Changes.

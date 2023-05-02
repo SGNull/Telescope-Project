@@ -1,12 +1,13 @@
 In C:\Program Files\Notepad++
-	copy plugins into it
-	copy functionList into it (will alter overrideMap in case you have other langs)
+	copy 'plugins' into it
+	copy 'functionList' into it (will alter 'overrideMap' in case you have other langs)
 
 In %APPDATA%\Notepad++
-	copy userDefineLangs into it
-	copy themes into it
-	go into the plugins folder
-		copy config into it
+	copy 'userDefineLangs' into it
+	copy 'themes' into it
+	go into the 'plugins' folder
+		copy 'config' into it
+		NOTE: In 'npe_saved.txt' in 'config,' set the 'SCRIPTS_PATH' variable to your 'Python Scripts' folder location. 
 
 
 
@@ -15,4 +16,4 @@ If you do not see the custom TASL buttons:
 
 If you do not see .tasl file language highlighting:
 	Open N++ and click "Language" -> "User Defined Language" -> "Define Your Language" -> "Import"
-	In the project directory, import "Notepad++ Files\userDefineLangs\TASL 4.xml"
+	In the project directory, import "Notepad++ Files\userDefineLangs\TASL X.xml"
