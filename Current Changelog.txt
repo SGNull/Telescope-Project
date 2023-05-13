@@ -15,3 +15,17 @@ Created the Import & Assemble python script file.
 Began side-work on Import & Assemble internal logic.
 
 Began side-work on N++ IDE UI Changes.
+
+
+
+Python modules are in "Modules" and are named my_module_thing. Scripts meant to be ran via CLI are named My Python Script.
+
+The Python assembler simulation is its own module, and the added features on top of the assembler are their own module, and the CLI interface is a normal Python script. Was a bit tricky pulling apart my old code, but managed to get it to work first try (ominous).
+
+The Python cross-assembler interface code has been dramatically rewritten to be much easier to read.
+
+Many Python scripts now utilize the hex_interface module.
+
+Updated Assembler Test files to reflect the current cross-assembler's output
+
+Updated NPPExec scripts to reflect Python script changes.

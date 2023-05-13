@@ -1,8 +1,7 @@
 
  ****************************************************************************
- * NppExec plugin ver. 0.8.2 for Notepad++
- * by DV <dvv81 @ ukr.net>, December 2006 - June 2022
- * https://github.com/d0vgan/nppexec
+ * NppExec plugin ver. 0.8 for Notepad++
+ * by DV <dvv81 @ ukr.net>, December 2006 - February 2022
  * Powered by Function Parser (C) Juha Nieminen, Joel Yliluoma
  ****************************************************************************
  *
@@ -164,7 +163,6 @@
  *        $(NPP_FULL_FILE_PATH) : full path to notepad++.exe
  *        $(CURRENT_WORD)       : word(s) you selected in Notepad++
  *        $(CURRENT_LINE)       : current line number
- *        $(CURRENT_LINESTR)    : text of the current line
  *        $(CURRENT_COLUMN)     : current column number
  *   7) Additional environment variables:
  *        $(SELECTED_TEXT)      : the text you selected in Notepad++
@@ -202,8 +200,6 @@
  *        $(MSG_LPARAM)         : lParam (output) of 'npp_sendmsg[ex]' or 'sci_sendmsg'
  *        $(NPP_HWND)           : Notepad++'s main window handle
  *        $(SCI_HWND)           : current Scintilla's window handle
- *        $(SCI_HWND1)          : primary Scintilla's window handle (main view)
- *        $(SCI_HWND2)          : secondary Scintilla's window handle (second view)
  *        $(CON_HWND)           : NppExec's Console window handle (RichEdit control)
  *        $(FOCUSED_HWND)       : focused window handle
  *        $(SYS.<var>)          : system's environment variable, e.g. $(SYS.PATH)
@@ -216,48 +212,6 @@
  *************
  *  HISTORY  *
  *************
-
- v0.8.2 - June 2022
- ------------------
- * Glory to Ukraine! Glory to the heroes!
- + added: new option "Use Editor Colors" (in the Advanced Options).
-   For dark color themes, the following colors may be used:
-     Error   - C0 30 30
-     Message - 40 B0 40
-     Warning - 40 80 C0
-   The default colors (for bright color themes) are:
-     Error   - A0 10 10
-     Message - 20 80 20
- - fixed: TextColorError (in the Advanced Options) was not applied to the
-   built-in error filter ("npe_console local -- x+").
- - fixed: in rare cases, the NppExec's Console could "swallow" a first typed
-   character. It was caused by the ConsoleDlg not resetting the value of the
-   `bFuncItemEntered` back to `false`.
- * changed: IsTabSpaceChar() was replaced with IsAnySpaceChar() to handle
-   additional space characters such as '\v' and \f'.
- * npp_files updated to Notepad++ 8.4.2.
- + NppExec Manual updated
- - fixed: NppExec Manual no more contains the misleading HTML tags saying
-   `META NAME="Generator"`. (The HTML files are actually modified in a text
-   editor such as Notepad++ or AkelPad without any HTML generator).
-
-
- v0.8.1 - April 2022
- -------------------
- * 24.02.2022: Russkii voennyi korabl', idi nakhui!!!
-     In the memory of those who were killed.
-     In the memory of what was destroyed.
-     God bless those who defend.
-     We will build the better future.
- + added: $(CURRENT_LINESTR), $(SCI_HWND1), $(SCI_HWND2)
- + added: dynamic reloading of the saved scripts ("npes_saved.txt")
- + added: multi-line input in NppExec's Console
- + added: Shift+Enter adds a new line (in NppExec's Console)
- * the "About" dialog slightly updated
- - fixed: potential crash around ScriptContextList.DeleteLast()
- - fixed: CFileBufT::GetLine did not read the trailng empty line
- * changed: now ConsoleDlg::loadCmdHistory ignores empty lines
-
 
  v0.8 - February 2022
  --------------------

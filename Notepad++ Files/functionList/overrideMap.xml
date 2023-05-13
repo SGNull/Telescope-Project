@@ -127,9 +127,9 @@
 			<association id= "krl.xml"				userDefinedLangName="KRL"/>
 			<association id= "sinumerik.xml"		userDefinedLangName="Sinumerik"/>
 			<association id= "universe_basic.xml"	userDefinedLangName="UniVerse BASIC"/>
-			<association id= "tasl_function.xml" userDefinedLangName="TASL"/>
-			<association id= "tasl_function.xml" userDefinedLangName="TASL Dark"/>
-			<association id= "tasl_function.xml" ext=".tasl"/>
+			<association id= "tasl_function.xml"	userDefinedLangName="TASL"/>
+			<association id= "tasl_function.xml"	userDefinedLangName="TASL Dark"/>
+			<association id= "tasl_function.xml"	ext=".tasl"/>
 			<!-- ======================================================================== -->
 		</associationMap>
 	</functionList>
