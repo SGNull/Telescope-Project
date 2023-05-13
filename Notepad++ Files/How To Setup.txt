@@ -1,6 +1,6 @@
 In C:\Program Files\Notepad++
 	copy 'plugins' into it
-	copy 'functionList' into it (will alter 'overrideMap' in case you have other langs)
+	copy 'functionList' into it (will alter 'overrideMap')
 
 In %APPDATA%\Notepad++
 	copy 'userDefineLangs' into it

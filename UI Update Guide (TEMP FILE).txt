@@ -1,0 +1,6 @@
+1. Python scripts are interfaced with through the console with as few arguments as necessary, and intuitive launch options are given through NPPExec scripts. (Easy)
+2. Create a shared set of Python modules that each Python script uses. (DONE!)
+3. Normalize Python script names. (DONE!)
+4. See if making an install script is possible. (nope, not doing it)
+5. Finish making the U/I diagrams *if I want to*. (probably will. It's helpful)
+6. Make the Python Import & Assemble script. (In progress...)
