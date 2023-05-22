@@ -5,8 +5,8 @@ from sys import argv
 from os import listdir
 from os.path import isfile, isdir
 from enum import IntEnum, unique
-from modules.hex_interface import read_data_from_hex as read_data
-from modules.hex_interface import write_data_to_hex as write_data
+from modules.hex_file_interface import read_data_from_hex as read_data
+from modules.hex_file_interface import write_data_to_hex as write_data
 
 
 @unique

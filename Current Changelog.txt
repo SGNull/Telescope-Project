@@ -10,17 +10,9 @@ Completely rewrote the npes_saved.txt file to make modifying it far easier.
 
 Created a startup script for N++.
 
-Created the Import & Assemble python script file.
-
-Began side-work on Import & Assemble internal logic.
-
 Began side-work on N++ IDE UI Changes.
 
-
-
-Python modules are in "Modules" and are named my_module_thing. Scripts meant to be ran via CLI are named My Python Script.
-
-The Python assembler simulation is its own module, and the added features on top of the assembler are their own module, and the CLI interface is a normal Python script. Was a bit tricky pulling apart my old code, but managed to get it to work first try (ominous).
+Python modules are in "Modules" and are named like 'my_module_thing'. Scripts meant to be ran via CLI are named like 'My Python Script'.
 
 The Python cross-assembler interface code has been dramatically rewritten to be much easier to read.
 
@@ -28,4 +20,32 @@ Many Python scripts now utilize the hex_interface module.
 
 Updated Assembler Test files to reflect the current cross-assembler's output
 
+
+
+The Python cross-assembler is now split into 4 separate scripts:
+	The assembler simulation is its own module. It is *just* the assembler simulation.
+	The extra features that come with the Python cross-assembler are in their own module on top of the simulation.
+	The command line interface is in its own module on top of the extra features.
+	The cross-assembler script just calls the interface module with the given command line args.
+	
+Finished the TASL Bundler script  **NEED TO TEST STILL**
+
+Renamed .tload.hex files to just .tld.hex for convenience.
+
+Corrected the .table file output to be just .tabl. **Must be corrected for all files and for TASL.**
+
+Created the file_paths.py module for functions that os.path does not contain, but are commonly used.
+
 Updated NPPExec scripts to reflect Python script changes.
+
+Added read_text_as_ascii and normalized_hex to the hex_interface module.
+
+ASCII Hex Encoder and Test Hash now use the hex_interface and enhanced_assembler modules respectively.
+
+Added dark mode information to the N++ setup document.
+
+Tweaked the README.md
+
+Renamed the software folders to have TASL in their name.
+
+Created the project examples document. I was going to put something like this in the README because it is very much necessary, but it felt like it needed to be its own document with multiple examples.

@@ -41,13 +41,15 @@ Finally, on top of the bootloader is the TCS, or Telescope Computing System. It 
 
 The OS, called TBOS or Telescope Basic OS, is an attempt to shrink down and simplify [PandOS](https://wiki.virtualsquare.org/#!education/pandos.md). Though as time has gone on, it has become clear that TBOS is more "inspired by" than a "recreation of" PandOS. For a full list of features and syscalls, see the documentation for it [here](https://docs.google.com/document/d/1w4tGKG7OOmJUgn_xcEoIwMuiV4fEk35birdfAZGWwIo/edit?usp=sharing).
 
-The assembly language at the heart of this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations over the course of development, but change in it has significantly slowed down over time. The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and it's User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with some easy to use buttons, is why I often refer to them together as the N++ Mini-IDE.
+The assembly language at the heart of this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations, tweaks, and modifications over the course of development, but change in it has significantly slowed down over time. The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and its User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with the other features of N++ and some easy to use scripts, I often refer to as an IDE.
 
 It is important to note that the bootloader and OS can only load "Loadable" machine code files into RAM. Loadable files begin with their file size, allowing loaders to pull them into memory correctly and efficiently.
 
 ## Documentation
 
 All of the main documentation can be found on [Google Drive](https://drive.google.com/drive/folders/1KU3_15fWw5ZkAqqLl0eGuVECFLYhDBbg?usp=sharing). Originally, documentation was located within the project files themself, split across multiple directories. However, this became not just confusing, but unsustainable. This is why all documentation can be found on the Google Drive public directory (or within code comments).
+
+A good next step after the documentation is the "START HERE - Project Examples.txt" file. This contains some simple walkthroughs on how to make certain types of projects. It does not have nearly as much detail as the documentation, but it contains great supplimentary information.
 
 ## Github Workflow
 

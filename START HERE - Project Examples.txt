@@ -1,0 +1,44 @@
+--Preface--
+
+Ultimately the answers you are looking for either lie in the documentation, or in the software/hardware itself (as a last resort), and that is where you ~should~ go. However, I think it's important to have some basic paths people can follow for a project of this size.
+
+--Before Continuing--
+
+	- You (obviously) need to have Digital installed. https://github.com/hneemann/Digital
+	
+	- You also should probably have N++ installed. https://github.com/notepad-plus-plus/notepad-plus-plus
+	
+	- I cannot emphasize this enough: this is not a substitute for the documentation!
+	
+	- For anything related to software: the IDE setup is a must! See the "How To Setup" document in the "Notepad++ Files".
+
+
+
+--Writing a Root Program for TBOS [GOOD START POINT]--
+
+	This is probably what you are here to do: write code for the Telescope Project. At this point in time, it means writing a root program for TBOS. This is probably the simplest thing you could do.
+	
+	1. Create a new folder under "TASL Software" named whatever your project is.
+	
+	2. In there, make your main .tasl file. 
+	
+	Side Note: If you're doing something with multiple files, you may want to look into using TSFS to load all of them in on the same drive (remember: TCS only has 4 drive slots, and one of them must be root).
+	
+	3. Now, *while looking at* your .tasl file(s) in N++, click the light blue 'LD' button. This runs the cross assembler on it in "Loadable" mode, generating a .tld.hex file.
+	
+	4. With your loadable file(s), go into the Hardware folder, and run the "TBOS Sandbox.dig" simulation.
+	
+	Side Note: You ~could~ make your own simulation, but your setup would be similar. Unless it wouldn't, but in that case you probably wouldn't need this guide.
+	
+	5. Now you will have to work with some hardware, but not much.
+		If your code needs I/O (terminal, keyboard, etc.), these are installed along the bottom of the TCS.
+		If your code requires multiple drives, these are installed along the right side of the TCS like the root drive.
+		
+	For example: Let's say I have a simple "Hello World" program. This program writes to terminal 1 (because terminal 0 is protected). Here's how I would set up the environment for that program:
+	
+		a. Edit the data of the existing root drive, click on "File" in the top left, and then load my .tld.hex file.
+		b. Hover over the TK1 Out pin (Terminal 1 & Keyboard 1 Output) on the TCS to see what bits are used for what.
+		c. Connect a wire splitter component to it and set the input to "19" and outputs to "16, 1*3".
+		d. Now with the bits described by the TK1 Out pin available, install the terminal I/O device.
+	
+	6. Press the play button to start the simulation, then press the power button to automatically run your code.

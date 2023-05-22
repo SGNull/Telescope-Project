@@ -8,7 +8,7 @@ It will create the output file if the one specified is not found, or if only the
 
 # Module imports
 import sys  # For file arguments
-import modules.hex_interface as hex_interface
+import modules.hex_file_interface as hex_interface
 
 # File name constants
 CONVERTER_FILE_NAME = "FTLV1.py"

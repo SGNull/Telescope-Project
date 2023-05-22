@@ -10,7 +10,6 @@ FULL_WORD_OUTPUT = True  # Makes output look like this: 0034 10B3 000A instead o
 
 def write_data_to_hex(data_list: [int], file_path: str) -> None:
     """Writes the list of signed ints to the file path in .hex format (does not append .hex to name)."""
-
     out_lines = [HEX_FILE_HEADER]
     words = 0
 
@@ -78,7 +77,6 @@ def normalized_hex(num: int, nibbles: int) -> str:
     Raises:
         ValueError: The given value is not valid.
     """
-
     bits = nibbles*4
 
     if num > 2**bits:

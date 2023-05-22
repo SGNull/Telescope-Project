@@ -4,8 +4,8 @@
 from sys import argv
 from os.path import isfile
 from enum import IntEnum, unique
-from modules.hex_interface import read_data_from_hex as read_data
-from modules.hex_interface import format_data
+from modules.hex_file_interface import read_data_from_hex as read_data
+from modules.hex_file_interface import format_data
 
 
 @unique
