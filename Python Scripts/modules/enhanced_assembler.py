@@ -9,7 +9,7 @@ Functions:
 """
 
 import modules.assembler_simulation as asm
-from modules.hex_interface import normalized_hex
+from modules.hex_file_interface import normalized_hex
 
 
 # Hardware determined constant

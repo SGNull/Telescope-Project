@@ -1,7 +1,7 @@
 """A test hashing program for the assembler."""
 
 from modules.enhanced_assembler import hash_mnemonic
-from modules.hex_interface import normalized_hex
+from modules.hex_file_interface import normalized_hex
 
 # Strings that people might input when trying to exit the hash program:
 exit_strings = ["exit", "q", "quit", "stop", "halt", "done"]
