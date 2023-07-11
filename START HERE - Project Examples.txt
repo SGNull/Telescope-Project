@@ -8,7 +8,7 @@ Ultimately the answers you are looking for either lie in the documentation, or i
 	
 	- You also should probably have N++ installed. https://github.com/notepad-plus-plus/notepad-plus-plus
 	
-	- I cannot emphasize this enough: this is not a substitute for the documentation!
+	- I cannot emphasize this enough: this guide is not a substitute for the documentation!
 	
 	- For anything related to software: the IDE setup is a must! See the "How To Setup" document in the "Notepad++ Files".
 
@@ -16,29 +16,36 @@ Ultimately the answers you are looking for either lie in the documentation, or i
 
 --Writing a Root Program for TBOS [GOOD START POINT]--
 
-	This is probably what you are here to do: write code for the Telescope Project. At this point in time, it means writing a root program for TBOS. This is probably the simplest thing you could do.
+	This is probably the simplest thing you could do, and is probably what you are here for: writing code for the Telescope Project. At this point in time, it means writing a root program for TBOS. Though this will likely change at some point, it will remain very similar to this.
 	
-	1. Create a new folder under "TASL Software" named whatever your project is.
+	1. Create a new folder under "TASL Software" named whatever your sub-project is.
 	
 	2. In there, make your main .tasl file. 
 	
 	Side Note: If you're doing something with multiple files, you may want to look into using TSFS to load all of them in on the same drive (remember: TCS only has 4 drive slots, and one of them must be root).
 	
-	3. Now, *while looking at* your .tasl file(s) in N++, click the light blue 'LD' button. This runs the cross assembler on it in "Loadable" mode, generating a .tld.hex file.
+	3. Write your source code...
 	
-	4. With your loadable file(s), go into the Hardware folder, and run the "TBOS Sandbox.dig" simulation.
+	Side Note: You're writing a root program for TBOS, which means:
+		a) Your root program will be loaded as privileged, so you can technically do anything. However, I'd recommend writing it as though it's a non-privileged User program (excluding the program loading). In the future your program may not be root, and it may not be privileged in the same way.
+		b) You have access to the TBOS syscalls.
+		c) If you do have extra files, your main root program will have to load them in.
+	
+	4. Clicking the light blue 'LD' button in the toolbar runs the cross-assembler on the file currently open in the N++ editor. It does this in "Loadable" mode, generating a .tld.hex loadable file in the same directory. Do this for each of your source code files.
+	
+	5. With your loadable file(s), go into the Hardware folder, and run the "TBOS Sandbox.dig" simulation.
 	
 	Side Note: You ~could~ make your own simulation, but your setup would be similar. Unless it wouldn't, but in that case you probably wouldn't need this guide.
 	
-	5. Now you will have to work with some hardware, but not much.
+	6. Now you will have to work with some hardware, but not much.
 		If your code needs I/O (terminal, keyboard, etc.), these are installed along the bottom of the TCS.
 		If your code requires multiple drives, these are installed along the right side of the TCS like the root drive.
 		
 	For example: Let's say I have a simple "Hello World" program. This program writes to terminal 1 (because terminal 0 is protected). Here's how I would set up the environment for that program:
 	
-		a. Edit the data of the existing root drive, click on "File" in the top left, and then load my .tld.hex file.
+		a. Open the data editor for the root drive, click on "File" in the top left, and then load my .tld.hex file.
 		b. Hover over the TK1 Out pin (Terminal 1 & Keyboard 1 Output) on the TCS to see what bits are used for what.
 		c. Connect a wire splitter component to it and set the input to "19" and outputs to "16, 1*3".
-		d. Now with the bits described by the TK1 Out pin available, install the terminal I/O device.
+		d. Now with the bits described by the TK1 Out pin available via the splitter, install the terminal I/O device.
 	
-	6. Press the play button to start the simulation, then press the power button to automatically run your code.
+	7. Press the play button at the top to start the simulation, then press the power button to automatically run your code.

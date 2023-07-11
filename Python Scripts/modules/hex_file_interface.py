@@ -34,9 +34,6 @@ def write_data_to_hex(data_list: [int], file_path: str) -> None:
 
 def format_signed_int(value: int) -> str:
     """Returns the .hex encoding of the given signed integer."""
-    if value < 0:
-        value = -value + 2**(BITS_PER_WORD - 1)
-
     return normalized_hex(value, int(BITS_PER_WORD/4))[2:]
 
 
@@ -70,23 +67,27 @@ def read_text_as_ASCII(file_path: str) -> [int]:
     return output
 
 
-def normalized_hex(num: int, nibbles: int) -> str:
+def normalized_hex(value: int, nibbles: int) -> str:
     """
-    Formats a given *unsigned* integer into a hexadecimal string with exactly the given number of nibbles.
+    Formats a given signed integer into a hexadecimal string with exactly the given number of nibbles.
 
     Raises:
         ValueError: The given value is not valid.
     """
     bits = nibbles*4
 
-    if num > 2**bits:
-        print("Value too large in normalized_hex().")
+    # Convert the value to the correct positive one if negative.
+    if value < 0:
+        if value < -2**(bits - 1):
+            print("\nERROR: Value to low in normalized_hex() (won't be considered negative)\n")
+            raise ValueError
+        value = value + 2**bits
+
+    # If the value is too big, error.
+    if value > 2**bits:
+        print("\nERROR: Value too big in normalized_hex().\n")
         raise ValueError
 
-    if num < 0:
-        print("Value in normalized_hex() must be positive. Was negative.")
-        raise ValueError
-
-    hex_str = hex(num)[2:]
+    hex_str = hex(value)[2:]
     num_zeros = nibbles - len(hex_str)
     return "0x" + ('0' * num_zeros) + hex_str

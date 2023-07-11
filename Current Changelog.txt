@@ -1,51 +1,76 @@
-LATEST CHANGES:
+A large majority of files in the Telescope Project have been refactored, updated, edited, moved, or trimmed to be more coherent and sensible. There are two goals that this is in service of: 
 
-Minor change to the wording of TBOS.tasl documentation.
-
-Added some OS ideas to the Ideas.txt file.
-
-Reduced number of Linguist ignored files.
-
-Completely rewrote the npes_saved.txt file to make modifying it far easier.
-
-Created a startup script for N++.
-
-Began side-work on N++ IDE UI Changes.
-
-Python modules are in "Modules" and are named like 'my_module_thing'. Scripts meant to be ran via CLI are named like 'My Python Script'.
-
-The Python cross-assembler interface code has been dramatically rewritten to be much easier to read.
-
-Many Python scripts now utilize the hex_interface module.
-
-Updated Assembler Test files to reflect the current cross-assembler's output
-
-
-
-The Python cross-assembler is now split into 4 separate scripts:
-	The assembler simulation is its own module. It is *just* the assembler simulation.
-	The extra features that come with the Python cross-assembler are in their own module on top of the simulation.
-	The command line interface is in its own module on top of the extra features.
-	The cross-assembler script just calls the interface module with the given command line args.
+	1. For the user experience to be much cleaner at all levels of the project.
 	
-Finished the TASL Bundler script  **NEED TO TEST STILL**
+	2. To increase project development speed overall.
 
-Renamed .tload.hex files to just .tld.hex for convenience.
+Some of these changes include:
 
-Corrected the .table file output to be just .tabl. **Must be corrected for all files and for TASL.**
+	- TBOS.tasl minor comment rewording
+	
+	- Linguist ignores less files
+	
+	- npes_saved.txt Rewrite
+	
+	- New N++ startup script
+	
+	- NPPExec scripts changed to reflect Python script changes
+	
+	- README.md has been tweaked
+	
+	- N++ setup document now has TASL dark mode info
+	
+	- New Project Examples document
+	
+	- Software folders renamed to have TASL in their name
 
-Created the file_paths.py module for functions that os.path does not contain, but are commonly used.
+	- .tload.hex and .table, renamed to .tld.hex and .tabl respectively
+	
+	- Ideas.txt has new ideas and a much better format
+	
+	- ASCII Hex Encoder now outputs to console
+	
+	- TASL UDL's now use transparency consistantly
+	
+	- TASL Library is now inside of TASL Software
+	
+	- gitignore tweaked to ignore directories better.
 
-Updated NPPExec scripts to reflect Python script changes.
+Python scripts have gone through major changes and are now properly divided into modules. Some of these changes include:
 
-Added read_text_as_ascii and normalized_hex to the hex_interface module.
+	- The cross-assembler has been split into its 4 constituent parts: Assembler simulation, CA extra features, CLI, and script interface.
 
-ASCII Hex Encoder and Test Hash now use the hex_interface and enhanced_assembler modules respectively.
+	- Added read_text_as_ascii and normalized_hex to the hex_interface module.
 
-Added dark mode information to the N++ setup document.
+	- Many scripts now use the hex_interface module
 
-Tweaked the README.md
+	- file_paths module was created for functions that os.path does not contain, but are commonly used.
 
-Renamed the software folders to have TASL in their name.
+Created the TASL Bundler script    ****STILL NEEDS TESTING****
 
-Created the project examples document. I was going to put something like this in the README because it is very much necessary, but it felt like it needed to be its own document with multiple examples.
+
+
+
+Changed in this commit (included above):
+
+Reworked changelog. Probably needs to be condensed even more.
+
+Added extra details to the ideas file and the project examples file.
+
+Correctly moved the TASL Library into the TASL Software folder.
+
+Fixed remaining transparency issues in TASL UDLs.
+
+Changed .table files to .tabl
+
+In hex_interface, normalized_hex now takes signed integers.
+
+Added console outputs to the ASCII Hex Encoder.
+
+Adjusted the console outputs of the assembler_interface and enhanced_assembler to look nicer.
+
+Fixed bug in the enhanced_assembler where it could not properly handle negative numbers in source code.
+
+All source code files are now at most 2 directories deep inside of the TASL Software directory.
+
+Changed .gitignore to properly ignore certain directories.

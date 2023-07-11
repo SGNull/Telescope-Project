@@ -38,12 +38,12 @@ modes_dict = {
 }
 
 # File constants:
-MACHINE_CODE_SUFFIX = ".tlo.hex"
-TABLE_FILE_SUFFIX = ".tabl"
-REDUCED_FILE_SUFFIX = ".rtl"
-COMPRESSED_FILE_SUFFIX = ".tl"
-LOADABLE_FILE_SUFFIX = ".tld.hex"
-ACCEPTED_IN_SUFFIX = ["tasl", "tl", "tlm"]
+MACHINE_CODE_EXT = ".tlo.hex"
+TABLE_FILE_EXT = ".tabl"
+REDUCED_FILE_EXT = ".rtl"
+COMPRESSED_FILE_EXT = ".tl"
+LOADABLE_FILE_EXT = ".tld.hex"
+ACCEPTED_IN_EXT = [".tasl", COMPRESSED_FILE_EXT]
 
 # Hardware Constants:
 NULL = 0xFFFF
@@ -57,7 +57,7 @@ def interface(args) -> None:
     if not args_are_correct(args):
         print('Arguments are incorrect.')
         print('Arguments (in order): [valid input file path](necessary) [mode](optional)')
-        print('Valid input file types: ' + str(ACCEPTED_IN_SUFFIX)[1:-1])  # Trimmed unnecessary brackets.
+        print('Valid input file types: ' + str(ACCEPTED_IN_EXT)[1:-1])  # Trimmed unnecessary brackets.
         exit(1)
 
     # Get the arguments.
@@ -76,9 +76,8 @@ def interface(args) -> None:
         exit(1)
 
     # Run the assembler in the given mode.
-    run_operation(mode, file_data, file_name_path)
-    print("")
-    print("The simulation has finished.")
+    run_assembler(mode, file_data, file_name_path)
+    print("\nThe simulation has finished.")
 
 
 def write_to_file(file_path: str, lines: [str]) -> None:
@@ -92,43 +91,46 @@ def write_to_file(file_path: str, lines: [str]) -> None:
 # I have the nagging suspicion that this function could be much shorter.
 def args_are_correct(sys_args: list) -> bool:
     """Returns whether the arguments are correct."""
+
+    # Check to see if the mode is right if one is provided
     if len(sys_args) == 3:
         if sys_args[2] not in modes_dict:
             return False
 
+    # Check to make sure that the file is correct
     if len(sys_args) == 2 or len(sys_args) == 3:
         input_file_path = sys_args[1]
         if not isfile(input_file_path):
             return False
 
-        input_file_suffix = input_file_path.split('.')[-1]
-        return input_file_suffix in ACCEPTED_IN_SUFFIX
+        return any(input_file_path.endswith(ext) for ext in ACCEPTED_IN_EXT)
 
+    # Else we have the wrong number of arguments
     else:
         return False
 
 
-def run_operation(mode: str, input_data: [int], file_name_path: str) -> None:
+def run_assembler(mode: str, input_data: [int], file_name_path: str) -> None:
     """Run the assembler in the given mode, with the given data, and outputting to file_name_path."""
-    print("Running in " + modes_dict[mode] + " mode.")
+    print("Running in  " + modes_dict[mode].upper() + "  mode.\n")
 
     if mode == COMPRESS_ARG:
         # Compress the file.
         tl_lines = e_asm.reduce_data(input_data, to_RTL=False)
-        output_file_path = file_name_path + COMPRESSED_FILE_SUFFIX
+        output_file_path = file_name_path + COMPRESSED_FILE_EXT
         write_to_file(output_file_path, tl_lines)
 
     elif mode == DEBUG_ARG:
         # First, make the table file
         labels = e_asm.gather_labels(input_data)
-        tbl_output_path = file_name_path + TABLE_FILE_SUFFIX
+        tbl_output_path = file_name_path + TABLE_FILE_EXT
         write_to_file(tbl_output_path, labels)
 
-        print("")
+        print("\n")  # TWO newlines; Prints newline on a new line.
 
         # Now make the RTL file
         rtl_lines = e_asm.reduce_data(input_data, to_RTL=True)
-        rtl_output_path = file_name_path + REDUCED_FILE_SUFFIX
+        rtl_output_path = file_name_path + REDUCED_FILE_EXT
         write_to_file(rtl_output_path, rtl_lines)
 
     else:
@@ -137,9 +139,9 @@ def run_operation(mode: str, input_data: [int], file_name_path: str) -> None:
         machine_code = e_asm.assemble(input_data, loadable)
 
         if loadable:
-            suffix = LOADABLE_FILE_SUFFIX
+            suffix = LOADABLE_FILE_EXT
         else:
-            suffix = MACHINE_CODE_SUFFIX
+            suffix = MACHINE_CODE_EXT
         output_file_path = file_name_path + suffix
 
         print("Writing to output file...")
