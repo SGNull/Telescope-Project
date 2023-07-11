@@ -40,7 +40,7 @@ def assemble(data: [int], is_loadable: bool) -> [int]:
     __set_input_ROM(data)
     asm.generate_loadable = is_loadable
     asm.start_point()
-    print("Done assembling!")
+    print("Done assembling!\n")
     return asm.output_ROM
 
 
@@ -52,8 +52,8 @@ def gather_labels(data: [int]) -> [str]:
 
     # Set up the assembler environment for label table gathering.
     __set_input_ROM(data)
-    asm.build_tables()
-
+    if asm.label_table[0] == 0:
+        asm.build_tables()
     print("Scanning the label table...")
 
     # While we're not at the end of the label table,
@@ -76,7 +76,7 @@ def gather_labels(data: [int]) -> [str]:
         # Finally, increment the index for the next label
         index += 1
 
-    print("Done scanning!")
+    print("Done scanning!\n")
     return outlines
 
 
@@ -84,8 +84,10 @@ def reduce_data(data: [int], to_RTL: bool) -> [str]:
     """Uses assembler functions to generate a reduced version of the input data [int], either to TL or RTL."""
 
     # Setup the assembler environment before continuing.
-    asm.write_0_to_input()
     __set_input_ROM(data)
+    if asm.label_table[0] == 0:
+        asm.build_tables()
+    asm.write_0_to_input()
 
     # Setup the output lines for the loop
     outlines = []
@@ -159,7 +161,8 @@ def reduce_data(data: [int], to_RTL: bool) -> [str]:
         elif first_char is asm.REF_CHAR:
             outlines.append(asm.buffer_as_string() + "\n")
 
-        elif chr(first_char).isnumeric():
+        # This checks to see if the contents of the buffer represent a number, exactly how the assembler does.
+        elif asm.SEL(first_char, 6) == 0:
             outlines.append(asm.buffer_as_string() + "\n")
 
         # If to_RTL, we want to write all of the zeros to the output
@@ -186,6 +189,11 @@ def reduce_data(data: [int], to_RTL: bool) -> [str]:
                     outlines.append("CAL\n")
             else:
                 index = asm.table_index_lookup(hash_key, asm.instructions_table, 3)
+                if index == asm.NULL:
+                    print("\nERROR: invalid buffer hash")
+                    print("Hash: " + str(hash_key))
+                    asm.print_buffer()
+                    exit(1)
 
                 bmp_index = index + 2
                 bitmap = asm.instructions_table[bmp_index]
@@ -202,7 +210,7 @@ def reduce_data(data: [int], to_RTL: bool) -> [str]:
 
                 outlines.append(instruction + "\n")
 
-    print("Done reducing!")
+    print("Done reducing!\n")
     return outlines
 
 

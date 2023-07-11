@@ -1,8 +1,7 @@
 """
 Usage: FTLV1.py InputFile (optional OutputFile defaults to InputFile.hex)
 
-This is a converter that takes a text file as input, and outputs an unpacked ASCII Logisim drive image.
-The specific drive dimensions are: 8-bit words x N-bit addressing.
+This is a converter that takes a text file as input, reads it as ASCII encoding, and outputs a .hex drive image.
 It will create the output file if the one specified is not found, or if only the input file is specified.
 """
 
@@ -18,6 +17,7 @@ OUTPUT_FILE_TYPE = ".hex"
 def main():
     """The main function for the module."""
     # First, make sure we have the right arguments
+    print("Checking args...")
     validate_args()
 
     # Then get the arguments
@@ -28,8 +28,11 @@ def main():
         output_file_path = input_file_path + OUTPUT_FILE_TYPE
 
     # Now use the hex interface module to do all the work for us!
+    print("Reading the text...")
     data = hex_interface.read_text_as_ASCII(input_file_path)
+    print("Writing the data...")
     hex_interface.write_data_to_hex(data, output_file_path)
+    print("Done!")
 
 
 def validate_args():

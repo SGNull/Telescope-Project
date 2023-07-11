@@ -7,7 +7,7 @@ In %APPDATA%\Notepad++
 	copy 'themes' into it
 	
 	copy 'config' into the 'plugins' folder
-		NOTE: In 'npe_saved.txt' inside 'config,' set the 'SCRIPTS_PATH' variable to your 'Python Scripts' folder location. 
+		IMPORTANT: In 'npe_saved.txt' inside 'config' at the top of the document, replace the SCRIPTS_PATH file path!
 
 
 
@@ -15,10 +15,11 @@ If you do not see the custom TASL buttons:
 	Open N++ and click "Plugins" -> "Customize Toolbar" -> "Custom Buttons"
 
 If you do not see .tasl file language highlighting:
-	Open N++ and click "Language" -> "User Defined Language" -> "Define Your Language" -> "Import"
+	Open N++ and click "Language" -> "User Defined Language" -> "Define your Language" -> "Import"
 	In the project directory, import "Notepad++ Files\userDefineLangs\TASL X.xml"
 
 For turning dark mode on and off:
 	Only go to "Settings" > "Preferences" > "Dark Mode" (on the left)
 	Now select either the "Light mode" or "Dark mode" buttons.
-	Now I would recommend closing and re-opening N++.
+	Close and re-open N++.
+	I recommend going to the "Define your Language" menu and removing the version you don't want.

@@ -3,8 +3,8 @@
 / This is not meant to actually run on the CPU.
 / Test empty line
 
-/ Test command
-%TEST COMMAND%
+/ Test multiline comment
+%TEST COMMENT%
 
 / Test constant
 @CONSTANT = 2

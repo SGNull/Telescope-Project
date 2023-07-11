@@ -23,12 +23,12 @@ Break up the main words of processes into child, sibling, and parent lists, alon
 
 Rework TBOS to utilize support structures (could this be TBOS v3?).
 	- The support structure's code is present inside the OS.
-	- All processes have the same support structure.
+		- All processes have the same support structure.
 	- Must implement pass-up-or-die from PandOS.
 	- Restrict all access to I/O devices (maybe use the new config device as a way to setup I/O device privs).
 		- Note: the Glass Architecture's speedy I/O accesses are still utilized, just by the sup struct, not the proc.
 		- ^ This is really good, because it guarantees that all processes are playing (mostly) fair with the I/O.
-		- ^ This is one main reason to have support structures as far as I can see right now (and it's a GOOD reason).
+		- ^ This is the main reason to have support structures as far as I can see right now (and it's a GOOD reason).
 	- Will have to store the previous previous U/E values ("old" in PandOS)
 	- Perhaps integrate the library into this support structure? We are talking about baseline, essential modules here.
 	- Processes cannot be kernel anymore, only the kernel can be kernel.
@@ -36,4 +36,4 @@ Rework TBOS to utilize support structures (could this be TBOS v3?).
 	- Down the road will need a privilege system specified by the sup struct (how we're currently using the User bit).
 The more I think about, the more I'm realizing TBOS's & TCS's current way of doing things is unnecessarily headache-inducing. This solution is so much nicer. In an attempt to make things simpler, things became more difficult and clumsy as partial solutions were implemented.
 
-With networking: simple (not machine learning!) AI which moves data over the network using networking software that receives updates, and they randomly decide to install that update or not (this would enable somewhat realistic hacking).
+With networking: simple (not machine learning!) AI which moves data over the network using networking software that receives updates, and they randomly decide to install that update or not (this would enable somewhat realistic hacking) (will they install updates over the network, or load in with random versions of the software?).

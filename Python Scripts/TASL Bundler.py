@@ -3,7 +3,7 @@ Allows users to bundle source code modules with a main file to assemble & debug.
 
 Only takes the "primary" .tasl file as a command line argument.
 
-Produces a .b.tl file containing the contents of the main file and each .tlm file in the same directory.
+Produces a .b.tl file containing the contents of the main file and each .m.tasl file in the same directory.
 """
 
 from sys import argv as args
@@ -14,9 +14,9 @@ from os.path import isfile
 import modules.assembler_interface as asm_iface
 from modules.file_paths import remove_file_extension as remove_ext
 
-MODULE_FILE_EXT = '.tlm'
-BUNDLE_PRE_EXT = '.b'
-COMPRESSED_EXT = asm_iface.COMPRESSED_FILE_SUFFIX
+COMPRESSED_EXT = asm_iface.COMPRESSED_FILE_EXT
+MODULE_EXT = '.m.tasl'
+BUNDLE_EXT = '.b' + COMPRESSED_EXT
 
 USAGE_STATEMENT = "Usage: py [script name].py [main file].tasl"
 
@@ -42,7 +42,7 @@ def main() -> None:
     # Get the module files in the same directory.
     dir_files = listdir(main_file_directory)
     module_files = [(main_file_directory + '\\' + file) for file in dir_files
-                    if file.endswith(MODULE_FILE_EXT) and isfile(main_file_directory + '\\' + file)]
+                    if file.endswith(MODULE_EXT) and isfile(main_file_directory + '\\' + file)]
 
     # Compress the files.
     compress_file(main_file_path)
@@ -52,7 +52,7 @@ def main() -> None:
         temp_files.append(remove_ext(file) + COMPRESSED_EXT)
 
     # Combine the temp files, then delete them.
-    combined_file = name_path + BUNDLE_PRE_EXT + COMPRESSED_EXT
+    combined_file = name_path + BUNDLE_EXT
     append_text_files(combined_file, temp_files)
     for file in temp_files:
         delete_file(file)
