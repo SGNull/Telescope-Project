@@ -12,16 +12,16 @@ I had a lot of different, rather big goals for this project. Here are just a few
 7. Hack a machine over the network (as a final and interesting demonstration of everything).
 
 However, there were a lot of things that I did not anticipate or did not anticipate being so difficult, like:
-- Senior year college assignments and projects
+- Senior year of college
 - Poor assembler performance and optimizations
 - Switching logic simulators mid-project
 - Writing test programs
 - Extra hardware needed for an OS
-- Writing documentation
+- Creating documentation
 - Keeping documentation up to date (surprisingly difficult)
 - Small tweaks, bugs, and errors that come with projects at this scale.
 
-Though I am still working towards that final goal, a lot more work is necessary to get there.
+Though I am still working towards my original final goal, a lot more work is necessary to get there.
 
 ## Why
 
@@ -37,11 +37,11 @@ The Glass CPU is at the heart of the project. While originally created in Logisi
 
 On top of the CPU is the bootloader, which will automatically load a program in from ROM when it is powered on. After loading it in, the bootloader switches control over to the CPU to execute it. This all happens very quickly now that the bootloader is pure hardware (it used to rely on firmware, which greatly reduced its speed).
 
-Finally, on top of the bootloader is the TCS, or Telescope Computing System. It comes with a few different types of I/O, and a relatively easy-to-use pin layout. It also has a few features that the CPU is lacking, like a computer status code, random number generator, cycle counter, and kernel restrictions on I/O devices ending in 00. One port of the TCS says it's for the operating system, but it's really for any program you want the bootloader to run first to control the computer.
+Finally, on top of the bootloader is the TCS, or Telescope Computing System. It comes with a few different types of I/O, and a relatively easy-to-use pin layout. It also has a few features that the CPU is lacking, like a computer status code, random number generator, cycle counter, and kernel restrictions on I/O devices ending in 00. One port on the TCS says it's for the operating system, but it's really for any program you want the bootloader to run first to control the computer.
 
-The OS, called TBOS or Telescope Basic OS, is an attempt to shrink down and simplify [PandOS](https://wiki.virtualsquare.org/#!education/pandos.md). Though as time has gone on, it has become clear that TBOS is more "inspired by" than a "recreation of" PandOS. For a full list of features and syscalls, see the documentation for it [here](https://docs.google.com/document/d/1w4tGKG7OOmJUgn_xcEoIwMuiV4fEk35birdfAZGWwIo/edit?usp=sharing).
+The OS, called TBOS or Telescope Basic OS, is an attempt to shrink down and simplify [PandOS](https://wiki.virtualsquare.org/#!education/pandos.md). Though as time has gone on, it has become clear that TBOS is more "inspired by" than a "recreation of" PandOS. For a full list of features and syscalls, see the documentation for TBOS [here](https://docs.google.com/document/d/1w4tGKG7OOmJUgn_xcEoIwMuiV4fEk35birdfAZGWwIo/edit?usp=sharing).
 
-The assembly language at the heart of this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations, tweaks, and modifications over the course of development, but change in it has significantly slowed down over time. The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and its User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with the other features of N++ and some easy to use scripts, I often refer to as an IDE.
+The assembly language powering this project is called Telescope Assembly Light or TASL. It has gone through numerous iterations, tweaks, and modifications over the course of development, but change in it has significantly slowed down over time. The syntax highlighting is all done through [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and its User Defined Language feature. Additionally, TASL now works with the N++ Function List feature, which displays the list of all functions in the given document. All this, along with the other features of N++ and some easy to use scripts, I often refer to as an IDE.
 
 It is important to note that the bootloader and OS can only load "Loadable" machine code files into RAM. Loadable files begin with their file size, allowing loaders to pull them into memory correctly and efficiently.
 
