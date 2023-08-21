@@ -1,8 +1,8 @@
 # Telescope Project
 
-This is just a passion project of mine that is still being developed, and probably will be for quite some time given how well it has turned out.
+This is a passion project of mine that is still being developed, and probably will be for quite some time given how well it has turned out.
 
-I had a lot of different, rather big goals for this project. So far most of them have been accomplished, but here are some of my current big goals:
+I had a lot of different, rather big goals initially. So far most of them have been accomplished, but here are some of my current big goals:
 - Networking
 - Hacking over the network
 - Workstation setup inside the simulation
@@ -13,7 +13,7 @@ Right now, the GitHub repo and the entire underlying philosophy of this project 
 
 ## Why
 
-I created a project a few years ago that was much more successful than I had planned, where I wrote a basic assembler on a CPU I made and created a basic computer network, all from absolute scratch (yes, even the assembler!). I've done something similar a few times now (except for [boostrapping](https://en.wikipedia.org/wiki/Bootstrapping_(compilers)) an assembler from machine code and making a computer network) since 2015, which is the second reason for this project. I've become very familiar with designing small-scale CPUs and building small projects on top of them, and I wanted to do something bigger. Finally, I took an operating systems course back in 2021, and I found a few ways the OS we studied could be optimized to work with much less memory and processing power. After realizing that, it was hard to _not_ work on this project.
+I created a project a few years ago that was much more successful than I had planned, where I wrote a basic assembler on a CPU I made and created a basic computer network, all from absolute scratch! I've done something similar a few times now (except for [boostrapping](https://en.wikipedia.org/wiki/Bootstrapping_(compilers)) an assembler from machine code and making a computer network) since 2015, which is the second reason for this project. I've become very familiar with designing small-scale CPUs and building small projects on top of them, and I wanted to do something bigger. Finally, I took an operating systems course back in 2021, and I found a few ways the OS we studied could be optimized to work with much less memory and processing power. After realizing that, it was hard to _not_ work on this project.
 
 The project went through a few large redesigns/recreations, including a major one towards the beginning of the project which involved effectively redoing everything up to the assembler. However, I'm very glad I went through with this, as it has taught me so much about good coding practices and the importance of them.
 
