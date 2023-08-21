@@ -47,11 +47,3 @@ Python scripts have gone through major changes and are now properly divided into
 	- file_paths module was created for functions that os.path does not contain, but are commonly used.
 
 Created the TASL Bundler script    ****STILL NEEDS TESTING****
-
-
-
-
-Changes This Commit:
-
-Some minor rewording of the readme.md
-
