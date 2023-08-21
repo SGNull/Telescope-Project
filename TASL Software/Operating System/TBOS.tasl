@@ -232,6 +232,15 @@ JMP >Init
 	@SYS_ATTEMPTED_OS		= 0xF006  / The process attempted to alter/access the OS directly.
 )
 
+(/ ------- UI Strings -------
+	@NEWLINE = '
+	'
+	
+	#UIStrTBOS = "TBOS v2.3 loading..."
+	#UIStrInit = "Enter the root drive number, or nothing to use default loading behavior: "
+	#UIStrInputErr = "Error: not a valid input."
+)
+
 
 
 / ------------------------------------------------Base Functions----------------------------------------------
@@ -253,6 +262,8 @@ JMP >Init
 	/ Call MarkBits(start chunk, size)
 	LDI RG0 >NUM_CHUNKS; DEC RG0  / Adjust for stack (will be at end of mem)
 	CAL >MarkBits
+	
+	/ Startup UI goes here
 	
 	/ Load the root program
 	LDI FLG >ROOT_DRIVE_IOP; CAL >LoadProgLoadable

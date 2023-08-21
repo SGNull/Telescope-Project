@@ -51,26 +51,7 @@ Created the TASL Bundler script    ****STILL NEEDS TESTING****
 
 
 
-Changed in this commit (included above):
+Changes This Commit:
 
-Reworked changelog. Probably needs to be condensed even more.
+Some minor rewording of the readme.md
 
-Added extra details to the ideas file and the project examples file.
-
-Correctly moved the TASL Library into the TASL Software folder.
-
-Fixed remaining transparency issues in TASL UDLs.
-
-Changed .table files to .tabl
-
-In hex_interface, normalized_hex now takes signed integers.
-
-Added console outputs to the ASCII Hex Encoder.
-
-Adjusted the console outputs of the assembler_interface and enhanced_assembler to look nicer.
-
-Fixed bug in the enhanced_assembler where it could not properly handle negative numbers in source code.
-
-All source code files are now at most 2 directories deep inside of the TASL Software directory.
-
-Changed .gitignore to properly ignore certain directories.
